@@ -1,0 +1,18 @@
+# Private source records, generated imports and exports
+private-data/
+data/raw/
+data/imports/
+data/exports/
+reference/private/
+*.sqlite3
+# Secrets and environment
+.env
+.env.*
+!.env.example
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+# Platform
+.DS_Store
