@@ -2,9 +2,100 @@
 
 **Specification baseline:** v0.1  
 **Prepared:** 2026-11-02  
-**Status:** Agreed conceptual schema; local prototype-first plan selected 2026-11-03, implementation not started
+**Status:** Local scaffold implemented on a feature branch; grid registration is the next slice
 
 This directory contains a **repo-ready handoff** for building a small web application to register, edit, locate, and track cryo-electron microscopy (cryo-EM) grids prepared at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; the data model should support tightly restricted external accounts later.
+
+## Local development environment
+
+Use Conda for this prototype. The human-maintained dependency list is
+[`environment.yml`](environment.yml). From the repository root:
+
+```bash
+conda env create --file environment.yml --prefix ./.conda
+conda activate ./.conda
+```
+
+The environment lives in the ignored `.conda/` directory. It includes Python 3.13,
+Django 5.2 LTS, psycopg 3, PostgreSQL 17, python-dotenv and Ruff. PostgreSQL is
+included so local development can work without Docker; installing it does not
+start a server. The commands below initialize a private loopback database.
+
+After deliberately changing `environment.yml`, update the environment with:
+
+```bash
+conda env update --file environment.yml --prefix ./.conda --prune
+```
+
+Keep secrets in a private `.env` file, never in the environment YAML. Use synthetic
+data while the prototype model is being evaluated.
+
+### Run the local prototype
+
+With the Conda environment activated, run from the repository root:
+
+```bash
+python dev.py
+```
+
+The launcher prepares configuration and the database, applies migrations, and
+prompts you to create an administrator if none exists. On later runs it preserves
+your settings, accounts and records, then starts the app directly.
+
+Open **http://127.0.0.1:8000/** and sign in with your administrator account.
+The first page confirms the scaffold is working; grid registration comes next.
+`configure_local.py` generates private local secrets and keeps an existing `.env`
+unchanged. The database helper initializes `.local/postgres/` on its first run,
+then starts PostgreSQL on loopback port 5433 and creates `cci_prototype` if absent.
+Changing credentials in `.env` does not change credentials inside an existing
+cluster; keep those values consistent. Stop the application with Ctrl+C, then:
+
+```bash
+python dev.py stop
+```
+
+The helper retains the database on stop. Use `status` to check whether it is
+running. This setup targets local Linux/WSL development and uses disposable
+synthetic data. It is not a shared or production deployment.
+
+For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
+member**. That flag permits registry access; Django's separate **Staff status**
+flag permits entry to the administration site. The initial superuser has both
+administrative and registry access. Accounts can be deactivated rather than
+deleted. Future owner grants will control record editing.
+
+If Docker is preferred, use `docker compose up -d db` **instead of** the database
+helper, after running `python scripts/configure_local.py`. Use the individual Django
+commands (`migrate`, `createsuperuser`, `runserver`, `test`) with Docker; `dev.py`
+manages the Conda PostgreSQL server. The same connection settings apply.
+Docker is optional and its configuration has not been executed in this WSL setup.
+
+### Verify changes
+
+Run all checks with:
+
+```bash
+python dev.py check
+```
+
+This prepares the local database if necessary, checks Django configuration and
+missing migrations, runs the tests, and checks linting and formatting. It stops
+at the first failed command. PostgreSQL stays running until `python dev.py stop`.
+
+Django creates and removes a separate test database. The local database role
+needs permission to create it; the prototype cluster's initial role has this.
+Tests cover login, logout, CSRF, unsafe redirects, deactivated accounts, and
+registry/admin access boundaries. The custom user model is established in the
+initial migration so later authentication changes retain stable user IDs.
+
+For an exact recreation of the tested **Linux x86-64** environment, use
+`conda create --prefix ./.conda --file environment-linux-64.lock` instead of the
+YAML create command. Other platforms should resolve `environment.yml`. After an
+intentional dependency update, regenerate the platform snapshot:
+
+```bash
+conda list --prefix ./.conda --explicit --md5 > environment-linux-64.lock
+```
 
 ## Start here
 
