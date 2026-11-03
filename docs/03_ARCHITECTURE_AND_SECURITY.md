@@ -2,7 +2,7 @@
 
 **Version:** v0.1 proposal  
 **Date:** 2026-11-02  
-**Status:** Candidate technical implementation; validate against staff workflow before locking stack
+**Status:** Local prototype baseline selected 2026-11-03; advanced UI and shared hosting follow workflow review
 
 ## 1. Proposed architecture
 
@@ -19,7 +19,7 @@ flowchart TB
     S -. future .-> L[Local document extraction / LLM]
 ```
 
-**Suggested stack:** Django + PostgreSQL, server-rendered templates for forms, progressive enhancement with HTMX or a lightweight JS table library for fast editing. Use Django admin for *internal administration*, not necessarily as the final staff-facing workflow. Alternatives previously considered (Grist/eLabFTW) may still be worthwhile if custom development proves too heavy, but the state-transition and permission requirements lean toward Django.
+**Prototype baseline:** Django 5.2 LTS + PostgreSQL 17, server-rendered forms and a plain HTML table. Add HTMX or a table library after workflow testing demonstrates the need. See the [prototype-first roadmap](04_DEVELOPMENT_ROADMAP.md) for delivery gates and local authentication. Use Django admin for *internal administration*, not necessarily as the final staff-facing workflow. Alternatives previously considered (Grist/eLabFTW) may still be worthwhile if custom development proves too heavy, but the state-transition and permission requirements lean toward Django.
 
 Why this stack:
 

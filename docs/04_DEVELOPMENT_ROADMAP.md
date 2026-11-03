@@ -12,46 +12,68 @@
 4. **Minimal infrastructure**: avoid nonessential services.
 5. **Extensibility**: later OMERO and knowledge-base features must not require rewriting core identity and inventory concepts.
 
-## Phase 0 — Repository and design baseline
+## Local prototype decision — 2026-11-03
 
-**Deliverables**
+Start with a small local prototype to validate the data model through staff-facing forms. Full v0.1 acceptance criteria remain the release target; the first demo only needs the registration slice. Evolve the schema through migrations after feedback.
 
-- Confirm `docs/07_OPEN_DECISIONS.md` items that block code (identifier generation, staff editing policy, storage path conventions).
-- Choose stack (recommended Django + PostgreSQL) and development environment.
-- Scaffold repo, `.env.example`, dependency lock/pinning, formatter/linter and automated tests.
-- Establish Git hygiene, secret handling, backups outline, and schema migration conventions.
+| Layer | Start with | Add after validation |
+|---|---|---|
+| Backend | Python 3.13, Django 5.2 LTS, psycopg 3; lock compatible patch versions when scaffolding | Supported-version upgrades as maintenance |
+| Database | PostgreSQL 17 from the first migration, including tests | Indexes based on actual queries; shared hosting later |
+| UI | Django forms/templates, plain HTML table and minimal CSS | HTMX or a spreadsheet library if staff trials demonstrate a need |
+| Authentication | Local Django username/password login, session cookies, custom AbstractUser before first migration | Institutional SSO and explicit external identity mapping |
+| Administration | Django admin for users, owners and access grants | Custom administration screens if useful |
+| Runtime | Python virtual environment and Compose-managed PostgreSQL with persistent volume and loopback-only database port | Internal HTTPS deployment with production app server |
+| Verification | Django tests on PostgreSQL, Ruff and locked dependencies | Browser tests for advanced table interactions |
+| Excel | Synthetic fixtures | openpyxl import/export after schema review |
 
-**Done when:** project runs locally and tests run in one documented command; model decisions recorded.
+Django 5.2 has extended support through April 2028; schedule an upgrade before then. Sources: [Django supported releases](https://www.djangoproject.com/download/), [Django PostgreSQL backend](https://docs.djangoproject.com/en/5.2/ref/databases/#postgresql-notes).
 
-## Phase 1 — Data model and authorization backbone
+Local means browser and application on the same machine, bound to loopback. Create individual accounts administratively; keep password hashing, CSRF and authenticated mutations. Keep CCI staff membership separate from Django's admin-access flag. An admin account can run the initial demonstration; also test a restricted account against the existing owner-grant policy. SSO, public signup and email password recovery are unnecessary for this stage.
 
-**Deliverables**
+Use a clearly labeled prototype database and synthetic data. Excel remains authoritative until operational readiness. Resets require explicit agreement and apply only to disposable data; retain migrations in Git. Before retaining real records, establish backup/restore and correction procedures. Shared LAN access is a separate deployment step.
 
-- Django user model (choose before initial migrations), `SampleOwner`, `PreparationSession`, `Grid` including structured preparation columns.
-- `StorageLocation`, `GridEvent`, `OwnerAccessGrant`, `AuditEvent` and migrations.
-- ID allocation service with collision/concurrency tests.
-- Event/state service with valid transitions and occupied-slot rules.
-- Server-side owner-grant authorization and admin/staff fixture accounts.
+## Phase 0 — Local scaffold
 
-**Done when:** automated tests can create one session with N grids, guarantee independent preparation fields, reject duplicate IDs, and preserve inventory history correctly.
+- Configure Django/PostgreSQL, the custom user model, dependency locking, Ruff and test commands.
+- Document database startup, migrations, account creation and loopback app startup.
+- Provide `.env.example` and repeatable synthetic demonstration data.
 
-## Phase 2 — Usable registration & browse UI (first staff demo)
+**Done when:** a developer starts the application, logs in and runs tests against PostgreSQL using documented commands.
 
-**Deliverables**
+## Phase 1 — First staff demo: register and inspect grids
 
-- Login/logout and restricted admin access.
-- Owner management and new-session wizard with shared parameters and N-grid generation.
-- Grid detail forms, owner/session registry lists, fast search/filter.
-- Table view with column grouping, sorting, and editable permitted preparation columns (a simple first implementation is acceptable).
-- Audit display and human-readable validation errors.
+- Implement SampleOwner, PreparationSession, Grid, OwnerAccessGrant and AuditEvent with the services needed for registration.
+- Provide a simple session form: owner, preparation date/operator, optional reference, shared parameters and grid count.
+- Atomically save the session, immutable defaults snapshot and independent grids.
+- Display generated grids in a plain table; edit individual preparation fields through detail forms and display audit history.
+- Preserve structured measurements, explicit units and unknown values. Storage remains unassigned in this slice.
+- Route mutations through services, including admin actions; prevent generic admin edits to IDs and immutable snapshots.
+- Test copying, failed-transaction rollback, unique IDs under concurrency, permissions and create/edit forms.
 
-**Done when:** one less-technical staff member can create a preparation session, generate grids, and adjust two grid entries without a developer guiding them.
+**Identifier dependency:** resolve D01 before allocating operational owner-prefixed IDs. If needed for an earlier demo, use a reserved synthetic `DEMO-` namespace in the disposable database, visibly labeled and blocked from operational use. This does not settle owner numbering conventions.
+
+**Done when:** a colleague logs in, creates eight grids, edits two, reloads and confirms that the other six and the session snapshot are unchanged. Demonstrate validation failure without partial creation and rejection of an unauthorized edit.
+
+## Phase 2 — Model review and initial physical storage
+
+- Review real fields, required inputs, session boundaries, units and form usability with staff; record decisions and migrations.
+- Confirm D03 with examples of actual clipped and unclipped locations.
+- Add StorageLocation and the initial GridEvent subset: store and move, with read-only current location and append-only history.
+- Enforce occupancy in the database and update events/location atomically.
+- Test occupied destinations, concurrent assignments, rollback and permissions.
+- Add stale-edit detection before simultaneous staff editing, so a second save cannot silently overwrite another user's changes.
+
+**Done when:** staff can assign and move a synthetic grid, see both locations in history and cannot double-book a slot. Review whether real storage fits the schema comfortably.
+
+**Review gate:** proceed after registration and storage fit staff practice. Record observed friction and unresolved domain questions. Trial spreadsheet tooling only against concrete editing tasks.
 
 ## Phase 3 — Physical handling and inventory operations
 
 **Deliverables**
 
-- Store, move, clip, remove for imaging, record imaging, return, ship, discard actions.
+- Extend store/move with clip, remove for imaging, record imaging, return, ship and discard actions.
+- Define corrections, backdated events and exceptional transition rules before exposing those operations.
 - Current state and current location read-only projections in UI.
 - Location occupancy checking, movement history, event chronology.
 - Bulk selection and safe targeted actions where genuinely useful.
@@ -110,13 +132,13 @@
 | Task | Dependencies | Concrete output |
 |---|---|---|
 | T01 | Phase 0 | Project scaffold, tests, local run instructions |
-| T02 | T01 | Models/migrations, admin display, fixtures |
+| T02 | T01 | Registration models, grants, audit, admin and fixtures |
 | T03 | T02 | Identifier/session creation service and tests |
 | T04 | T02 | Permissions and queryset filtering tests |
-| T05 | T02 | GridEvent state machine & storage occupancy tests |
+| T05 | T06, storage review | Initial store/move models, services, UI and concurrency tests |
 | T06 | T03, T04 | Session wizard and grid form |
 | T07 | T04, T05 | Lifecycle actions and event history UI |
-| T08 | T06 | Editable table with safe batch updates |
+| T08 | Prototype review | Trial table tooling; implement safe batch updates |
 | T09 | T02, T05 | Excel import dry-run, mapping and provenance |
 | T10 | T08, T09 | Admin import, export and pilot validation |
 | T11 | All | Production settings, backup/restore, documentation |

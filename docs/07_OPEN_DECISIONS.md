@@ -38,6 +38,7 @@ This is a **decision register**, not a requirement to answer everything before w
 | Input styles | Web forms and spreadsheet-like table |
 | Existing IDs | Keep historical CCI IDs, allow future owner-prefix IDs |
 | Authentication | Replaceable; local accounts acceptable for initial deployment |
+| Prototype delivery (2026-11-03) | Local Django/PostgreSQL prototype; forms and simple table first, storage next, advanced UI after workflow review; synthetic data until operational readiness |
 | Future extensibility | OMERO, evidence, protocol documents, local LLM extraction, protocols.io later |
 
 ## Record format for subsequent decisions

@@ -2,7 +2,7 @@
 
 **Specification baseline:** v0.1  
 **Prepared:** 2026-11-02  
-**Status:** Agreed conceptual schema, implementation not started
+**Status:** Agreed conceptual schema; local prototype-first plan selected 2026-11-03, implementation not started
 
 This directory contains a **repo-ready handoff** for building a small web application to register, edit, locate, and track cryo-electron microscopy (cryo-EM) grids prepared at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; the data model should support tightly restricted external accounts later.
 
@@ -26,7 +26,7 @@ The initial Excel example uses `CCI-00001` etc. The new application should also 
 ## Important distinction
 
 - **Already agreed:** schema concepts, one owner per preparation session, copied defaults, optional experiment reference, staff-only initial access, complete history, both forms and table editing.
-- **Proposed engineering choices (not yet a final stack commitment):** Django + PostgreSQL; Django built-in auth initially; replaceable OIDC later; HTMX or a comparable lightweight UI layer for advanced tables.
+- **Prototype baseline:** Django + PostgreSQL, local Django accounts, server-rendered forms and a plain table. Advanced table tooling and shared hosting follow workflow review.
 - **Unresolved:** some values/units in the source Excel, exact prefixes/sequences, whether staff may edit every owner's records, and detailed storage hierarchy rules. See `docs/07_OPEN_DECISIONS.md`.
 
 ## Source workbook
@@ -35,7 +35,7 @@ The uploaded source workbook was inspected for this handoff: **`Cryo-EM_grids_ex
 
 ## Recommended first Codex task
 
-> Read AGENTS.md and docs/01–07. Scaffold a Django/PostgreSQL project with models and migrations for the agreed v0.1 entities. Add model tests for unique grid identifiers, one owner per session, preparation-default copying, and lifecycle event integrity. Do **not** invent missing scientific values or implement external authentication/OMERO/LLM integration yet. Provide a migration/model summary and tests before proceeding to the UI.
+> Read AGENTS.md and docs/01–07. Implement roadmap Phases 0–1: a local Django/PostgreSQL prototype with login, owner administration, session registration, generated-grid table and individual grid editing. Preserve independent preparation values, immutable session defaults, stable identities and audit history. Use synthetic data and the documented DEMO identifier fallback until D01 is resolved. Include model, service, permission and form tests. Demonstrate registration before adding physical storage and advanced table interactions.
 
 ## Working rule
 

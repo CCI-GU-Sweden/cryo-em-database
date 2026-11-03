@@ -109,7 +109,7 @@ The grid registry may later join a broader sample preparation knowledge base, li
 - Session defaults copied to each grid, with preserved snapshot: **confirmed**.
 - Experiment reference optional: **confirmed**.
 - Project is a descriptive optional field, not the permission boundary: **confirmed**.
-- Django + PostgreSQL: **recommended, not yet formally locked**.
+- Django + PostgreSQL with local Django accounts: **selected for the local prototype, 2026-11-03**; advanced UI and shared hosting follow review.
 - Identity provider and detailed storage vocabulary: **deferred/open**.
 
 See [`02_SCHEMA_V0_1.md`](02_SCHEMA_V0_1.md) and [`07_OPEN_DECISIONS.md`](07_OPEN_DECISIONS.md).
