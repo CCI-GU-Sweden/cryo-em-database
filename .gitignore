@@ -14,5 +14,10 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.conda/
+.ruff_cache/
 # Platform
 .DS_Store
+
+# Local database cluster and server logs
+.local/

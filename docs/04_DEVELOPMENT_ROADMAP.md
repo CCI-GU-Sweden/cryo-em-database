@@ -23,7 +23,7 @@ Start with a small local prototype to validate the data model through staff-faci
 | UI | Django forms/templates, plain HTML table and minimal CSS | HTMX or a spreadsheet library if staff trials demonstrate a need |
 | Authentication | Local Django username/password login, session cookies, custom AbstractUser before first migration | Institutional SSO and explicit external identity mapping |
 | Administration | Django admin for users, owners and access grants | Custom administration screens if useful |
-| Runtime | Python virtual environment and Compose-managed PostgreSQL with persistent volume and loopback-only database port | Internal HTTPS deployment with production app server |
+| Runtime | Conda environment from `environment.yml`, including PostgreSQL tools for a local loopback database; Docker Compose remains optional | Internal HTTPS deployment with production app server |
 | Verification | Django tests on PostgreSQL, Ruff and locked dependencies | Browser tests for advanced table interactions |
 | Excel | Synthetic fixtures | openpyxl import/export after schema review |
 

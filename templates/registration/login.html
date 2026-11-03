@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Sign in · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Sign in</h1>
+<p>Use the local account created by your administrator.</p>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <input type="hidden" name="next" value="{{ next }}">
+  <button type="submit">Sign in</button>
+</form>
+{% endblock %}

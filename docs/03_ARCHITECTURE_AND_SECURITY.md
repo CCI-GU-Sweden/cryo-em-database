@@ -30,6 +30,8 @@ Why this stack:
 
 **Avoid needless infrastructure initially:** no microservices, message broker, search cluster, Redis, Kubernetes, or separate API gateway required for the first pilot. Docker Compose can be an optional deployment convenience, not a functional requirement. Expose an API only if a real integration needs it.
 
+The local runtime uses Conda (`environment.yml`) and includes PostgreSQL tools so Docker is optional. See the README for initialization, login and tests. The initial user model separates `is_cci_staff` (registry membership) from Django `is_staff` (admin access).
+
 ## 2. Code organization (suggested)
 
 ```text
