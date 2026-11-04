@@ -22,7 +22,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
 from .forms import PreparationForm
-from .permissions import current_staff
+from .permissions import visible_grids
 from .preparation import PREPARATION_FIELDS, PREPARATION_GROUPS
 
 FORMAT_MARKER = "CCI Grid Registry workbook v1"
@@ -138,10 +138,13 @@ def _write_sheet(book, title, columns, rows):
 
 
 def export_workbook(*, actor, grids):
-    current_staff(actor)
-    # Enforce archive exclusion even when called outside the registry view.
+    # Intersect even direct service calls with the browsing permission boundary.
+    # A caller-supplied queryset must never expand what this user can export.
+    allowed = visible_grids(actor)
     grids = list(
-        grids.active().select_related("session__owner", "session__prepared_by")[: MAX_ROWS + 1]
+        grids.filter(pk__in=allowed.values("pk")).select_related(
+            "session__owner", "session__prepared_by"
+        )[: MAX_ROWS + 1]
     )
     if len(grids) > MAX_ROWS:
         raise ValidationError(f"Please narrow your filters to at most {MAX_ROWS} grids.")

@@ -26,6 +26,7 @@ This is a **decision register**, not a requirement to answer everything before w
 
 | Item | Decision |
 |---|---|
+| Import versus export permissions (2026-11-04) | Import, preview and blank templates require the active CCI staff flag, even for administrators. Export follows existing registry visibility and filters through one shared row-access boundary. No new browsing/read-only access is enabled in this change. |
 | Facility time and date-only imports (2026-11-04) | Use Europe/Stockholm throughout the application. Date-only YYYY-MM-DD strings or Excel date cells default to 12:00 local time with the date's daylight-saving offset, reported in preview. Blank dates remain unknown; full timestamps require an offset. |
 | Owner visibility and session creation (2026-11-04) | All CCI staff see every owner and can create sessions for any active owner without grants. Updated during Excel work: all active CCI staff may edit all active grids; operator identity is attribution only. |
 | Staff owner registration (2026-11-04) | Active CCI staff can create sample owners through the registry without administration-site access. Updated during Excel work: no automatic grants are created because all active CCI staff share editing rights. Existing-owner/grant administration remains admin-only. |

@@ -26,7 +26,7 @@ User = get_user_model()
 class ExcelTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.admin = User.objects.create_superuser(username="excel-admin")
+        cls.admin = User.objects.create_superuser(username="excel-admin", is_cci_staff=True)
         cls.staff = User.objects.create_user(username="excel-operator", is_cci_staff=True)
         cls.outsider = User.objects.create_user(username="excel-outsider", is_staff=True)
         cls.owner = SampleOwner.objects.create(name="Synthetic Excel Owner", code="exow")
@@ -412,6 +412,46 @@ class ExcelTests(TestCase):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.admin)
         self.assertEqual(client.post(url, {"action": "confirm"}).status_code, 403)
+
+    def test_registry_access_allows_export_but_import_requires_cci_membership(self):
+        administrator = User.objects.create_superuser(username="export-only-admin")
+        content = export_workbook(actor=administrator, grids=Grid.objects.all())
+        self.assertEqual(len(self.payload(content)["grids"]), 2)
+        payload = self.payload()
+        for command in [preview_import, import_workbook]:
+            with self.assertRaisesMessage(PermissionDenied, "CCI staff member"):
+                command(actor=administrator, payload=payload)
+        self.client.force_login(administrator)
+        registry = self.client.get(reverse("registry:grid_list"))
+        self.assertContains(registry, "Export filtered grids to Excel")
+        self.assertNotContains(registry, "Import Excel workbook")
+        self.assertEqual(self.client.get(reverse("registry:excel_export")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("registry:excel_import")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("registry:excel_template")).status_code, 403)
+        self.assertEqual(
+            self.client.post(reverse("registry:excel_import"), {"action": "confirm"}).status_code,
+            403,
+        )
+
+    def test_import_membership_is_reloaded_even_for_a_stale_administrator(self):
+        payload = self.payload()
+        User.objects.filter(pk=self.admin.pk).update(is_cci_staff=False)
+        for command in [preview_import, import_workbook]:
+            with self.assertRaises(PermissionDenied):
+                command(actor=self.admin, payload=payload)
+        # Removing import rights does not remove this administrator's read access.
+        self.assertEqual(
+            len(self.payload(export_workbook(actor=self.admin, grids=Grid.objects.all()))["grids"]),
+            2,
+        )
+
+    def test_export_intersects_supplied_rows_with_the_shared_visibility_boundary(self):
+        first = self.session.grids.first()
+        with patch("registry.excel.visible_grids", return_value=Grid.objects.filter(pk=first.pk)):
+            content = export_workbook(actor=self.staff, grids=Grid.objects.all())
+        self.assertEqual(
+            [row["grid_number"] for row in self.payload(content)["grids"]], [first.grid_number]
+        )
 
     def test_http_export_uses_search_and_property_filters_across_all_pages(self):
         self.client.force_login(self.staff)

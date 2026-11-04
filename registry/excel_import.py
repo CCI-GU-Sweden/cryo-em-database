@@ -18,7 +18,7 @@ from django.utils.dateparse import parse_datetime
 from accounts.models import User
 
 from .models import AuditEvent, Grid, PreparationSession, SampleOwner
-from .permissions import current_staff
+from .permissions import require_grid_importer
 from .preparation import PREPARATION_FIELDS, preparation_snapshot
 from .services import record_audit, remember_preparation_values, validate_preparation
 
@@ -274,7 +274,7 @@ def _build_plan(payload):
 
 
 def preview_import(*, actor, payload):
-    current_staff(actor)
+    require_grid_importer(actor)
     return _build_plan(payload).report
 
 
@@ -352,7 +352,7 @@ def _apply_import(actor, payload):
 
 
 def import_workbook(*, actor, payload):
-    actor = current_staff(actor)
+    actor = require_grid_importer(actor)
     try:
         return _apply_import(actor, payload)
     except IntegrityError as error:

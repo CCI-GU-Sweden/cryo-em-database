@@ -124,7 +124,9 @@ still deferred. The first implemented importer accepts the application's own
 current export. It deliberately uses today's atomic fields rather than adding
 compatibility with the old combined columns.
 
-- Any active CCI staff member may export/import. Export uses the same search and
+- Import, preview and templates require active CCI membership; administrator
+  status alone is insufficient. Export follows registry viewing access rather
+  than import permission. It uses the same row-visibility boundary, search and
   property filters as the registry, includes all matching active rows across all
   pages and all preparation fields, and excludes archived grids.
 - **Grids:** merged group headings in row 1 (Info, Sample conditions, Grid

@@ -17,8 +17,8 @@
 <button type="submit">Apply search and filters</button>
 <a href="{% url 'registry:grid_list' %}">Clear filters</a>
 </form>
-<p><a href="{% url 'registry:excel_export' %}?{{ filter_query }}">Export filtered grids to Excel</a> ·
-<a href="{% url 'registry:excel_import' %}">Import Excel workbook</a></p>
+<p><a href="{% url 'registry:excel_export' %}?{{ filter_query }}">Export filtered grids to Excel</a>
+{% if user.is_cci_staff %} · <a href="{% url 'registry:excel_import' %}">Import Excel workbook</a>{% endif %}</p>
 <p>Export includes every matching grid across all pages and all preparation fields.</p>
 {{ filter_kinds|json_script:"filter-kinds" }}
 <script src="{% static 'grid_filters.js' %}" defer></script>

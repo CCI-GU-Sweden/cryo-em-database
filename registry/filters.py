@@ -4,7 +4,7 @@ from django import forms
 from django.db.models import Q
 from django.forms import formset_factory
 
-from .models import Grid
+from .permissions import visible_grids
 from .tables import COLUMN_BY_KEY, COLUMNS
 
 
@@ -60,10 +60,10 @@ GridFilterSet = formset_factory(
 )
 
 
-def search_registry(parameters):
+def search_registry(parameters, *, actor):
     """Use the same selection for the on-screen registry and its Excel export."""
     query = parameters.get("q", "").strip()
-    grids = Grid.objects.active().select_related("session__owner", "session__prepared_by")
+    grids = visible_grids(actor).select_related("session__owner", "session__prepared_by")
     if query:
         grids = grids.filter(
             Q(grid_number__icontains=query)

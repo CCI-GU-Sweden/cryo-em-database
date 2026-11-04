@@ -201,6 +201,10 @@ lifecycle scenarios are deferred to the next slice.
 
 ## Current-format Excel and shared CCI editing (2026-11-04)
 
+- Import/preview/template routes and services require current CCI membership,
+  even for administrators. Revoked flags on stale actor objects cannot authorize
+  import. Accounts with registry viewing access can export their visible filtered
+  subset without import rights; direct callers cannot expand that subset.
 - New-session inputs do not implicitly submit on Enter. Suggestion selection,
   textarea newlines and deliberate keyboard/button activation still work.
 - All active CCI staff can edit every active grid via form and direct service,

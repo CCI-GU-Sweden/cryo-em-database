@@ -42,8 +42,7 @@ def add_service_error(form, error):
 
 @login_required
 def grid_list(request):
-    current_staff(request.user)
-    grids, query, filters = search_registry(request.GET)
+    grids, query, filters = search_registry(request.GET, actor=request.user)
     parameters = request.GET.copy()
     parameters.pop("page", None)
     page = Paginator(grids.order_by("-pk"), 50).get_page(request.GET.get("page"))

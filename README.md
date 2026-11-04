@@ -322,6 +322,12 @@ unknown and produce a warning. Every import records the importing staff member.
 Unchanged records are skipped; conflicting IDs, owner details or session metadata
 stop the entire import without overwriting anything. Archived IDs remain reserved.
 
+Import, preview and the blank import template require an active account marked
+**CCI staff member**, including for administrators. Anyone with registry viewing
+access can export the records they can see, subject to the same filters. Export
+also enforces that visibility boundary for direct service calls. This does not
+enable browsing for additional users; non-CCI read-only access remains deferred.
+
 This first format supports current registry exports (.xlsx, at most 5 MB/5,000
 rows). It does not parse the original legacy combined-field workbook, store
 physical locations/events, or restore complete audit history. It transfers a

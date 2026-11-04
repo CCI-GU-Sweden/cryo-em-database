@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 
 from accounts.models import User
 
-from .models import DeletedGrid, SampleOwner
+from .models import DeletedGrid, Grid, SampleOwner
 
 
 def current_staff(actor):
@@ -13,6 +13,24 @@ def current_staff(actor):
     if user is None or not (user.is_superuser or user.is_cci_staff):
         raise PermissionDenied("You need an active CCI staff account.")
     return user
+
+
+def visible_grids(actor):
+    """The shared row-access boundary for registry browsing and Excel export.
+
+    Registry access currently belongs to CCI staff and facility administrators.
+    Future read-only access must be added here, rather than only in the UI.
+    """
+    current_staff(actor)
+    return Grid.objects.active()
+
+
+def require_grid_importer(actor):
+    """Import is a write capability, explicitly requiring CCI membership."""
+    actor = current_staff(actor)
+    if not actor.is_cci_staff:
+        raise PermissionDenied("Only accounts marked CCI staff member can import Excel records.")
+    return actor
 
 
 def visible_owners(actor):

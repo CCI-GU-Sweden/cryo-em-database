@@ -15,7 +15,7 @@ from .excel_import import import_workbook, preview_import
 from .filters import search_registry
 from .forms import ExcelImportForm
 from .models import Grid
-from .permissions import current_staff
+from .permissions import require_grid_importer
 
 PREVIEW_SESSION_KEY = "registry_excel_preview"
 PREVIEW_LIFETIME_SECONDS = 20 * 60
@@ -33,6 +33,7 @@ def _download(content, filename):
 @login_required
 @require_GET
 def excel_template(request):
+    require_grid_importer(request.user)
     content = export_workbook(actor=request.user, grids=Grid.objects.none())
     return _download(content, "cci-grid-import-template.xlsx")
 
@@ -40,8 +41,7 @@ def excel_template(request):
 @login_required
 @require_GET
 def excel_export(request):
-    current_staff(request.user)
-    grids, _, filters = search_registry(request.GET)
+    grids, _, filters = search_registry(request.GET, actor=request.user)
     if filters.is_bound and not filters.is_valid():
         return HttpResponse("Correct the registry filters before exporting.", status=400)
     try:
@@ -55,7 +55,7 @@ def excel_export(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 def excel_import(request):
-    current_staff(request.user)
+    require_grid_importer(request.user)
     form = ExcelImportForm()
     report, preview_token = None, None
     errors = []

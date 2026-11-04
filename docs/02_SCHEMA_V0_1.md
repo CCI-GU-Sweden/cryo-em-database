@@ -483,6 +483,11 @@ is scientific attribution. AuditEvent records who entered/corrected/imported eac
 record, its entry time, and preparation before/after changes. No new automatic
 owner grants are needed. Future external access still needs an explicit policy.
 
+Import permission explicitly requires the CCI staff flag, including for facility
+administrators. Export follows the registry's existing viewing/row-access policy,
+not import permission; this change grants no new browsing access. A shared
+`visible_grids` boundary applies to browsing, filtering and direct Excel exports.
+
 Excel transfer needs no schema change: the existing session request UUID is its
 portable key, hidden in supporting export metadata; owner code and immutable grid number are the other natural keys.
 Supporting worksheets preserve owner profiles and original defaults separately

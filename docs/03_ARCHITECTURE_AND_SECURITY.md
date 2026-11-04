@@ -64,15 +64,18 @@ Do not enable external registrations automatically. For the future, a researcher
 
 **Internal CCI access is shared** (confirmed 2026-11-04):
 
-- Active CCI staff and facility administrators can view, register, import, export
+- Active CCI staff and facility administrators can view, register, export
   and edit all active grids. Preparation operator identity is attribution.
+- Import, preview and the import template explicitly require the CCI staff flag,
+  even for administrators. Export requires registry viewing access and uses its
+  shared row-visibility boundary; a supplied queryset cannot expand that access.
 - Every mutation is audited with actor, time and relevant before/after values.
 - Archived records remain read-only. Archiving requires the actor's own password.
 - Account management and editing existing owner profiles/grants remain admin-only.
 - New owner registration/import creates no accounts or automatic grants.
 - OwnerAccessGrant is retained for future external access, whose exact policy
   remains undecided. Existing grants do not limit internal CCI staff access.
-- Inactive and non-CCI accounts have no registry access. External users are not
+- Inactive accounts and non-CCI non-administrators have no registry access. External users are not
   enabled by this change.
 
 Legacy workbook interpretation and physical lifecycle actions remain separately
