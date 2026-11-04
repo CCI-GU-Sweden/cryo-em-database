@@ -26,6 +26,7 @@ This is a **decision register**, not a requirement to answer everything before w
 
 | Item | Decision |
 |---|---|
+| Local stop/status behavior (2026-11-04) | Operate only on this checkout's cluster. Stop succeeds when uninitialized/already stopped, checks pg_ctl status codes, preserves genuine errors and never deletes PID/data files. A colleague reported an absent PID after opening the app on Windows; the reason for shutdown remains unconfirmed pending the server log. |
 | Local Windows launcher (2026-11-04) | Resolve PostgreSQL/Ruff inside the active Conda environment, handle Windows password-file reopening and avoid Unix socket arguments there. No environment/dependency changes. Layout tests and Linux integration pass; native Windows start/check/stop still needs colleague verification. |
 | Copy relationships in Excel (2026-11-04) | Remove Copied from grid ID from exports, templates and importer logic. Existing internal links are retained, not transferred or inferred. The copying workflow remains deferred. |
 | Git review workflow | For features, push a branch and provide the GitHub compare link with Markdown PR title/description. The user creates PRs through the website. Documentation-only work may go directly to main when explicitly authorized. |

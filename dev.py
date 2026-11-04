@@ -68,10 +68,10 @@ def main() -> int:
             run_python("manage.py", "migrate", "--noinput")
             ensure_administrator()
             print("\nOpen http://127.0.0.1:8000/ in your browser.", flush=True)
-            print("Press Ctrl+C to stop the app; PostgreSQL stays running.", flush=True)
+            print("Press Ctrl+C to stop the app, then run 'python dev.py stop'.", flush=True)
             run_python("manage.py", "runserver", "127.0.0.1:8000")
     except KeyboardInterrupt:
-        print("\nApp stopped. Run 'python dev.py stop' to stop PostgreSQL too.")
+        print("\nApp stopped. Run 'python dev.py stop' to ensure PostgreSQL is stopped too.")
         return 0
     except subprocess.CalledProcessError as error:
         print(f"\nCommand failed (exit {error.returncode}); see the output above.", file=sys.stderr)

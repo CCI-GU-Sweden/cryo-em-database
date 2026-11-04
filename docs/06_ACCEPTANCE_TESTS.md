@@ -6,9 +6,9 @@
 
 ## Current validation and remaining acceptance
 
-The last full Linux/WSL run passed **119 tests**, Django checks, migration-drift
-checks, the generated field reference, Ruff lint and formatting. Seven tests cover
-launcher portability, and a fresh temporary PostgreSQL cluster passed initialization,
+The last full Linux/WSL run passed **128 tests**, Django checks, migration-drift
+checks, the generated field reference, Ruff lint and formatting. Sixteen tests cover
+launcher portability and stop/status handling, and a fresh temporary PostgreSQL cluster passed initialization,
 authentication and shutdown with spaces/apostrophe in its path.
 
 | Area | Evidence / remaining work |
@@ -111,6 +111,9 @@ Capture usability notes and errors; prioritize removing friction before adding A
 - [ ] Native Windows Conda: `python dev.py` initializes the database, migrates,
   starts the app and supports login; `python dev.py check` and `python dev.py stop`
   work. Paths with spaces must work. Keep existing settings/data on later starts.
+- [ ] Stop/status handle an uninitialized or stopped checkout without a traceback.
+  Repeat stop succeeds; permission/directory errors and a still-running server
+  after failed shutdown remain failures. No unrelated cluster or PID file is changed.
 - [ ] Automated test suite passes in CI/local environment.
 - [ ] Documented database migrations and local startup.
 - [ ] Production environment does not expose debug pages or secrets.
