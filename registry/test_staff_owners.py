@@ -1,4 +1,4 @@
-"""Staff registration must grant only the creator access to the new owner."""
+"""Staff registration creates owners without accounts or redundant access grants."""
 
 from unittest.mock import patch
 from uuid import uuid4
@@ -55,7 +55,7 @@ class StaffOwnerRegistrationTests(TestCase):
         )
         owner = SampleOwner.objects.get(code="neow")
         self.assertRedirects(response, reverse("registry:new_session") + f"?owner={owner.pk}")
-        self.assertEqual(OwnerAccessGrant.objects.get(user=self.staff, owner=owner).role, "editor")
+        self.assertFalse(OwnerAccessGrant.objects.filter(owner=owner).exists())
         self.assertFalse(OwnerAccessGrant.objects.filter(user=self.other_staff).exists())
         self.assertFalse(OwnerAccessGrant.objects.filter(owner=self.existing_owner).exists())
         self.assertEqual(SampleOwner.objects.get(pk=self.existing_owner.pk).name, "Existing Owner")
@@ -90,7 +90,7 @@ class StaffOwnerRegistrationTests(TestCase):
         self.client.force_login(self.outsider)
         self.assertEqual(self.client.get(reverse("registry:owner_list")).status_code, 403)
 
-    def test_staff_can_register_for_any_owner_and_edit_only_their_own_session_without_grants(self):
+    def test_staff_can_register_and_edit_each_others_grids_without_grants(self):
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("registry:new_session"),
@@ -113,37 +113,21 @@ class StaffOwnerRegistrationTests(TestCase):
             expected_version=1,
             preparation={"sample_description": "Updated synthetic sample"},
         )
-        with self.assertRaises(PermissionDenied):
-            update_grid_preparation(
-                actor=self.other_staff,
-                grid_id=grid.pk,
-                expected_version=2,
-                preparation={"sample_description": "Denied change"},
-            )
-        OwnerAccessGrant.objects.create(
-            user=self.other_staff, owner=self.existing_owner, role="editor"
-        )
         update_grid_preparation(
             actor=self.other_staff,
             grid_id=grid.pk,
             expected_version=2,
-            preparation={"sample_description": "Authorized owner editor change"},
+            preparation={"sample_description": "Colleague correction"},
         )
+        event = AuditEvent.objects.filter(entity_type="Grid", operation="update").first()
+        self.assertEqual(event.actor, self.other_staff)
+        self.assertEqual(event.changes["sample_description"]["after"], "Colleague correction")
 
-    def test_owner_and_automatic_grant_are_both_audited(self):
+    def test_owner_creation_is_audited_without_automatic_grants(self):
         owner = create_sample_owner(actor=self.staff, name="Synthetic Owner")
-        owner_event = AuditEvent.objects.get(entity_type="SampleOwner", entity_id=str(owner.pk))
-        grant = OwnerAccessGrant.objects.get(owner=owner, user=self.staff)
-        grant_event = AuditEvent.objects.get(
-            entity_type="OwnerAccessGrant", entity_id=str(grant.pk)
-        )
-        self.assertEqual(owner_event.actor, self.staff)
-        self.assertEqual(grant_event.actor, self.staff)
-        self.assertEqual(grant_event.operation, "grant")
-        self.assertEqual(grant_event.changes["role"]["after"], "editor")
-        self.assertFalse(
-            OwnerAccessGrant.objects.filter(user=self.other_staff, owner=owner).exists()
-        )
+        event = AuditEvent.objects.get(entity_type="SampleOwner", entity_id=str(owner.pk))
+        self.assertEqual(event.actor, self.staff)
+        self.assertFalse(OwnerAccessGrant.objects.exists())
 
     def test_inactive_non_cci_and_anonymous_accounts_cannot_create_owners(self):
         url = reverse("registry:new_owner")
@@ -179,9 +163,9 @@ class StaffOwnerRegistrationTests(TestCase):
         self.assertEqual(self.existing_owner.name, "Existing Owner")
         self.assertFalse(OwnerAccessGrant.objects.exists())
 
-    def test_grant_failure_rolls_back_owner_and_audit_history(self):
+    def test_audit_failure_rolls_back_owner(self):
         with patch(
-            "registry.services.OwnerAccessGrant.objects.create",
+            "registry.services.record_audit",
             side_effect=RuntimeError("Test failure"),
         ):
             with self.assertRaises(RuntimeError):

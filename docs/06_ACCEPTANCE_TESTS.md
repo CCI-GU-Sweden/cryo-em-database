@@ -36,8 +36,8 @@
 
 - [ ] All authenticated CCI staff can view all owners and all grids.
 - [ ] CCI admin can create/deactivate accounts, create owners, manage codes, and assign/revoke owner access grants.
-- [ ] Non-admin CCI staff may edit their own session grids; editing other operators' grids requires an owner Editor grant. Registration for any active owner requires no grant.
-- [ ] Owner-granted editor can edit allowed preparation fields; operator can invoke allowed lifecycle actions but not change preparations.
+- [ ] All active CCI staff may edit every active grid and import/export current workbooks, without owner grants. Registration for any active owner requires no grant.
+- [ ] Owner grants are reserved for future external access and do not restrict internal CCI editing.
 - [ ] Unauthorized writes fail via detail page, table batch update, direct URL, and service endpoint.
 - [ ] Request targeting multiple grids with a mix of authorized and unauthorized records does not silently modify the unauthorized records.
 - [ ] Disabling a user immediately prevents further authenticated edits; existing event attribution remains intact.
@@ -95,7 +95,7 @@ prototype checks; the full criteria above remain the v0.1 release checklist.
 
 Manual preparation-only pilot: add a synthetic owner, register eight grids, change
 two blot times, compare the remaining six and original snapshot, then log in as a
-second CCI member to verify visibility and Editor-grant behavior. Storage and
+second CCI member to verify shared editing and audit attribution. Storage and
 lifecycle scenarios are deferred to the next slice.
 
 ## Preparation suggestions, columns and filters (2026-11-03)
@@ -118,10 +118,9 @@ lifecycle scenarios are deferred to the next slice.
 
 - Active CCI staff can generate a code and register a new owner without Django
   administration-site access or any existing owner grant.
-- The non-admin creator receives an Editor grant for that new owner and can
-  immediately create a preparation session. Owner and grant creation are atomic
-  and both changes are audited with the staff actor.
-- Other users receive no automatic grants. Existing owners/grants cannot be
+- Owner creation is audited with the staff actor. No automatic grants are needed;
+  all active CCI staff can immediately create sessions and edit active grids.
+- No users receive automatic grants. Existing owners/grants cannot be
   changed through this creation endpoint, including via forged form fields.
 - Anonymous, inactive and non-CCI accounts cannot register owners. CSRF is required.
 - Administrative editing of existing owners and management of other grants remain
@@ -133,8 +132,8 @@ lifecycle scenarios are deferred to the next slice.
   active owners in the new-session selector, including owners created by colleagues.
 - Staff without owner grants can create a session for any active owner and edit
   their own newly generated grids. This does not create an owner-wide grant.
-- Another staff member cannot edit those grids without an Editor grant or admin
-  rights; inactive owners are excluded from registration and inactive users are denied.
+- Another active CCI staff member can edit those grids without an Editor grant;
+  inactive owners are excluded from new session registration and inactive users are denied.
 
 ## Owner-based identifiers (2026-11-04)
 
@@ -198,3 +197,55 @@ lifecycle scenarios are deferred to the next slice.
   rendered form responses. No physical disposal event is inferred.
 - Permanent purge and restore remain deferred; any future purge must retain ID
   reservations instead of making historical IDs available for reuse.
+
+
+## Current-format Excel and shared CCI editing (2026-11-04)
+
+- Import/preview/template routes and services require current CCI membership,
+  even for administrators. Revoked flags on stale actor objects cannot authorize
+  import. Accounts with registry viewing access can export their visible filtered
+  subset without import rights; direct callers cannot expand that subset.
+- New-session inputs do not implicitly submit on Enter. Suggestion selection,
+  textarea newlines and deliberate keyboard/button activation still work.
+- All active CCI staff can edit every active grid via form and direct service,
+  regardless of owner/operator/grants. Every edit records actor/time/before/after;
+  stale versions and scientific validation still apply. Archived records,
+  non-CCI/inactive accounts and administration restrictions remain protected.
+- Filtered export includes all pages, excludes archives, and supplies all current
+  atomic preparation columns with original-style grouped headings. Numeric cells
+  retain values/units; text beginning '=' remains literal text.
+- Owners/Sessions sheets preserve explicit codes, session UUIDs, metadata and
+  original default snapshots independently of individually changed actual values.
+- Read-only import preview lists new owners, grid/session counts, unchanged rows,
+  skipped blank rows, warnings and row-numbered validation errors.
+- Confirmation requires staff access, CSRF, the actor's current server-side preview
+  token and an unexpired preview. Recheck conflicts when confirming.
+- Missing owners are created with workbook name/code and no account/grants. Owner
+  conflicts, duplicate/reserved IDs, inconsistent sessions, excess precision,
+  negative constrained measurements and formulas cannot partially import data.
+- Repeated imports skip unchanged grids. Failures roll back owners, sessions, grids
+  and audit. Imported IDs cannot be allocated again by normal registration.
+- Known operator accounts are preserved; unknown operator/date remain unknown,
+  without assigning preparation to the importer. Import audit identifies the
+  actual uploader and retains source filename/checksum/worksheet/row values.
+- Malformed/oversized workbooks and expired confirmations return useful errors.
+  Legacy combined-field files are outside this first format's scope.
+
+
+## Hand entry and workbook group colours
+
+- Date-only strings and Excel date cells default to noon in Europe/Stockholm,
+  including correct winter/summer offsets independently of a viewer's timezone.
+  Blank dates remain unknown; invalid dates and full times without offsets fail.
+- Copied-from relationships are excluded from Excel columns and import matching.
+  A subset can be re-imported without its source grid; existing links are untouched.
+- Staff can download a blank template and enter plain Session labels without
+  generating UUIDs or writing JSON. Sessions metadata may be omitted.
+- Labels explicitly group rows within one file. New sessions receive internal keys
+  automatically and unknown defaults remain unknown; preview warns about this.
+- A manual re-import recognises existing grid/session relationships despite file
+  checksum changes. Reusing a label for entirely new grid IDs creates a separate
+  session. One label cannot combine different existing sessions.
+- Exported portable keys remain authoritative and hidden in the supporting sheet.
+- Teal/purple/amber group colours cycle across merged headings, column headings
+  and pale data cells. Styling does not affect values or import parsing.

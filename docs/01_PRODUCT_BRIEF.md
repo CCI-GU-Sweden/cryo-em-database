@@ -19,7 +19,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 1. **Register real preparation sessions** (exactly one sample owner per session) and generate any reasonable number of unique, independent grid records from shared defaults.
 2. **Browse and edit grids** through individual forms and a familiar spreadsheet-like table, including safe bulk modifications.
 3. **Track physical lifecycle** with explicit actions, event history, location history, clipping and imaging events, shipment and disposal.
-4. **Administer accounts and editing rights** by sample owner; all CCI staff can see all grids. Start with CCI accounts only.
+4. **Administer accounts**, with all active CCI staff able to view and edit all active grids; owner-scoped rights remain a future external-access concern. Start with CCI accounts only.
 5. **Import and export Excel**, preserving historical identifiers and original scientific wording when uncertain.
 6. **Keep the system extensible** for OMERO evidence, protocol lineage, structured preparation knowledge, and optional local LLM processing.
 
@@ -28,7 +28,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 | Actor | Day-one needs | Intended restrictions |
 |---|---|---|
 | CCI administrator | Create/manage accounts, owners and prefixes, access grants, import, troubleshoot | Facility-wide access and administration |
-| CCI staff/preparation operator | Create sessions, generate grids, edit allowed preparation fields, record storage and lifecycle events | View all owners/grids; create sessions for any active owner; edit own session grids or owner-granted records |
+| CCI staff/preparation operator | Create sessions, generate grids, edit allowed preparation fields, record storage and lifecycle events | View all owners/grids; create sessions for any active owner; edit every active grid with a full change audit |
 | External researcher (later) | See assigned grids; possibly log limited handling actions | Not a day-one user; may not alter preparation parameters |
 | Sample owner | Named person/group to whom physical grids belong | Does not automatically have an application login or editing permission |
 
@@ -46,7 +46,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 ### Workflow B — Edit an individual grid
 
 - Open grid detail form or edit permitted preparation cells in the bulk table.
-- Correct/adjust individual parameters independently of other grids. The session operator may edit their grids; editing another operator's grids requires an owner Editor grant or administrator rights.
+- Correct/adjust individual parameters independently of other grids. All active CCI staff may edit every active grid. The preparation operator records attribution, while the audit identifies each editor and their changes.
 - Preserve an audit record identifying what changed and by whom; distinguish data corrections from actual physical actions.
 - Active CCI staff may delete an individual mistaken registration through a password-confirmed archive action. Deleted records leave normal views but retain their IDs, session links and history in a read-only Deleted grids area. This is separate from physical disposal.
 - A separate `copied_from_grid` relationship may record a deliberately copied preparation pattern; do not infer parenthood solely from similar values.
@@ -63,7 +63,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 
 - Search by grid ID, owner, experiment reference, sample, storage location, preparation date, and availability.
 - Filter batch/session replicates; compare sample preparation differences.
-- Admin imports previous workbook data via validation + dry-run + review; exports matching records to CSV/XLSX without overwriting history.
+- CCI staff import current-format workbook data via validation + preview + confirmation; legacy workbook migration remains a separate step. The application exports matching records to CSV/XLSX without overwriting history.
 
 ## Main screens
 
@@ -101,7 +101,7 @@ The grid registry may later join a broader sample preparation knowledge base, li
 - Existing populated Excel rows can be imported with no lost source values and no phantom grids.
 - Search and export work for all grid records.
 - A grid's current physical location and complete history remain consistent after clipping and transfers.
-- Unauthorized users cannot alter another owner's records, including through bulk requests or direct URLs.
+- Inactive and non-CCI users cannot alter records, including through bulk requests or direct URLs.
 - Daily workflows are faster or comparably easy to Excel; feedback from all six staff guides iteration.
 
 ## Constraints and decisions

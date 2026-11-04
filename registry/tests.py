@@ -127,16 +127,17 @@ class RegistrationTests(TestCase):
     def test_direct_service_permissions_and_revocation(self):
         with self.assertRaises(PermissionDenied):
             self.create_session(actor=User())
-        # An owner grant allows editing another operator's grids; lower roles do not.
+        # Owner grants do not restrict facility-wide CCI editing.
         grid = self.create_session(actor=self.admin).grids.first()
         for role in ["viewer", "operator"]:
             OwnerAccessGrant.objects.filter(user=self.editor).update(role=role)
-            with self.assertRaises(PermissionDenied):
-                self.update_grid(grid, blot_time_s=Decimal("9"))
+            grid = self.update_grid(grid, blot_time_s=Decimal("9"))
         self.editor.is_active = False
         self.editor.save(update_fields=["is_active"])
         with self.assertRaises(PermissionDenied):
             self.create_session()
+        with self.assertRaises(PermissionDenied):
+            self.update_grid(grid, blot_time_s=Decimal("10"))
 
     def test_validation_rejects_invalid_preparation_and_counts(self):
         for preparation in [
@@ -189,18 +190,19 @@ class RegistrationTests(TestCase):
         self.assertEqual(grid.blot_time_s, 7)
         self.assertEqual(grid.version, updated.version)
 
-    def test_revoked_grant_blocks_other_operators_edits_and_inactive_owner_blocks_creation(
+    def test_staff_edits_do_not_require_grants_and_inactive_owner_blocks_creation(
         self,
     ):
         grid = self.create_session(actor=self.admin).grids.first()
         OwnerAccessGrant.objects.filter(user=self.editor).delete()
-        with self.assertRaises(PermissionDenied):
-            self.update_grid(grid, blot_time_s=Decimal("9"))
+        self.update_grid(grid, blot_time_s=Decimal("9"))
         self.create_session()  # Registering a new session does not need an owner grant.
         self.owner.active = False
         self.owner.save(update_fields=["active"])
         with self.assertRaises(PermissionDenied):
             self.create_session(actor=self.admin)
+        grid.refresh_from_db()
+        self.update_grid(grid, blot_time_s=Decimal("10"))
 
     def test_database_protects_identifiers_snapshots_and_audit_history(self):
         session = self.create_session()
@@ -278,20 +280,30 @@ class RegistrationTests(TestCase):
             self.client.get(reverse("registry:grid_list"), {"q": "Synthetic"}), "syow-"
         )
 
-    def test_http_read_access_and_write_rejection(self):
+    def test_http_staff_editing_and_non_staff_rejection(self):
         grid = self.create_session().grids.first()
         url = reverse("registry:grid_detail", args=[grid.pk])
         self.assertEqual(self.client.get(url).status_code, 302)
         self.client.force_login(self.reader)
-        self.assertContains(self.client.get(url), "You can view this grid")
-        self.assertEqual(self.client.post(url, {"blot_time_s": 9}).status_code, 403)
+        self.assertContains(self.client.get(url), "Save this grid")
+        # Missing version is still invalid, even though the colleague can edit.
+        self.assertEqual(self.client.post(url, {"blot_time_s": 9}).status_code, 200)
+        data = {name: getattr(grid, name) for name in PREPARATION_FIELDS}
+        data = {name: value if value is not None else "" for name, value in data.items()}
+        data.update(expected_version=grid.version, blot_time_s=9)
+        self.assertRedirects(self.client.post(url, data), url)
+        grid.refresh_from_db()
+        self.assertEqual(grid.blot_time_s, 9)
+        event = AuditEvent.objects.filter(entity_type="Grid", operation="update").first()
+        self.assertEqual(event.actor, self.reader)
         response = self.client.post(reverse("registry:new_session"), self.session_post())
         self.assertEqual(response.status_code, 302)
         self.assertEqual(PreparationSession.objects.count(), 2)
-        self.assertEqual(self.client.post(url, {"blot_time_s": 9}).status_code, 403)
+        self.assertEqual(self.client.post(url, {"blot_time_s": 9}).status_code, 200)
         outsider = User.objects.create_user(username="outsider")
         self.client.force_login(outsider)
         self.assertEqual(self.client.get(reverse("registry:grid_list")).status_code, 403)
+        self.assertEqual(self.client.post(url, data).status_code, 403)
 
     def test_invalid_form_and_csrf_do_not_create_records(self):
         self.client.force_login(self.editor)

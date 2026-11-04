@@ -1,8 +1,10 @@
 """Typed property filters. User input can never become an arbitrary ORM lookup."""
 
 from django import forms
+from django.db.models import Q
 from django.forms import formset_factory
 
+from .permissions import visible_grids
 from .tables import COLUMN_BY_KEY, COLUMNS
 
 
@@ -56,6 +58,27 @@ class GridPropertyFilter(forms.Form):
 GridFilterSet = formset_factory(
     GridPropertyFilter, extra=1, max_num=20, validate_max=True, absolute_max=20
 )
+
+
+def search_registry(parameters, *, actor):
+    """Use the same selection for the on-screen registry and its Excel export."""
+    query = parameters.get("q", "").strip()
+    grids = visible_grids(actor).select_related("session__owner", "session__prepared_by")
+    if query:
+        grids = grids.filter(
+            Q(grid_number__icontains=query)
+            | Q(sample_description__icontains=query)
+            | Q(session__owner__name__icontains=query)
+            | Q(session__experiment_reference__icontains=query)
+        )
+    data = parameters if "filters-TOTAL_FORMS" in parameters else None
+    filters = GridFilterSet(data, prefix="filters")
+    if filters.is_bound:
+        if filters.is_valid():
+            grids = apply_property_filters(grids, filters)
+        else:
+            grids = grids.none()  # Invalid input must never broaden an export.
+    return grids.order_by("-pk"), query, filters
 
 
 def apply_property_filters(grids, filters):

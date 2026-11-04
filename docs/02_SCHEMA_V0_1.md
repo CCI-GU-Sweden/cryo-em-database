@@ -12,7 +12,7 @@
 5. Grids start **unclipped**, **not imaged**, and **awaiting storage**. Empty storage is valid at registration.
 6. **Clipping state**, **availability/custody**, **imaging state**, and **current physical location** are different axes. Shipping does not imply imaging; imaging usually precedes disposal but never automatically proves it.
 7. Physical lifecycle actions are captured in **append-only GridEvent records**. Database corrections/metadata edits are captured separately in **AuditEvent**.
-8. All CCI staff can read all grids. Session-operator and owner-granted editing permissions must be enforced server-side. Only CCI staff are onboarded initially.
+8. All active CCI staff can view and edit all active grids. Archived grids are read-only; inactive/non-CCI users cannot edit. Enforce this server-side. Only CCI staff are onboarded initially.
 9. Don't infer any scientific value (including humidity scale and missing dates) during import.
 
 ## 1. Data relationships
@@ -177,9 +177,11 @@ Identity is **separate from authorization**. Use local accounts initially; permi
 | `created_at`, `updated_at` | timestamp | Automatic |
 
 - Unique constraint on `(user_id, owner_id)` unless intentionally implementing multiple separately scoped grants.
-- Admins have facility-wide full access; CCI staff have facility-wide **read** access.
-- Owner-based grants cover many grids in one action; no per-grid permission records needed for MVP.
-- Role permissions are enforced for every write operation, including bulk edits, imported API requests, and lifecycle actions.
+- Admins manage accounts and owner profiles. Active CCI staff have facility-wide
+  read/edit/import/export access to active grids; archived records remain read-only.
+- Owner-based grants are retained for future external access. They do not limit
+  internal CCI staff, and new owner registration no longer creates them.
+- Enforce staff status and archive restrictions server-side on every write.
 
 ### 2.8 AuditEvent
 
@@ -287,13 +289,12 @@ initial physical state is displayed read-only, with no editable status columns.
 - Individual edits use a version field to reject stale saves. PostgreSQL triggers
   protect IDs/session membership, initial defaults and append-only audit history,
   including bulk ORM mutations. Generic admin cannot edit scientific records.
-- Active CCI staff may register new owners, with an automatic Editor grant for
-  the non-admin creator. Owner creation and this grant are atomic and audited.
-  Managing existing owners and other grants remains restricted to facility superusers.
-  Read access requires active CCI membership or superuser status. Preparation
-  registration is open to all active CCI staff for every active owner. Preparation
-  edits require the session operator, owner Editor grant or superuser, and an
-  active owner. Visibility is independent of editing grants.
+- Active CCI staff may register new owners without automatic grants, create
+  sessions for any active owner, and edit every active grid. Operator identity
+  records attribution, not edit rights. Archived records remain read-only.
+  Existing-owner/account/grant administration remains superuser-only. The retained
+  OwnerAccessGrant model is reserved for a future external-access policy.
+
 
 These implementation choices preserve the conceptual model. The legacy grouping
 representation and correction workflow in the import specification remain open
@@ -324,11 +325,13 @@ before the importer is implemented; they are not silently settled by this slice.
 All active CCI staff can view every owner in the owner directory, including
 inactive owners, and register new owners. The session selector shows all active
 owners regardless of creator or grants. Session creation does not confer an
-owner-wide grant. Operators may edit the grids from their own sessions; editing
-other operators' grids requires an owner Editor grant or facility superuser.
-The automatic Editor grant given to a new owner's non-admin creator remains in
-place. Inactive users cannot register or edit, and inactive owners cannot receive
-new sessions or preparation edits. Existing-owner administration remains admin-only.
+owner-wide grant. The later shared-editing decision supersedes the original
+operator/Editor restriction: every active CCI staff member may edit every active
+grid, including grids of inactive owners. Inactive owners cannot receive new
+preparation sessions through normal registration. Inactive users cannot register,
+import or edit. Existing-owner administration remains admin-only. No automatic
+Editor grants are created; previously stored grants are retained but do not
+restrict or expand internal CCI editing rights.
 
 ## 10. Confirmed owner-based grid IDs (2026-11-04)
 
@@ -471,3 +474,32 @@ deletion is introduced. No physical discard or storage transition is inferred.
 | `created_at` | `timestamp with time zone` | No | No | Time of creation | — |
 | `updated_at` | `timestamp with time zone` | No | No | Time of save | — |
 <!-- generated-grid-fields:end -->
+
+
+## 15. Current-format Excel transfer and shared editing (2026-11-04)
+
+All active CCI staff may export/import and edit all active grids. Operator identity
+is scientific attribution. AuditEvent records who entered/corrected/imported each
+record, its entry time, and preparation before/after changes. No new automatic
+owner grants are needed. Future external access still needs an explicit policy.
+
+Import permission explicitly requires the CCI staff flag, including for facility
+administrators. Export follows the registry's existing viewing/row-access policy,
+not import permission; this change grants no new browsing access. A shared
+`visible_grids` boundary applies to browsing, filtering and direct Excel exports.
+
+Excel transfer needs no schema change: the existing session request UUID is its
+portable key, hidden in supporting export metadata; owner code and immutable grid number are the other natural keys.
+Supporting worksheets preserve owner profiles and original defaults separately
+from grid actual values. Existing records must match exactly after typed input
+validation; import never updates or unarchives records. Owner/session/grid inserts
+and their source/audit records are atomic. Original exported operator strings and
+row values are retained in import provenance even when no local operator matches.
+Full audit history and physical events are not transferred by this format.
+
+
+Hand-entered workbooks use plain, file-local Session labels. No UUID or defaults
+JSON is required. Explicitly labelled groups without existing IDs receive new
+UUIDs and an unknown empty defaults snapshot. Re-import can resolve an explicitly
+labelled group through its existing grid IDs, but cannot merge distinct existing
+sessions. Exported UUIDs remain authoritative when supporting metadata is present.

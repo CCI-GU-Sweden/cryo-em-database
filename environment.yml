@@ -13,5 +13,5 @@ dependencies:
   - postgresql=17
   - python-dotenv>=1,<2
   - ruff>=0.14,<1
-  # Read the private Excel example to seed preparation suggestions (not grid records).
+  # Excel import/export and optional vocabulary seeding from the private example.
   - openpyxl>=3.1,<4

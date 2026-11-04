@@ -81,7 +81,7 @@ class NewSessionForm(PreparationForm):
         label="Preparation date and time",
         initial=timezone.now,
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
-        help_text="Local time in Europe/Berlin. Enter when the preparation happened.",
+        help_text="Local time in Europe/Stockholm. Enter when the preparation happened.",
     )
     experiment_reference = forms.CharField(required=False, max_length=200)
     project_reference = forms.CharField(required=False, max_length=200)
@@ -176,4 +176,12 @@ class DeletedGridBrowseForm(forms.Form):
     q = forms.CharField(required=False, max_length=200, label="Search deleted grids")
     session = forms.IntegerField(
         required=False, min_value=1, max_value=9223372036854775807, label="Session number"
+    )
+
+
+class ExcelImportForm(forms.Form):
+    workbook = forms.FileField(
+        label="Registry Excel workbook",
+        widget=forms.FileInput(attrs={"accept": ".xlsx"}),
+        help_text="Upload a current registry export (.xlsx, at most 5 MB).",
     )
