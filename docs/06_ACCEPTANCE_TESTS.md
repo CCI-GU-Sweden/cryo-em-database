@@ -159,3 +159,12 @@ lifecycle scenarios are deferred to the next slice.
 - Disposable test-data migration removes retired fields/keys, resets old blot
   booleans to the requested default 0, updates snapshot version, and restores both history
   guards. A populated migration test verifies cleanup and immutable behavior afterward.
+
+## Measurement precision and registry date display (2026-11-04)
+
+- All ten Grid DecimalFields use two decimal places and reject excess-precision
+  new input. Existing disposable test values are rounded by the approved migration.
+- Numeric suggestions are rounded/deduplicated consistently with the new inputs.
+- Preparation dates in the registry show date only; stored time and session-detail
+  display keep the full timestamp. Date-range filtering remains unchanged.
+- The generated field/type reference matches the authoritative Django model.

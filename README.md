@@ -129,11 +129,10 @@ Repeated submissions reuse the original session rather than duplicate grids.
 Edits preserve before/after audit history, and stale edit forms cannot overwrite a
 newer edit. Grid IDs, original session membership, snapshots and audit history
 are protected in PostgreSQL; scientific records are read-only in Django admin.
-Concentration accepts up to three decimal places; other decimal measurements
-retain four. Displays omit unnecessary trailing zeros. Snapshots store decimal
+All preparation measurements accept up to two decimal places. Displays omit unnecessary trailing zeros. Snapshots store decimal
 strings with field names defining the units. Extra precision is rejected for
-review rather than silently rounded. The precision migration stops for review
-if an existing concentration has a meaningful fourth decimal place.
+review rather than silently rounded. The two-place migration rounds existing disposable test measurements and
+updates numeric suggestions to match; earlier snapshots retain their entered values.
 
 ### Preparation suggestions and registry display
 
@@ -247,3 +246,18 @@ Existing blot booleans are not interpreted as counts; Multiple blots starts at `
 Snapshots move to version 3 and case variants are normalized. The migration briefly
 suspends snapshot/audit guards inside its transaction and restores them afterward;
 normal application edits still preserve immutable snapshots and audit history.
+
+The Django model in `registry/models.py` is the authoritative field/type definition,
+not a separate YAML configuration. Migrations apply those changes to PostgreSQL.
+The current type table in `docs/02_SCHEMA_V0_1.md` is generated from that model:
+
+```bash
+python manage.py describe_grid_fields
+python manage.py describe_grid_fields --update-docs
+```
+
+`python dev.py check` verifies that the generated reference still matches the model.
+Model bounds in that table describe application validators; database constraints,
+service rules and casing behavior are documented separately in the schema.
+The registry Preparation date column shows only the local date; its full timestamp
+is retained in the session and remains visible on the session detail screen.

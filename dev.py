@@ -55,6 +55,7 @@ def main() -> int:
         prepare_database()
         if action == "check":
             run_python("manage.py", "check")
+            run_python("manage.py", "describe_grid_fields", "--check")
             run_python("manage.py", "makemigrations", "--check", "--dry-run")
             run_python("manage.py", "test", "--noinput")
             # Conda installs Ruff as an executable, not an importable Python module.

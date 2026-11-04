@@ -15,7 +15,9 @@ class PrototypePreparationMigrationTests(TransactionTestCase):
     def test_cleanup_removes_retired_values_and_restores_history_guards(self):
         executor = MigrationExecutor(connection)
         executor.migrate(self.old_target)
-        self.addCleanup(lambda: MigrationExecutor(connection).migrate(self.new_target))
+        self.addCleanup(
+            lambda: MigrationExecutor(connection).migrate(executor.loader.graph.leaf_nodes())
+        )
         old = executor.loader.project_state(self.old_target).apps
         user = old.get_model("accounts", "User").objects.create(username="migration-operator")
         owner = old.get_model("registry", "SampleOwner").objects.create(
@@ -108,3 +110,57 @@ class PrototypePreparationMigrationTests(TransactionTestCase):
             Session.objects.filter(pk=session.pk).update(defaults={})
         with self.assertRaises(DatabaseError), transaction.atomic():
             Audit.objects.filter(pk=event.pk).update(changes={})
+
+
+class DecimalPrecisionMigrationTests(TransactionTestCase):
+    def test_existing_test_measurements_round_to_two_places_and_suggestions_follow(self):
+        from decimal import Decimal
+
+        from django.db import models
+
+        old_target = [
+            ("registry", "0006_remove_grid_double_blot_remove_grid_humidity_raw_and_more")
+        ]
+        new_target = [("registry", "0007_alter_grid_blot_force_alter_grid_blot_time_s_and_more")]
+        executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
+        executor.migrate(old_target)
+        self.addCleanup(lambda: MigrationExecutor(connection).migrate(latest))
+        old = executor.loader.project_state(old_target).apps
+        owner = old.get_model("registry", "SampleOwner").objects.create(
+            name="Precision Owner", code="prco"
+        )
+        session = old.get_model("registry", "PreparationSession").objects.create(
+            owner=owner,
+            defaults={"sample_concentration_value": "1.235"},
+            defaults_schema_version=3,
+        )
+        Grid = old.get_model("registry", "Grid")
+        values = {
+            field.name: Decimal("1.235")
+            for field in Grid._meta.fields
+            if isinstance(field, models.DecimalField)
+        }
+        values["temperature_c"] = Decimal("-1.235")
+        grid = Grid.objects.create(session=session, grid_number="prco-0001", **values)
+        Suggestion = old.get_model("registry", "PreparationSuggestion")
+        for value in ["1.235", "1.24"]:
+            Suggestion.objects.create(field_name="sample_concentration_value", value=value)
+        executor = MigrationExecutor(connection)
+        executor.migrate(new_target)
+        current = executor.loader.project_state(new_target).apps
+        result = current.get_model("registry", "Grid").objects.get(pk=grid.pk)
+        for name in values:
+            expected = Decimal("-1.24") if name == "temperature_c" else Decimal("1.24")
+            self.assertEqual(getattr(result, name), expected)
+        snapshot = current.get_model("registry", "PreparationSession").objects.get(pk=session.pk)
+        self.assertEqual(snapshot.defaults["sample_concentration_value"], "1.235")
+        self.assertEqual(snapshot.defaults_schema_version, 3)
+        self.assertEqual(
+            list(
+                current.get_model("registry", "PreparationSuggestion")
+                .objects.filter(field_name="sample_concentration_value")
+                .values_list("value", flat=True)
+            ),
+            ["1.24"],
+        )

@@ -375,3 +375,54 @@ grid versions so pre-migration forms cannot silently overwrite the changed schem
 Snapshot/audit triggers are suspended only within that atomic migration and are
 restored afterward. This is a scoped prototype exception, not a general policy
 for altering scientific history after production use.
+
+## 12. Two-place measurements and generated field reference (2026-11-04)
+
+All Grid DecimalFields now use scale 2: `numeric(12,2)` for measurements other
+than humidity, which uses `numeric(7,2)`. The user explicitly authorized rounding
+existing disposable test data. Migration 0007 lets PostgreSQL round those numeric
+columns and rounds/deduplicates their old numeric suggestions. Existing session
+snapshots stay unchanged; new snapshots use schema version 4. New form/service
+input with excess precision is rejected rather than silently rounded.
+
+The registry Preparation date column renders only the local date, retaining the
+full timestamp in storage and session details. This changes presentation, not type.
+
+The Django Grid model is the single authoritative field definition. The following
+table is generated with `python manage.py describe_grid_fields --update-docs`;
+`python dev.py check` detects drift. Application defaults and model validators are
+not necessarily PostgreSQL defaults/check constraints. Refer to the invariant and
+service descriptions above for cross-field, authorization and immutability rules.
+
+<!-- generated-grid-fields:start -->
+| Field | PostgreSQL type | NULL allowed | Empty text allowed | Application default | Model bounds |
+|---|---|---|---|---|---|
+| `id` | `bigint` | No | No | Generated ID | >= -9223372036854775808, <= 9223372036854775807 |
+| `grid_number` | `varchar(80)` | No | No | — | — |
+| `session_id` | `bigint` | No | No | — | — |
+| `copied_from_grid_id` | `bigint` | Yes | No | — | — |
+| `sample_description` | `text` | No | Yes | — | — |
+| `sample_concentration_value` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `sample_concentration_unit` | `varchar(40)` | No | Yes | — | — |
+| `buffer_description` | `text` | No | Yes | — | — |
+| `grid_type` | `varchar(200)` | No | Yes | — | — |
+| `grid_box_number` | `varchar(100)` | No | Yes | — | — |
+| `grid_type_reference` | `varchar(200)` | No | Yes | — | — |
+| `carbon_description` | `varchar(200)` | No | Yes | — | — |
+| `carbon_thickness_nm` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `glow_atmosphere` | `varchar(100)` | No | Yes | — | — |
+| `glow_polarity` | `varchar(100)` | No | Yes | — | — |
+| `glow_current_ma` | `numeric(12, 2)` | Yes | No | — | — |
+| `glow_duration_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `sample_volume_ul` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `temperature_c` | `numeric(12, 2)` | Yes | No | — | — |
+| `humidity_percent` | `numeric(7, 2)` | Yes | No | — | >= 0, <= 100 |
+| `blot_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `hold_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `blot_force` | `numeric(12, 2)` | Yes | No | — | — |
+| `multiple_blot` | `integer` | No | No | 0 | >= 0, <= 2147483647 |
+| `notes` | `text` | No | Yes | — | — |
+| `version` | `integer` | No | No | 1 | >= 0, <= 2147483647 |
+| `created_at` | `timestamp with time zone` | No | No | Time of creation | — |
+| `updated_at` | `timestamp with time zone` | No | No | Time of save | — |
+<!-- generated-grid-fields:end -->

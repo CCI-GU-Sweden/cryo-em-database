@@ -60,7 +60,7 @@ class PreparationSession(models.Model):
     experiment_reference = models.CharField(max_length=200, blank=True)
     project_reference = models.CharField(max_length=200, blank=True)
     notes = models.TextField(blank=True)
-    defaults_schema_version = models.PositiveIntegerField(default=3)
+    defaults_schema_version = models.PositiveIntegerField(default=4)
     defaults = models.JSONField(default=dict)
     # Used to identify a repeated form submission; never an identifier for a grid.
     request_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -77,7 +77,7 @@ class Grid(models.Model):
     copied_from_grid = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True)
     sample_description = models.TextField(blank=True)
     sample_concentration_value = models.DecimalField(
-        max_digits=12, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(0)]
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     sample_concentration_unit = models.CharField(max_length=40, blank=True)
     buffer_description = models.TextField(blank=True)
@@ -86,33 +86,33 @@ class Grid(models.Model):
     grid_type_reference = models.CharField(max_length=200, blank=True)
     carbon_description = models.CharField(max_length=200, blank=True)
     carbon_thickness_nm = models.DecimalField(
-        max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)]
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     glow_atmosphere = models.CharField(max_length=100, blank=True)
     glow_polarity = models.CharField(max_length=100, blank=True)
-    glow_current_ma = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    glow_current_ma = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     glow_duration_s = models.DecimalField(
-        max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)]
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     sample_volume_ul = models.DecimalField(
-        max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)]
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
-    temperature_c = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    temperature_c = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     humidity_percent = models.DecimalField(
         max_digits=7,
-        decimal_places=4,
+        decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
     blot_time_s = models.DecimalField(
-        max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)]
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     hold_time_s = models.DecimalField(
-        max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)]
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     # Blot force is an instrument scale; do not invent units or forbid negatives yet.
-    blot_force = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    blot_force = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     multiple_blot = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
     notes = models.TextField(blank=True)
     version = models.PositiveIntegerField(default=1)

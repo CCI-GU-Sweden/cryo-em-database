@@ -35,7 +35,7 @@ class PreparationInterfaceTests(TestCase):
                 "sample_description": "Synthetic Alpha",
                 "grid_type": "Synthetic type",
                 "grid_box_number": "box-7",
-                "sample_concentration_value": Decimal("3.125"),
+                "sample_concentration_value": Decimal("3.12"),
                 "sample_concentration_unit": "mg/mL",
                 "blot_time_s": Decimal("4"),
                 "multiple_blot": 1,
@@ -73,8 +73,8 @@ class PreparationInterfaceTests(TestCase):
     def ids(self, response):
         return set(response.context["page"].object_list.values_list("pk", flat=True))
 
-    def test_concentration_has_three_decimals_and_no_trailing_zero_padding(self):
-        self.assertEqual(Grid._meta.get_field("sample_concentration_value").decimal_places, 3)
+    def test_concentration_has_two_decimals_and_no_trailing_zero_padding(self):
+        self.assertEqual(Grid._meta.get_field("sample_concentration_value").decimal_places, 2)
         with self.assertRaises(ValidationError):
             update_grid_preparation(
                 actor=self.actor,
@@ -90,14 +90,37 @@ class PreparationInterfaceTests(TestCase):
         )
         grid.refresh_from_db()
         self.assertEqual(
-            EditGridForm(instance=grid)["sample_concentration_value"].value(), Decimal("3.000")
+            EditGridForm(instance=grid)["sample_concentration_value"].value(), Decimal("3.00")
         )
         self.assertIn('value="3"', str(EditGridForm(instance=grid)["sample_concentration_value"]))
         response = self.client.get(reverse("registry:grid_list"))
-        self.assertContains(response, "3.125")
-        self.assertNotContains(response, "3.1250")
+        self.assertContains(response, "3.12")
+        self.assertNotContains(response, "3.1200")
         self.assertEqual(self.session.defaults["grid_box_number"], "box-7")
-        self.assertEqual(self.session.defaults_schema_version, 3)
+        self.assertEqual(self.session.defaults_schema_version, 4)
+
+    def test_all_decimal_measurements_use_two_places_and_registry_preparation_date_omits_time(self):
+        from django.db import models
+
+        from .templatetags.registry_display import column_value
+
+        for field in Grid._meta.fields:
+            if isinstance(field, models.DecimalField):
+                self.assertEqual(field.decimal_places, 2)
+                with self.subTest(field=field.name), self.assertRaises(ValidationError):
+                    update_grid_preparation(
+                        actor=self.actor,
+                        grid_id=self.first.pk,
+                        expected_version=1,
+                        preparation={field.name: Decimal("1.234")},
+                    )
+        before = self.session.prepared_at
+        self.assertEqual(
+            column_value(self.first, "prepared_at"), timezone.localtime(before).strftime("%Y-%m-%d")
+        )
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.prepared_at, before)
+        self.assertIn(":", column_value(self.first, "created_at"))
 
     def test_suggestions_reuse_saved_values_and_allow_new_values(self):
         PreparationSuggestion.objects.create(field_name="grid_type", value="Seeded synthetic type")

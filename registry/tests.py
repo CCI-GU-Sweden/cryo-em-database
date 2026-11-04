@@ -81,7 +81,7 @@ class RegistrationTests(TestCase):
         self.assertEqual(session.experiment_reference, "")
         audit = AuditEvent.objects.filter(entity_type="Grid", operation="update").first()
         self.assertEqual(audit.actor, self.editor)
-        self.assertEqual(audit.changes["blot_time_s"], {"before": "4.0000", "after": "6"})
+        self.assertEqual(audit.changes["blot_time_s"], {"before": "4.00", "after": "6"})
 
     def test_unknown_zero_and_positive_blot_counts_are_distinct(self):
         grid = self.create_session().grids.first()

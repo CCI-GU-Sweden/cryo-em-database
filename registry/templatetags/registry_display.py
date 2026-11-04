@@ -20,5 +20,6 @@ def column_value(grid, key):
     if column["kind"] == "boolean":
         return "Yes" if value else "No"
     if column["kind"] == "date":
-        return timezone.localtime(value).strftime("%Y-%m-%d %H:%M")
+        format_string = "%Y-%m-%d" if key == "prepared_at" else "%Y-%m-%d %H:%M"
+        return timezone.localtime(value).strftime(format_string)
     return compact_decimal(value) if value != "" else "—"

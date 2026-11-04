@@ -98,7 +98,7 @@ class PreparationConventionTests(TestCase):
         self.assertNotContains(response, "Humidity source wording")
         self.assertNotIn("humidity_raw", EditGridForm.base_fields)
         self.assertNotIn("double_blot", EditGridForm.base_fields)
-        self.assertEqual(self.create().session.defaults_schema_version, 3)
+        self.assertEqual(self.create().session.defaults_schema_version, 4)
         self.assertContains(
             self.client.get(reverse("registry:grid_list")), 'data-column="multiple_blot"'
         )
