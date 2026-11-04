@@ -78,6 +78,9 @@ Capture usability notes and errors; prioritize removing friction before adding A
 
 ## F. Deployment readiness
 
+- [ ] Native Windows Conda: `python dev.py` initializes the database, migrates,
+  starts the app and supports login; `python dev.py check` and `python dev.py stop`
+  work. Paths with spaces must work. Keep existing settings/data on later starts.
 - [ ] Automated test suite passes in CI/local environment.
 - [ ] Documented database migrations and local startup.
 - [ ] Production environment does not expose debug pages or secrets.

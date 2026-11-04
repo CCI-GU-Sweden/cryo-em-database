@@ -6,8 +6,8 @@ not shared hosting. Docker users can use compose.yaml instead.
 
 import argparse
 import os
+import shlex
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -15,13 +15,48 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg import sql
 
+if __package__:
+    from .runtime import find_tool
+else:
+    # Support both direct script execution and importing this module for tests.
+    from runtime import find_tool
+
 ROOT = Path(__file__).resolve().parent.parent
 CLUSTER = ROOT / ".local" / "postgres"
-TOOLS = Path(sys.executable).parent
 
 
 def run_tool(name: str, *arguments: str) -> None:
-    subprocess.run([str(TOOLS / name), *arguments], check=True)
+    subprocess.run([str(find_tool(name)), *arguments], check=True)
+
+
+def initialize_cluster(user: str, password: str) -> None:
+    # Close before initdb reads the file: Windows does not permit the original
+    # open-file sharing pattern. The context removes it even if initdb fails.
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", delete_on_close=False
+    ) as password_file:
+        password_file.write(password + "\n")
+        password_file.close()
+        run_tool(
+            "initdb",
+            "-D",
+            str(CLUSTER),
+            "-U",
+            user,
+            "--auth=scram-sha-256",
+            "--encoding=UTF8",
+            "--locale=C",
+            f"--pwfile={password_file.name}",
+        )
+
+
+def server_options(cluster: Path, port: int, *, windows: bool | None = None) -> str:
+    """pg_ctl forwards this string to postgres; quote Unix paths with spaces."""
+    windows = os.name == "nt" if windows is None else windows
+    options = f"-h 127.0.0.1 -p {port}"
+    if not windows:
+        options += f" -k {shlex.quote(str(cluster))}"
+    return options
 
 
 def main() -> None:
@@ -43,29 +78,15 @@ def main() -> None:
 
     CLUSTER.parent.mkdir(exist_ok=True)
     if not (CLUSTER / "PG_VERSION").exists():
-        # initdb accepts a password file. A private temporary file keeps the
-        # password out of process arguments and is removed immediately afterward.
-        with tempfile.NamedTemporaryFile(mode="w") as password_file:
-            password_file.write(password + "\n")
-            password_file.flush()
-            run_tool(
-                "initdb",
-                "-D",
-                str(CLUSTER),
-                "-U",
-                user,
-                "--auth=scram-sha-256",
-                "--encoding=UTF8",
-                "--locale=C",
-                f"--pwfile={password_file.name}",
-            )
+        initialize_cluster(user, password)
 
     status = subprocess.run(
-        [str(TOOLS / "pg_ctl"), "-D", str(CLUSTER), "status"],
+        [str(find_tool("pg_ctl")), "-D", str(CLUSTER), "status"],
         capture_output=True,
     )
     if status.returncode != 0:
-        # TCP is loopback-only; put the Unix socket in the private cluster too.
+        # TCP is loopback-only. Unix also uses a socket in the private cluster;
+        # native Windows needs no Unix-socket directory.
         run_tool(
             "pg_ctl",
             "-D",
@@ -73,7 +94,7 @@ def main() -> None:
             "-l",
             str(CLUSTER.parent / "postgres.log"),
             "-o",
-            f"-h 127.0.0.1 -p {port} -k {CLUSTER}",
+            server_options(CLUSTER, port),
             "-w",
             "start",
         )
@@ -96,4 +117,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except FileNotFoundError as error:
+        raise SystemExit(str(error)) from error

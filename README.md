@@ -54,9 +54,21 @@ cluster; keep those values consistent. Stop the application with Ctrl+C, then:
 python dev.py stop
 ```
 
-The helper retains the database on stop. Use `status` to check whether it is
-running. This setup targets local Linux/WSL development and uses disposable
-synthetic data. It is not a shared or production deployment.
+The helper retains the database on stop. Run
+`python scripts/local_database.py status` to check whether it is running.
+The launcher handles native Windows Conda
+tool paths (`Library/bin` for PostgreSQL, `Scripts` for Ruff), as well as Linux/WSL
+`bin` paths. It always uses tools from the running Python environment. The setup
+is for local prototype testing with synthetic data, not shared deployment.
+
+On native Windows, activate the Conda environment before launching. If startup
+reports a missing tool, run `where python`, `where initdb`, `where pg_ctl` and
+`conda list postgresql` in that environment. PostgreSQL should resolve inside the
+same Conda environment as Python. Do not copy database executables into the
+project or Python directory, and keep the generated `.env` on subsequent runs.
+Windows path selection, password-file cleanup and startup options are covered
+by automated tests; a full native Windows start/check/stop still needs validation
+on a Windows machine. Linux/WSL is the environment used for local integration tests.
 
 For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
 member**. That flag permits registry access; Django's separate **Administration site access**
