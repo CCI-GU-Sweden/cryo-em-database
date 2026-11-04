@@ -7,7 +7,10 @@ document.querySelectorAll("[data-registry-table]").forEach((table) => {
   let selected = defaults;
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
-    if (Array.isArray(saved) && saved.every((key) => typeof key === "string")) selected = saved;
+    if (Array.isArray(saved) && saved.every((key) => typeof key === "string")) {
+      selected = saved.filter((key) => key !== "humidity_raw")
+        .map((key) => key === "double_blot" ? "multiple_blot" : key);
+    }
   } catch (_) { /* Storage may be unavailable; default columns still work. */ }
 
   function apply(keys) {

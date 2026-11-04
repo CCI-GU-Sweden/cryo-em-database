@@ -12,7 +12,7 @@
   <button type="submit">Save this grid</button>
 </form>
 {% else %}
-<p>You can view this grid. An owner editor grant is needed to change preparation fields.</p>
+<p>You can view this grid. Editing requires the preparation operator, an owner Editor or an administrator.</p>
 {% for title, fields in form.preparation_groups %}<h2>{{ title }}</h2><dl>
 {% for field in fields %}<dt>{{ field.label }}</dt><dd>{{ field.value|default_if_none:"Unknown" }}</dd>{% endfor %}
 </dl>{% endfor %}

@@ -12,7 +12,7 @@
 5. Grids start **unclipped**, **not imaged**, and **awaiting storage**. Empty storage is valid at registration.
 6. **Clipping state**, **availability/custody**, **imaging state**, and **current physical location** are different axes. Shipping does not imply imaging; imaging usually precedes disposal but never automatically proves it.
 7. Physical lifecycle actions are captured in **append-only GridEvent records**. Database corrections/metadata edits are captured separately in **AuditEvent**.
-8. All CCI staff can read all grids. Owner-level write permissions must be enforced server-side (subject to final staff editing policy). Only CCI staff are onboarded initially.
+8. All CCI staff can read all grids. Session-operator and owner-granted editing permissions must be enforced server-side. Only CCI staff are onboarded initially.
 9. Don't infer any scientific value (including humidity scale and missing dates) during import.
 
 ## 1. Data relationships
@@ -89,20 +89,19 @@ A session is an **actual laboratory event**, not merely a convenient batch impor
 | `grid_type` | string? | Human-readable grid type such as Quantifoil/mesh |
 | `grid_box_number` | string? | Preparation grid box number; separate from physical storage |
 | `grid_type_reference` | string? | Parenthetical number; actual meaning needs confirmation |
-| `carbon_description` | string? | e.g., `No`; can be further structured later |
+| `carbon_description` | string? | Case-insensitive wording, stored lowercase (e.g. `no`) |
 | `carbon_thickness_nm` | Decimal? | Only when relevant and verified |
-| `glow_atmosphere` | string? | e.g., `Air` |
-| `glow_polarity` | string? | e.g., `Negative` |
+| `glow_atmosphere` | string? | Case-insensitive input, stored with capitalized words (e.g. `Air`) |
+| `glow_polarity` | string? | Case-insensitive input, stored with capitalized words (e.g. `Negative`) |
 | `glow_current_ma` | Decimal? | e.g., `15` |
 | `glow_duration_s` | Decimal? | e.g., `20` |
 | `sample_volume_ul` | Decimal? | Existing `Amount` |
 | `temperature_c` | Decimal? | e.g., `4` |
 | `humidity_percent` | Decimal? | **Only fill after confirming source convention** |
-| `humidity_raw` | string? | Preserve source such as `1` while convention unclear |
 | `blot_time_s` | Decimal? | Numeric duration |
 | `hold_time_s` | Decimal? | Numeric duration |
 | `blot_force` | Decimal? | Scale/unit requires clarification; raw source retained in import log |
-| `double_blot` | boolean? | `true`, `false`, or unknown |
+| `multiple_blot` | non-negative integer | Multiple blots; default 0, blank input becomes 0, integer >= 0 |
 | `notes` | text? | Individual remarks/observations, including historical copies/outcomes |
 | `created_at`, `updated_at` | timestamp | Automatic |
 
@@ -256,7 +255,7 @@ Recommended implementation is Django models + PostgreSQL. Ensure Django system c
 ## 7. Registration prototype implementation notes (2026-11-03)
 
 The initial registration slice implements SampleOwner, PreparationSession, Grid,
-OwnerAccessGrant, AuditEvent and the DEMO GridIdentifierCounter, using bigint keys.
+OwnerAccessGrant, AuditEvent and GridIdentifierCounter, using bigint keys.
 StorageLocation and GridEvent are deferred until the physical handling slice;
 initial physical state is displayed read-only, with no editable status columns.
 
@@ -271,10 +270,11 @@ initial physical state is displayed read-only, with no editable status columns.
   displayed suggestion is preserved; occupied suggestions are replaced with the
   next candidate. Assigned codes stay fixed, and existing longer codes remain
   unchanged. The database retains a 40-character column for those legacy codes.
-  Operational grid sequence rules remain D01.
-- Registration allocates synthetic DEMO IDs only, with 1–100 grids per session;
-  it can be disabled with `REGISTRY_DEMO_MODE=false`. Operational ID preview and
-  owner-prefix generation remain future work. IDs never derive from login names.
+  Operational grid sequence rules were confirmed in D01 on 2026-11-04.
+- Registration now uses the four-character sample-owner prefix and an independent
+  per-owner sequence (see section 10). Existing DEMO IDs are preserved. Creation
+  can be disabled with `GRID_REGISTRATION_ENABLED=false`. Operational ID preview
+  remains future UI work; batches are limited to 1–100 grids in this prototype.
 - New sessions require a timezone-aware preparation timestamp and record the
   authenticated operator. Nullable historical date/operator fields are retained
   for a future importer; the prototype does not create provisional legacy sessions.
@@ -287,9 +287,13 @@ initial physical state is displayed read-only, with no editable status columns.
 - Individual edits use a version field to reject stale saves. PostgreSQL triggers
   protect IDs/session membership, initial defaults and append-only audit history,
   including bulk ORM mutations. Generic admin cannot edit scientific records.
-- Owners and grants are administered by facility superusers, with audit records.
+- Active CCI staff may register new owners, with an automatic Editor grant for
+  the non-admin creator. Owner creation and this grant are atomic and audited.
+  Managing existing owners and other grants remains restricted to facility superusers.
   Read access requires active CCI membership or superuser status. Preparation
-  writes require an active owner and Editor grant, with a superuser override.
+  registration is open to all active CCI staff for every active owner. Preparation
+  edits require the session operator, owner Editor grant or superuser, and an
+  active owner. Visibility is independent of editing grants.
 
 These implementation choices preserve the conceptual model. The legacy grouping
 representation and correction workflow in the import specification remain open
@@ -314,3 +318,60 @@ before the importer is implemented; they are not silently settled by this slice.
   choices stay in per-account browser preferences; filtering runs server-side on
   typed fields. Numeric ranges use Decimal and inclusive bounds. Unknown values
   do not become numeric zero. All applied conditions combine with AND.
+
+## 9. Owner visibility and session registration (2026-11-04)
+
+All active CCI staff can view every owner in the owner directory, including
+inactive owners, and register new owners. The session selector shows all active
+owners regardless of creator or grants. Session creation does not confer an
+owner-wide grant. Operators may edit the grids from their own sessions; editing
+other operators' grids requires an owner Editor grant or facility superuser.
+The automatic Editor grant given to a new owner's non-admin creator remains in
+place. Inactive users cannot register or edit, and inactive owners cannot receive
+new sessions or preparation edits. Existing-owner administration remains admin-only.
+
+## 10. Confirmed owner-based grid IDs (2026-11-04)
+
+New IDs are `<owner.code>-<suffix>`, using exactly four lowercase letters/digits
+for the owner code. The suffix starts at `0001`, continues to `9999`, then uses
+`a001` through `a999`, `b001` through `b999`, through `z999` (35,973 values per
+owner). There is no `0000`, `a000`, wraparound or automatic suffix-length change.
+The order represents successful database generation within that owner, independently
+of preparation timestamps or sequences belonging to other owners.
+
+The service locks the SampleOwner row before creating/reading its stable
+`GridIdentifierCounter` namespace (`owner:<internal owner PK>`). Matching existing
+IDs contribute to the high-water mark, including recognized uppercase historical
+variants. This reserves existing identifiers without renaming them. The counter,
+session, grids and audit events share one transaction; failed batches consume no
+IDs, and retries return the original batch even when the sequence is exhausted.
+If the requested batch exceeds available space, creation fails before inserting
+the session. Existing `CCI-…`, `DEMO-…` and other legacy formats remain immutable.
+No new physical grids are created from blank workbook identifiers.
+
+Legacy owner codes longer than four characters remain unchanged; generation for
+those owners fails explicitly pending a separate audited correction decision.
+The old DEMO counter is retained as historical setup data and no longer allocated.
+
+## 11. Preparation wording and blot counts (2026-11-04)
+
+Carbon description is trimmed and casefolded (`No` and `no` both become `no`).
+Glow atmosphere and polarity are trimmed and title-cased (`air` becomes `Air`,
+`negative` becomes `Negative`); other scientific text is not case-normalized.
+Suggestions use the same normalization so casing alone does not create duplicates.
+
+Remove the active `humidity_raw` field. Humidity percentage remains optional;
+ambiguous Excel humidity is not converted or suggested. Replace `double_blot`
+with `multiple_blot`, validated as a non-negative integer in forms, services
+and the database. The label is Multiple blots; default/blank is 0. Negatives,
+fractions and booleans are rejected by the application. This is a numeric registry property.
+
+The user explicitly confirmed existing data is disposable test data and does not
+need historical preservation for this change. Migration 0006 removes retired
+columns, snapshot/audit keys and vocabulary entries without archival; existing
+blot values reset to the explicitly requested default 0, without interpreting the old boolean. It
+normalizes existing wording, advances snapshots to schema version 3, and increments
+grid versions so pre-migration forms cannot silently overwrite the changed schema.
+Snapshot/audit triggers are suspended only within that atomic migration and are
+restored afterward. This is a scoped prototype exception, not a general policy
+for altering scientific history after production use.

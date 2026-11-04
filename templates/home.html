@@ -2,7 +2,7 @@
 {% block content %}
 <h1>Welcome, {{ user.get_short_name|default:user.username }}</h1>
 <p>Register a preparation session, create grids from shared settings, then adjust each grid independently.</p>
-<p><a href="{% url 'registry:new_session' %}">New preparation session</a> · <a href="{% url 'registry:grid_list' %}">Browse grids</a></p>
+<p><a href="{% url 'registry:new_session' %}">New preparation session</a> · <a href="{% url 'registry:grid_list' %}">Browse grids</a> · <a href="{% url 'registry:owner_list' %}">Browse owners</a></p>
 {% if user.is_staff %}<p><a href="{% url 'admin:index' %}">Account administration</a></p>{% endif %}
 <form method="post" action="{% url 'logout' %}">
   {% csrf_token %}

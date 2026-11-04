@@ -32,11 +32,11 @@
 | H | `Glow discharge (atmosphere, polarity, current, time)` | `glow_atmosphere`, `glow_polarity`, `glow_current_ma`, `glow_duration_s` | Example `Air, Negative, 15 mA, 20 s`. Parse conservatively. |
 | I | `Amount` | `Grid.sample_volume_ul` | Example `3.5 µl`; normalize unit display only after verifying unit. |
 | J | `Temperature` | `Grid.temperature_c` | Example `4 °C`. |
-| K | `Humidity` | `Grid.humidity_raw`; optional `humidity_percent` after confirmation | Example `1` is ambiguous; store raw `1` and **leave percentage null**. |
+| K | `Humidity` | No active wording field; `humidity_percent` only after confirmation | Example `1` is ambiguous; **leave percentage null** and do not seed it. Original workbook remains private. |
 | L | `Blot time` | `Grid.blot_time_s` | Example `4 s`. |
 | M | `Hold time` | `Grid.hold_time_s` | Example `0 s`; zero is meaningful, not null. |
 | N | `Blot force` | `Grid.blot_force` | Example `0`; force scale/unit needs clarification. |
-| O | `Double blot` | `Grid.double_blot` | `No` → `false`; blank → unknown/null. |
+| O | `Double blot` | Legacy boolean column is not a Multiple blot count | Do not infer counts; `Grid.multiple_blot` uses default 0 unless an explicit non-negative integer is supplied. |
 | P | `Dewar` (unclipped) | `StorageLocation.dewar` for initial `stored` event | See parent group heading row 2. |
 | Q | `Cane` (unclipped) | `StorageLocation.cane` | Numeric IDs can be converted to string safely. |
 | R | `Puck (number/color)` (unclipped) | `StorageLocation.puck`, optional `puck_color` | Distinguish number versus color when present. |
@@ -79,7 +79,7 @@ If source data contain *both* unclipped and clipped locations, create historical
 - **Conservative and reversible:** keep source workbook unchanged and retain original row/text values in a private import log/report.
 - Preserve Unicode micro sign `µ`, degree symbol `°`, capitalization, spaces, and comments in the archival raw value.
 - Use `Decimal` after safely extracting number and **verified** unit. Do not transform units silently.
-- Empty ≠ zero ≠ false; map blanks to `null`, literal `0` to numeric zero, and `No` to boolean false only in the appropriate field.
+- Empty ≠ zero ≠ false; map blanks to `null`, literal `0` to numeric zero, and `No` to boolean false only in a field whose semantics actually are boolean. The retired Double blot column must not be treated as an integer count.
 - Use exact/controlled parser rules for composite columns. If a cell does not match expected pattern, flag `needs_review`, preserve raw text, and do not guess.
 - Treat identifier strings as text, including leading zeroes (`CCI-00001`).
 - Deduplicate by normalized `grid_number`, report conflicts with existing rows, and never silently overwrite existing grid records.

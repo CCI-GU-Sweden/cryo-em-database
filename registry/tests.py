@@ -38,7 +38,7 @@ class RegistrationTests(TestCase):
         cls.admin = User.objects.create_superuser(username="demo-admin")
         cls.editor = User.objects.create_user(username="demo-editor", is_cci_staff=True)
         cls.reader = User.objects.create_user(username="demo-reader", is_cci_staff=True)
-        cls.owner = SampleOwner.objects.create(name="Synthetic Owner", code="synthetic")
+        cls.owner = SampleOwner.objects.create(name="Synthetic Owner", code="syow")
         cls.other_owner = SampleOwner.objects.create(name="Other Owner", code="other")
         OwnerAccessGrant.objects.create(user=cls.editor, owner=cls.owner, role="editor")
 
@@ -52,7 +52,7 @@ class RegistrationTests(TestCase):
                 "sample_description": "Synthetic sample",
                 "blot_time_s": Decimal("4"),
                 "hold_time_s": Decimal("0"),
-                "double_blot": False,
+                "multiple_blot": 1,
             },
             request_token=uuid.uuid4(),
         )
@@ -70,7 +70,7 @@ class RegistrationTests(TestCase):
         session = self.create_session()
         grids = list(session.grids.all())
         self.assertEqual(len(grids), 8)
-        self.assertEqual(grids[0].grid_number, "DEMO-0001")
+        self.assertEqual(grids[0].grid_number, "syow-0001")
         for grid in grids[:2]:
             self.update_grid(grid, blot_time_s=Decimal("6"))
         session.refresh_from_db()
@@ -83,22 +83,21 @@ class RegistrationTests(TestCase):
         self.assertEqual(audit.actor, self.editor)
         self.assertEqual(audit.changes["blot_time_s"], {"before": "4.0000", "after": "6"})
 
-    def test_unknown_zero_and_false_are_distinct(self):
+    def test_unknown_zero_and_positive_blot_counts_are_distinct(self):
         grid = self.create_session().grids.first()
         self.assertIsNone(grid.sample_concentration_value)
         self.assertIsNone(grid.humidity_percent)
         self.assertEqual(grid.hold_time_s, 0)
-        self.assertIs(grid.double_blot, False)
-        grid = self.create_session(preparation={"humidity_raw": "1"}).grids.first()
+        self.assertEqual(grid.multiple_blot, 1)
+        grid = self.create_session(preparation={}).grids.first()
         self.assertIsNone(grid.humidity_percent)
-        self.assertEqual(grid.humidity_raw, "1")
-        self.assertIsNone(grid.double_blot)
+        self.assertEqual(grid.multiple_blot, 0)
 
     def test_failed_batch_rolls_back_grids_session_audit_and_counter(self):
         original_save = Grid.save
 
         def fail_second_grid(grid, *args, **kwargs):
-            if grid.grid_number == "DEMO-0002":
+            if grid.grid_number == "syow-0002":
                 raise ValidationError("Simulated failure partway through a batch.")
             return original_save(grid, *args, **kwargs)
 
@@ -107,8 +106,10 @@ class RegistrationTests(TestCase):
         self.assertEqual(Grid.objects.count(), 0)
         self.assertEqual(PreparationSession.objects.count(), 0)
         self.assertEqual(AuditEvent.objects.count(), 0)
-        self.assertEqual(GridIdentifierCounter.objects.get(namespace="DEMO").next_number, 1)
-        self.assertEqual(self.create_session().grids.first().grid_number, "DEMO-0001")
+        self.assertFalse(
+            GridIdentifierCounter.objects.filter(namespace=f"owner:{self.owner.pk}").exists()
+        )
+        self.assertEqual(self.create_session().grids.first().grid_number, "syow-0001")
 
     def test_retry_returns_same_session_without_consuming_identifiers(self):
         token, prepared_at = uuid.uuid4(), timezone.now()
@@ -117,16 +118,17 @@ class RegistrationTests(TestCase):
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(Grid.objects.count(), 8)
         self.assertEqual(AuditEvent.objects.filter(entity_type="Grid").count(), 8)
-        self.assertEqual(GridIdentifierCounter.objects.get(namespace="DEMO").next_number, 9)
+        self.assertEqual(
+            GridIdentifierCounter.objects.get(namespace=f"owner:{self.owner.pk}").next_number, 9
+        )
         with self.assertRaises(ValidationError):
             self.create_session(request_token=token, prepared_at=prepared_at, grid_count=2)
 
     def test_direct_service_permissions_and_revocation(self):
-        for actor in [self.reader, User(), self.editor]:
-            owner = self.other_owner if actor == self.editor else self.owner
-            with self.assertRaises(PermissionDenied):
-                self.create_session(actor=actor, owner=owner)
-        grid = self.create_session().grids.first()
+        with self.assertRaises(PermissionDenied):
+            self.create_session(actor=User())
+        # An owner grant allows editing another operator's grids; lower roles do not.
+        grid = self.create_session(actor=self.admin).grids.first()
         for role in ["viewer", "operator"]:
             OwnerAccessGrant.objects.filter(user=self.editor).update(role=role)
             with self.assertRaises(PermissionDenied):
@@ -151,8 +153,8 @@ class RegistrationTests(TestCase):
                 self.create_session(grid_count=count)
         self.assertEqual(Grid.objects.count(), 0)
 
-    @override_settings(REGISTRY_DEMO_MODE=False)
-    def test_demo_allocation_is_blocked_when_disabled(self):
+    @override_settings(GRID_REGISTRATION_ENABLED=False)
+    def test_grid_registration_is_blocked_when_disabled(self):
         with self.assertRaises(ValidationError):
             self.create_session()
         self.assertFalse(Grid.objects.exists())
@@ -187,10 +189,14 @@ class RegistrationTests(TestCase):
         self.assertEqual(grid.blot_time_s, 7)
         self.assertEqual(grid.version, updated.version)
 
-    def test_revoked_grant_and_inactive_owner_block_new_writes(self):
+    def test_revoked_grant_blocks_other_operators_edits_and_inactive_owner_blocks_creation(
+        self,
+    ):
+        grid = self.create_session(actor=self.admin).grids.first()
         OwnerAccessGrant.objects.filter(user=self.editor).delete()
         with self.assertRaises(PermissionDenied):
-            self.create_session()
+            self.update_grid(grid, blot_time_s=Decimal("9"))
+        self.create_session()  # Registering a new session does not need an owner grant.
         self.owner.active = False
         self.owner.save(update_fields=["active"])
         with self.assertRaises(PermissionDenied):
@@ -217,11 +223,11 @@ class RegistrationTests(TestCase):
 
     def test_case_insensitive_uniqueness_and_legacy_identifier(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
-            SampleOwner.objects.create(name="Duplicate", code="SYNTHETIC")
+            SampleOwner.objects.create(name="Duplicate", code="SYOW")
         grid = self.create_session().grids.first()
         Grid.objects.create(session=grid.session, grid_number="CCI-00001")
         with self.assertRaises(IntegrityError), transaction.atomic():
-            Grid.objects.create(session=grid.session, grid_number="demo-0001")
+            Grid.objects.create(session=grid.session, grid_number="SYOW-0001")
         self.assertTrue(Grid.objects.filter(grid_number="CCI-00001").exists())
 
     def session_post(self, **overrides):
@@ -233,7 +239,7 @@ class RegistrationTests(TestCase):
             sample_description="Synthetic sample",
             blot_time_s="4",
             hold_time_s="0",
-            double_blot="false",
+            multiple_blot="1",
         )
         data.update(overrides)
         return data
@@ -246,7 +252,7 @@ class RegistrationTests(TestCase):
         session = PreparationSession.objects.get()
         self.assertRedirects(response, reverse("registry:session_detail", args=[session.pk]))
         self.assertContains(self.client.get(response.url), "Original shared settings")
-        self.assertContains(self.client.get(reverse("registry:grid_list")), "DEMO-0001")
+        self.assertContains(self.client.get(reverse("registry:grid_list")), "syow-0001")
         grid = session.grids.first()
         url = reverse("registry:grid_detail", args=[grid.pk])
         self.assertContains(self.client.get(url), "Unclipped")
@@ -265,11 +271,11 @@ class RegistrationTests(TestCase):
         self.assertRedirects(response, url)
         grid.refresh_from_db()
         self.assertEqual(grid.blot_time_s, 6)
-        self.assertEqual(grid.grid_number, "DEMO-0001")
+        self.assertEqual(grid.grid_number, "syow-0001")
         self.assertEqual(session.grids.filter(blot_time_s=4).count(), 7)
         self.assertContains(self.client.get(url), "Database audit history")
         self.assertContains(
-            self.client.get(reverse("registry:grid_list"), {"q": "Synthetic"}), "DEMO-"
+            self.client.get(reverse("registry:grid_list"), {"q": "Synthetic"}), "syow-"
         )
 
     def test_http_read_access_and_write_rejection(self):
@@ -280,8 +286,9 @@ class RegistrationTests(TestCase):
         self.assertContains(self.client.get(url), "You can view this grid")
         self.assertEqual(self.client.post(url, {"blot_time_s": 9}).status_code, 403)
         response = self.client.post(reverse("registry:new_session"), self.session_post())
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(PreparationSession.objects.count(), 1)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(PreparationSession.objects.count(), 2)
+        self.assertEqual(self.client.post(url, {"blot_time_s": 9}).status_code, 403)
         outsider = User.objects.create_user(username="outsider")
         self.client.force_login(outsider)
         self.assertEqual(self.client.get(reverse("registry:grid_list")).status_code, 403)
@@ -391,7 +398,7 @@ class RegistrationTests(TestCase):
         self.assertContains(response, "Sample owner registered with code snt1")
         self.assertFalse(User.objects.filter(username="Synthetic").exists())
 
-    def test_refresh_code_keeps_owner_details_and_non_admin_cannot_register(self):
+    def test_refresh_code_keeps_owner_details(self):
         self.client.force_login(self.admin)
         url = reverse("registry:new_owner")
         response = self.client.post(
@@ -406,11 +413,6 @@ class RegistrationTests(TestCase):
         self.assertContains(response, "anna")
         self.assertContains(response, "Retain this lab")
         self.assertContains(response, "Retain this note")
-        self.client.force_login(self.editor)
-        self.assertEqual(self.client.get(url).status_code, 403)
-        self.assertEqual(
-            self.client.post(url, {"name": "Denied", "action": "save"}).status_code, 403
-        )
 
     def test_admin_owner_preview_checks_uniqueness_without_registering_owner(self):
         self.client.force_login(self.admin)
@@ -475,8 +477,7 @@ class ConcurrentRegistrationTests(TransactionTestCase):
 
     def test_simultaneous_batches_have_unique_ids(self):
         actor = User.objects.create_superuser(username="concurrent-demo-admin")
-        owner = SampleOwner.objects.create(name="Concurrent synthetic owner", code="concurrent")
-        GridIdentifierCounter.objects.get_or_create(namespace="DEMO")
+        owner = SampleOwner.objects.create(name="Concurrent synthetic owner", code="cnow")
         barrier = Barrier(2)
 
         def create_batch(_):

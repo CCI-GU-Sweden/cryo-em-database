@@ -39,7 +39,7 @@ COLUMNS = [
 ]
 for name in PREPARATION_FIELDS:
     field = Grid._meta.get_field(name)
-    kind = "number" if isinstance(field, models.DecimalField) else "text"
+    kind = "number" if isinstance(field, (models.DecimalField, models.IntegerField)) else "text"
     if isinstance(field, models.BooleanField):
         kind = "boolean"
     COLUMNS.append(

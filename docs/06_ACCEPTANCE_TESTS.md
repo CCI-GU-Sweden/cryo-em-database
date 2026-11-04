@@ -36,7 +36,7 @@
 
 - [ ] All authenticated CCI staff can view all owners and all grids.
 - [ ] CCI admin can create/deactivate accounts, create owners, manage codes, and assign/revoke owner access grants.
-- [ ] Non-admin CCI staff without a grant cannot edit a different owner's grid (unless broader staff editing is explicitly approved).
+- [ ] Non-admin CCI staff may edit their own session grids; editing other operators' grids requires an owner Editor grant. Registration for any active owner requires no grant.
 - [ ] Owner-granted editor can edit allowed preparation fields; operator can invoke allowed lifecycle actions but not change preparations.
 - [ ] Unauthorized writes fail via detail page, table batch update, direct URL, and service endpoint.
 - [ ] Request targeting multiple grids with a mix of authorized and unauthorized records does not silently modify the unauthorized records.
@@ -53,7 +53,7 @@
 - [ ] Parsed example `Air, Negative, 15 mA, 20 s` yields 4 individual structured values.
 - [ ] Parsed `6 mg/ml`, `3.5 µl`, `4 °C`, `4 s`, `0 s` yield correct typed values and units.
 - [ ] Humidity `1` remains raw/unknown; no silent conversion to `1%` or `100%`.
-- [ ] Blot force `0` remains zero and double blot `No` becomes false.
+- [ ] Blot force `0` remains zero; legacy Double blot wording does not become an inferred count. Multiple blots defaults to 0 or an explicitly entered non-negative integer.
 - [ ] Unknown freeze dates and historical operators stay unknown, rather than today's date/current user.
 - [ ] Source notes are retained verbatim. `too thick ice - throw away` does not automatically set discarded status.
 - [ ] `JB002` is preserved without inventing a verified preparation session.
@@ -89,7 +89,7 @@ Capture usability notes and errors; prioritize removing friction before adding A
 
 The automated registration tests cover owner code uniqueness, eight-grid creation,
 independent edits, preserved snapshots, rollback including ID allocation, concurrent
-DEMO batches, retries, stale edits, scientific validation, authorization via forms
+owner-prefixed batches, retries, stale edits, scientific validation, authorization via forms
 and services, admin auditing and database history protection. These are scoped
 prototype checks; the full criteria above remain the v0.1 release checklist.
 
@@ -114,3 +114,48 @@ lifecycle scenarios are deferred to the next slice.
   and boolean filters distinguish Yes/No/Unknown. Multiple filters and free search
   combine with AND, including across pagination. Invalid fields and inverted ranges
   cannot expose arbitrary ORM lookups or silently broaden results.
+
+## Staff owner registration (2026-11-04)
+
+- Active CCI staff can generate a code and register a new owner without Django
+  administration-site access or any existing owner grant.
+- The non-admin creator receives an Editor grant for that new owner and can
+  immediately create a preparation session. Owner and grant creation are atomic
+  and both changes are audited with the staff actor.
+- Other users receive no automatic grants. Existing owners/grants cannot be
+  changed through this creation endpoint, including via forged form fields.
+- Anonymous, inactive and non-CCI accounts cannot register owners. CSRF is required.
+- Administrative editing of existing owners and management of other grants remain
+  restricted to facility administrators.
+
+## Owner visibility and registration follow-up (2026-11-04)
+
+- All CCI members can search the directory of active/inactive owners and see all
+  active owners in the new-session selector, including owners created by colleagues.
+- Staff without owner grants can create a session for any active owner and edit
+  their own newly generated grids. This does not create an owner-wide grant.
+- Another staff member cannot edit those grids without an Editor grant or admin
+  rights; inactive owners are excluded from registration and inactive users are denied.
+
+## Owner-based identifiers (2026-11-04)
+
+- Each owner starts independently at 0001; sessions continue the same owner counter.
+- Numeric and letter rollover are correct, including batches crossing a boundary.
+- The suffix stays four lowercase characters through z999. Exhausted batches fail
+  atomically without consuming IDs or creating partial sessions/grids/audit entries.
+- Counter allocation and duplicate retries are safe under concurrent requests.
+- Existing CCI/DEMO identifiers remain unchanged, and recognized owner-prefixed
+  historical IDs reserve their suffixes before subsequent generation.
+- Legacy owner codes are never silently reformatted to enable generation.
+
+## Preparation-field refinement (2026-11-04)
+
+- Carbon case variants share lowercase storage/suggestions; glow atmosphere and
+  polarity share capitalized-word storage/suggestions, without altering other text.
+- Humidity wording is absent from model, form, table, suggestions and new snapshots.
+- Multiple blots defaults to 0; blank input also becomes 0. Accept non-negative
+  integers and reject negative, fractional and boolean input. Reject negative
+  values in the database as well.
+- Disposable test-data migration removes retired fields/keys, resets old blot
+  booleans to the requested default 0, updates snapshot version, and restores both history
+  guards. A populated migration test verifies cleanup and immutable behavior afterward.

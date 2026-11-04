@@ -82,5 +82,11 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Synthetic-only registration until operational owner numbering is agreed.
-REGISTRY_DEMO_MODE = os.environ.get("REGISTRY_DEMO_MODE", "true").lower() == "true"
+# Keep honoring an earlier local configuration that explicitly disabled creation.
+# New IDs use owner-based numbering; existing DEMO/CCI identifiers are unchanged.
+GRID_REGISTRATION_ENABLED = (
+    os.environ.get(
+        "GRID_REGISTRATION_ENABLED", os.environ.get("REGISTRY_DEMO_MODE", "true")
+    ).lower()
+    == "true"
+)

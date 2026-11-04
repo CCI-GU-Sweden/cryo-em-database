@@ -38,7 +38,7 @@ class PreparationInterfaceTests(TestCase):
                 "sample_concentration_value": Decimal("3.125"),
                 "sample_concentration_unit": "mg/mL",
                 "blot_time_s": Decimal("4"),
-                "double_blot": False,
+                "multiple_blot": 1,
             },
             request_token=uuid4(),
         )
@@ -50,14 +50,14 @@ class PreparationInterfaceTests(TestCase):
             preparation={
                 "sample_description": "Synthetic Beta",
                 "blot_time_s": 6,
-                "double_blot": True,
+                "multiple_blot": 2,
             },
         )
         update_grid_preparation(
             actor=cls.actor,
             grid_id=cls.third.pk,
             expected_version=1,
-            preparation={"blot_time_s": None, "double_blot": None},
+            preparation={"blot_time_s": None, "multiple_blot": None},
         )
 
     def setUp(self):
@@ -97,7 +97,7 @@ class PreparationInterfaceTests(TestCase):
         self.assertContains(response, "3.125")
         self.assertNotContains(response, "3.1250")
         self.assertEqual(self.session.defaults["grid_box_number"], "box-7")
-        self.assertEqual(self.session.defaults_schema_version, 2)
+        self.assertEqual(self.session.defaults_schema_version, 3)
 
     def test_suggestions_reuse_saved_values_and_allow_new_values(self):
         PreparationSuggestion.objects.create(field_name="grid_type", value="Seeded synthetic type")
@@ -141,16 +141,24 @@ class PreparationInterfaceTests(TestCase):
             {self.first.pk, self.second.pk, self.third.pk},
         )
 
-    def test_boolean_date_and_session_property_filters(self):
-        for value, expected in [
-            ("yes", self.second.pk),
-            ("no", self.first.pk),
-            ("unknown", self.third.pk),
-        ]:
+    def test_multiple_blot_ranges_date_and_session_property_filters(self):
+        for count, expected in [(2, self.second.pk), (1, self.first.pk)]:
             self.assertEqual(
-                self.ids(self.query({"property": "double_blot", "boolean_value": value})),
+                self.ids(
+                    self.query(
+                        {
+                            "property": "multiple_blot",
+                            "minimum": count,
+                            "maximum": count,
+                        }
+                    )
+                ),
                 {expected},
             )
+        self.assertEqual(
+            self.ids(self.query({"property": "multiple_blot", "minimum": 1})),
+            {self.first.pk, self.second.pk},
+        )
         today = timezone.localdate(self.session.prepared_at).isoformat()
         response = self.query({"property": "prepared_at", "from_date": today, "to_date": today})
         self.assertEqual(len(self.ids(response)), 3)
@@ -250,8 +258,8 @@ class SuggestionWorkbookTests(TestCase):
             self.assertEqual(PreparationSuggestion.objects.count(), count)
             self.assertEqual(AuditEvent.objects.filter(operation="seed_suggestions").count(), 1)
             self.assertEqual(Grid.objects.count(), 0)
-            self.assertTrue(
-                PreparationSuggestion.objects.filter(field_name="humidity_raw", value="1").exists()
+            self.assertFalse(
+                PreparationSuggestion.objects.filter(field_name="humidity_raw").exists()
             )
             self.assertFalse(
                 PreparationSuggestion.objects.filter(field_name="humidity_percent").exists()
