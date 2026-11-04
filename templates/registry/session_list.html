@@ -18,7 +18,7 @@
 <td><a href="{% url 'registry:session_detail' session.pk %}">{{ session.display_name }}</a></td>
 <td>{{ session.owner.name }}</td><td>{{ session.prepared_at|date:"Y-m-d"|default:"Unknown" }}</td>
 <td>{% if session.prepared_by %}{{ session.prepared_by.get_full_name|default:session.prepared_by.username }}{% else %}Unknown{% endif %}</td>
-<td>{{ session.grid_count }}</td><td>{{ session.experiment_reference|default:"—" }}</td><td>{{ session.project_reference|default:"—" }}</td>
+<td>{{ session.grid_count }}{% if session.deleted_count %}<br><a href="{% url 'registry:deleted_grid_list' %}?session={{ session.pk }}">{{ session.deleted_count }} deleted</a>{% endif %}</td><td>{{ session.experiment_reference|default:"—" }}</td><td>{{ session.project_reference|default:"—" }}</td>
 </tr>{% empty %}<tr><td colspan="7">No sessions found.</td></tr>{% endfor %}</tbody>
 </table></div>
 <p>Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} sessions</p>

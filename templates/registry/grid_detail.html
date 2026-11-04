@@ -13,15 +13,14 @@
 </form>
 {% else %}
 <p>You can view this grid. Editing requires the preparation operator, an owner Editor or an administrator.</p>
-{% for title, fields in form.preparation_groups %}<h2>{{ title }}</h2><dl>
-{% for field in fields %}<dt>{{ field.label }}</dt><dd>{{ field.value|default_if_none:"Unknown" }}</dd>{% endfor %}
-</dl>{% endfor %}
+{% include "registry/preparation_readonly.html" %}
 {% endif %}
-<h2>Database audit history</h2>
-{% for event in audit %}<article>
-<p>{{ event.recorded_at|date:"Y-m-d H:i T" }} · {{ event.actor }} · {{ event.operation }}</p>
-<details><summary>Changes</summary><dl>{% for name, change in event.changes.items %}
-<dt>{{ name }}</dt><dd>Before: {{ change.before|default_if_none:"—" }}<br>After: {{ change.after|default_if_none:"—" }}</dd>
-{% endfor %}</dl></details>
-</article>{% empty %}<p>No edits recorded.</p>{% endfor %}
+{% include "registry/audit_history.html" %}
+<section class="danger-zone">
+<h2>Remove a mistaken registration</h2>
+<p>Move this record to Deleted grids. You will need to re-enter your password.</p>
+<form method="get" action="{% url 'registry:grid_delete' grid.pk %}">
+<button type="submit" class="danger-button">Delete</button>
+</form>
+</section>
 {% endblock %}

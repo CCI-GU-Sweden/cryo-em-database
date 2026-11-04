@@ -7,6 +7,8 @@
 Prepared: {{ session.prepared_at|date:"Y-m-d H:i T" }}<br>
 Experiment: {{ session.experiment_reference|default:"—" }} · Project: {{ session.project_reference|default:"—" }}</p>
 {% if session.notes %}<p>{{ session.notes|linebreaksbr }}</p>{% endif %}
+{% if deleted_count %}<p>{{ deleted_count }} deleted grid{{ deleted_count|pluralize }} from this session:
+<a href="{% url 'registry:deleted_grid_list' %}?session={{ session.pk }}">View archive</a></p>{% endif %}
 {% include "registry/grid_rows.html" %}
 <details><summary>Original shared settings (preserved snapshot)</summary>
 {% for title, fields in snapshot_groups %}<h2>{{ title }}</h2><dl>

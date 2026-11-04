@@ -1,0 +1,18 @@
+{% comment %}Both grid detail pages receive the same ordered audit queryset.{% endcomment %}
+<h2>Database audit history</h2>
+{% for event in audit %}
+<article>
+  <p>{{ event.recorded_at|date:"Y-m-d H:i T" }} · {{ event.actor }} · {{ event.operation }}</p>
+  <details>
+    <summary>Changes</summary>
+    <dl>
+      {% for name, change in event.changes.items %}
+      <dt>{{ name }}</dt>
+      <dd>Before: {{ change.before|default_if_none:"—" }}<br>After: {{ change.after|default_if_none:"—" }}</dd>
+      {% endfor %}
+    </dl>
+  </details>
+</article>
+{% empty %}
+<p>No edits recorded.</p>
+{% endfor %}

@@ -48,6 +48,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 - Open grid detail form or edit permitted preparation cells in the bulk table.
 - Correct/adjust individual parameters independently of other grids. The session operator may edit their grids; editing another operator's grids requires an owner Editor grant or administrator rights.
 - Preserve an audit record identifying what changed and by whom; distinguish data corrections from actual physical actions.
+- Active CCI staff may delete an individual mistaken registration through a password-confirmed archive action. Deleted records leave normal views but retain their IDs, session links and history in a read-only Deleted grids area. This is separate from physical disposal.
 - A separate `copied_from_grid` relationship may record a deliberately copied preparation pattern; do not infer parenthood solely from similar values.
 
 ### Workflow C — Track storage and use

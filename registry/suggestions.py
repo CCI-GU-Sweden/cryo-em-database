@@ -10,7 +10,7 @@ def preparation_suggestions():
         seeded = PreparationSuggestion.objects.filter(field_name=name).values_list(
             "value", flat=True
         )
-        saved = Grid.objects.order_by().values_list(name, flat=True).distinct()
+        saved = Grid.objects.active().order_by().values_list(name, flat=True).distinct()
         values = {
             str(compact_decimal(normalize_preparation_text(name, value)))
             for value in [*seeded, *saved]

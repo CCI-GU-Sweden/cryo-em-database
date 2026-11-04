@@ -84,6 +84,7 @@ Staff without owner grants may edit their own session grids, but no other operat
 | Edit permitted preparation cells in bulk | Yes | Yes | No | No |
 | Record store / move / clip | Yes | Yes | Yes | No |
 | Record imaging / ship / discard | Yes | Yes | Yes | No |
+| Archive individual grid after own-password confirmation | Yes | Yes (all active CCI staff) | Yes (all active CCI staff) | No |
 | Change owner grant | Yes | No | No | No |
 | Edit historical physical events | Controlled correction only | No | No | No |
 | Import legacy workbook | Yes | No | No | No |
@@ -157,3 +158,15 @@ Database transactions must guard against concurrent requests assigning the same 
 - **OMERO:** store stable server/image/dataset/figure IDs when implemented; no image blobs in registry required.
 - **Local LLM:** separate background extraction pipeline from authorization and scientific source-of-truth. Its output is a *proposal for human review*, not an automatic edit to validated preparation data.
 - **Public protocol publishing:** internal structured protocol model may eventually be exported to protocols.io, but publication is not part of this grid MVP.
+
+## Grid deletion archive
+
+Deleting a mistaken registration requires an authenticated active CCI account,
+current-password verification on each submission and CSRF. The confirmation page
+shows the selected grid ID, owner and session; no typed ID is required. This action is permitted facility-wide, unlike preparation editing. The
+service locks the grid, checks its version and atomically creates a DeletedGrid
+marker plus AuditEvent. Stored scientific records remain in the same PostgreSQL
+database and become read-only; all normal registry/session views filter them out.
+Original IDs and session relationships remain reserved. Archive views are read-only
+and passwords are excluded from logs/history/forms. No purge or restore endpoint
+is exposed. Physical lifecycle actions remain separate.

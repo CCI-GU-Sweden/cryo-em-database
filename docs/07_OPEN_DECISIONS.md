@@ -28,6 +28,7 @@ This is a **decision register**, not a requirement to answer everything before w
 |---|---|
 | Owner visibility and session creation (2026-11-04) | All CCI staff see every owner and can create sessions for any active owner without grants. The session operator can edit their grids; other operators' grids require an owner Editor grant or administrator. |
 | Staff owner registration (2026-11-04) | Active CCI staff can create sample owners through the registry without administration-site access. Non-admin creators receive an Editor grant for the new owner; other grants and existing-owner administration remain admin-only. |
+| Individual grid deletion archive (2026-11-04) | All active CCI staff may archive a specific mistaken registration after reviewing the displayed grid and re-entering their own password; no typed ID is required. Use the same PostgreSQL database with a separate read-only Deleted grids area; preserve IDs/history and exclude records from normal views. Permanent purge tooling is deferred. |
 | Session ownership | One sample owner per actual preparation session |
 | Defaults | Preserve session snapshot and copy parameters into each new grid |
 | Experiment reference | Optional |

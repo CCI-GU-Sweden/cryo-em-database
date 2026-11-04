@@ -102,9 +102,8 @@ lifecycle scenarios are deferred to the next slice.
 
 - Box number is editable beside Grid type, copied into independent grids and the
   versioned session snapshot, and is separate from storage.
-- Concentration accepts three decimal places and omits unnecessary display zeros.
-  Excess input precision is rejected; existing significant digits are protected
-  during migration.
+- Concentration omits unnecessary display zeros. The initial three-decimal input
+  limit was replaced by the two-decimal policy below on 2026-11-04.
 - Preparation fields suggest previous values while accepting novel entries.
   Private workbook suggestions are dry-run capable, idempotent and provenance-aware;
   they must not create physical records or convert unknown humidity to percentages.
@@ -178,3 +177,24 @@ lifecycle scenarios are deferred to the next slice.
   owner/date filters. Invalid ranges fail clearly and pagination retains filters.
 - Display naming handles timezone boundaries and does not modify stored timestamps,
   snapshots, IDs or audit history. Anonymous/non-CCI/inactive users cannot browse.
+
+## Password-confirmed deletion archive (2026-11-04)
+
+- Grid detail ends with a red Delete button, followed by a distinct confirmation
+  showing the grid ID/owner/session and requiring only the actor's own password
+  (no typed grid ID). GET/Cancel never mutate.
+- Active CCI staff can archive individual grids even without owner editor grants;
+  non-CCI, inactive and anonymous accounts are denied. Unusable-password accounts,
+  incorrect passwords, missing CSRF and stale versions cannot archive records.
+- Deletion atomically preserves scientific data and session history, creates one
+  DeletedGrid marker and one AuditEvent, and increments the edit version. Audit
+  failure rolls everything back; concurrent/repeated confirmations are idempotent.
+- Active registry searches/filters, normal detail URLs, session rows/counts and
+  admin Grid views exclude deleted records. A separate read-only archive supports
+  inspection with actor/time, search and session filtering.
+- Archived records cannot be edited through old endpoints, services or normal SQL
+  updates; archive markers and IDs are immutable. IDs stay reserved and original
+  batch retries do not recreate archived grids. No password enters history or
+  rendered form responses. No physical disposal event is inferred.
+- Permanent purge and restore remain deferred; any future purge must retain ID
+  reservations instead of making historical IDs available for reuse.
