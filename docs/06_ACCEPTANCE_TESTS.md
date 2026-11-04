@@ -18,7 +18,7 @@ authentication and shutdown with spaces/apostrophe in its path.
 | Current Excel format | Filtered all-page export, hand-entry labels, missing owners, conflicts, atomic/repeated imports, colour groups and noon/Stockholm defaults tested |
 | Import/export permissions | Explicit CCI flag for import, including admins; export shares registry visibility and checks direct calls |
 | Session Enter key | Targeted JavaScript event checks passed; normal suggestions/newlines/button activation retained |
-| Native Windows | Layout/password-file/startup branches unit-tested; colleague's full start/login/check/stop verification remains pending |
+| Native Windows | Colleague confirmed app startup and repeated stop; Ctrl+C also stopped PostgreSQL on that setup. Full check/login/data-retention/path-space acceptance remains pending |
 | Physical handling | StorageLocation/GridEvent, occupancy and lifecycle actions not implemented |
 | Release readiness | Shared deployment, CI automation, backup schedule and tested restore are not configured |
 
@@ -108,9 +108,10 @@ Capture usability notes and errors; prioritize removing friction before adding A
 
 ## F. Deployment readiness
 
-- [ ] Native Windows Conda: `python dev.py` initializes the database, migrates,
-  starts the app and supports login; `python dev.py check` and `python dev.py stop`
-  work. Paths with spaces must work. Keep existing settings/data on later starts.
+- [x] A colleague confirmed native Windows app startup and repeated `python dev.py stop`.
+  On that setup, Ctrl+C stopped both the app and PostgreSQL; already-stopped handling worked.
+- [ ] Complete remaining native Windows acceptance: full `python dev.py check`,
+  login, paths with spaces, and settings/data retention across subsequent starts.
 - [ ] Stop/status handle an uninitialized or stopped checkout without a traceback.
   Repeat stop succeeds; permission/directory errors and a still-running server
   after failed shutdown remain failures. No unrelated cluster or PID file is changed.

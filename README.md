@@ -62,12 +62,15 @@ The helper retains the database on stop. Run
 Stop/status apply only to this checkout's `.local/postgres/` directory. Stop is
 safe to repeat: if this checkout has no local database or it is already stopped,
 the command prints that state and succeeds. Permission errors and failed shutdowns
-remain errors. The command does not delete data/PID files or stop another checkout.
+remain errors. The helper does not manually delete data/PID files or stop another checkout.
 
-If the app previously opened but status now says stopped, inspect the latest
-`.local/postgres.log` entries to determine whether PostgreSQL shut down or exited.
-An absent PID file alone does not explain why it stopped. The Windows confirmation
-of this scenario remains pending until the colleague's log/start/check/stop review.
+A colleague confirmed that on the tested native Windows setup, Ctrl+C stopped
+both the web app and PostgreSQL. A subsequent `python dev.py stop` correctly
+reports the already-stopped state and succeeds. This does not delete the database;
+the next launch uses the existing records. The exact console/process mechanism
+has not been investigated, so do not assume every Windows terminal behaves alike.
+For an unexplained shutdown, inspect `.local/postgres.log`; a missing PID file alone
+does not establish why the server stopped.
 
 The launcher handles native Windows Conda
 tool paths (`Library/bin` for PostgreSQL, `Scripts` for Ruff), as well as Linux/WSL
@@ -80,8 +83,9 @@ reports a missing tool, run `where python`, `where initdb`, `where pg_ctl` and
 same Conda environment as Python. Do not copy database executables into the
 project or Python directory, and keep the generated `.env` on subsequent runs.
 Windows path selection, password-file cleanup and startup options are covered
-by automated tests; a full native Windows start/check/stop still needs validation
-on a Windows machine. Linux/WSL is the environment used for local integration tests.
+by automated tests. Native Windows app startup and repeated stop were confirmed
+by a colleague; the full `python dev.py check` run and remaining native acceptance
+checks are still pending. Linux/WSL is used for local automated integration tests.
 
 For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
 member**. That flag permits registry access; Django's separate **Administration site access**
@@ -220,7 +224,7 @@ initial migration so later authentication changes retain stable user IDs.
 
 The last full verification recorded on 2026-11-04 passed 128 tests, including
 current Excel transfer, archive protection and launcher portability. Native
-Windows end-to-end and the six-staff pilot still require manual verification;
+Windows full-check/remaining acceptance and the six-staff pilot still need verification;
 see [the acceptance checklist](docs/06_ACCEPTANCE_TESTS.md).
 
 For an exact recreation of the tested **Linux x86-64** environment, use
@@ -254,7 +258,7 @@ The initial Excel example uses `CCI-00001` etc. The new application should also 
 - **Implemented:** owner/session/grid registration, per-owner IDs, individual edits with audit history, registry column selection and filters, session browsing, password-confirmed archive, and current-format XLSX import/export.
 - **Confirmed policy:** all active CCI staff can edit all active grids; import requires the CCI flag, while export follows viewing access. New owner codes and ID sequences are settled. Facility time is Europe/Stockholm.
 - **Not yet implemented:** physical storage/lifecycle events, bulk/inline table editing, CSV export, the original combined-field workbook importer, archive restore/purge, shared hosting and backups.
-- **Unresolved:** storage hierarchy/occupancy rules and uncertain source conventions for humidity, parenthetical grid references and blot force. Native Windows end-to-end verification is pending. See `docs/07_OPEN_DECISIONS.md`.
+- **Unresolved:** storage hierarchy/occupancy rules and uncertain source conventions for humidity, parenthetical grid references and blot force. Native Windows startup/stop are confirmed; its full-check and remaining acceptance are pending. See `docs/07_OPEN_DECISIONS.md`.
 
 ## Source workbook
 
@@ -262,7 +266,7 @@ The uploaded source workbook was inspected for this handoff: **`Cryo-EM_grids_ex
 
 ## Next proposed development slice
 
-Complete the colleague's native Windows start/check/stop verification, then review
+Complete the remaining native Windows checks, including `python dev.py check`, then review
 the real storage hierarchy and occupancy rules with staff (decision D03). Once
 confirmed, the next proposed feature is initial store/move actions with immutable
 event history and atomic occupancy checks. Do not infer the location convention

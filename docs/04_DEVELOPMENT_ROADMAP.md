@@ -15,14 +15,14 @@
 | Mistaken registrations | Password-confirmed archive and read-only Deleted grids implemented; restore/purge deferred |
 | Current Excel transfer | Filtered XLSX export, colour groups, blank hand-entry template, plain Session labels, preview/confirmation and audited atomic import implemented |
 | Facility time | Europe/Stockholm; date-only imports default to noon and report it; blank dates stay unknown |
-| Windows launcher | Conda paths, password-file handling and startup options fixed; native Windows start/check/stop still needs colleague verification |
+| Windows launcher | Colleague confirmed app startup and repeated stop; Ctrl+C stopped both app and PostgreSQL on that setup. Full Windows check/remaining acceptance pending |
 | Last full validation | 128 tests and all project checks passed on Linux/WSL; a fresh temporary PostgreSQL cluster also passed startup/authentication/shutdown with spaces/apostrophe in its path |
 
 Remaining work includes initial physical storage/events, full lifecycle actions,
 bulk/inline edits, original legacy workbook parsing, CSV/full-history exports,
 shared deployment and backup/restore. Excel transfer is not a database backup.
 
-**Next proposed slice:** finish native Windows verification and agree D03 with
+**Next proposed slice:** finish remaining native Windows verification and agree D03 with
 staff using real examples of storage positions and occupancy. Then implement only
 initial store/move actions with an immutable event history and atomic occupancy
 checks. Do not guess the storage hierarchy or expand this slice to every lifecycle
@@ -66,7 +66,7 @@ Use a clearly labeled prototype database and synthetic data. Excel remains autho
 
 ## Phase 0 — Local scaffold
 
-**Status:** implemented and integration-tested on Linux/WSL; native Windows manual verification pending.
+**Status:** implemented and integration-tested on Linux/WSL. A colleague confirmed native Windows startup/repeated stop; its full check and remaining acceptance are pending.
 
 - Configure Django/PostgreSQL, the custom user model, dependency locking, Ruff and test commands.
 - Document database startup, migrations, account creation and loopback app startup.
@@ -194,7 +194,7 @@ of inactive/non-CCI edits and archived-record changes.
 
 | Task | Status / dependency | Concrete output |
 |---|---|---|
-| T01 | Implemented; Windows manual check pending | Scaffold, Conda launcher, tests and run instructions |
+| T01 | Implemented; Windows startup/stop confirmed, full check pending | Scaffold, Conda launcher, tests and run instructions |
 | T02 | Implemented | Registration models, audit, admin and synthetic fixtures |
 | T03 | Implemented | Owner-code and per-owner grid allocation; atomic session creation |
 | T04 | Implemented for internal accounts | Shared staff editing, import/write boundary, export visibility and permission tests |
