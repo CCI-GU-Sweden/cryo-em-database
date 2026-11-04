@@ -59,7 +59,7 @@ running. This setup targets local Linux/WSL development and uses disposable
 synthetic data. It is not a shared or production deployment.
 
 For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
-member**. That flag permits registry access; Django's separate **Staff status**
+member**. That flag permits registry access; Django's separate **Administration site access**
 flag permits entry to the administration site. The initial superuser has both
 administrative and registry access. Accounts can be deactivated rather than
 deleted. Future owner grants will control record editing.
@@ -92,7 +92,7 @@ Use synthetic names and samples while evaluating this prototype:
    **CCI staff member**, and set their password. First and last names are optional
    display information. Under **Registry → Owner access grants**, assign that
    account the **Editor** role for the sample owner. Ordinary operators do not
-   need Django's **Staff status** flag. Administrators can edit all active owners.
+   need Django's **Administration site access** flag. Administrators can edit all active owners.
 4. Open **New preparation session**, select the owner, enter preparation date/time
    and shared conditions, and choose eight grids. The logged-in operator is
    recorded as **Prepared by**. Session notes apply to the session; grid notes are
