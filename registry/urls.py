@@ -1,10 +1,13 @@
 from django.urls import path
 
-from . import views
+from . import excel_views, views
 
 app_name = "registry"
 urlpatterns = [
     path("", views.grid_list, name="grid_list"),
+    path("export/", excel_views.excel_export, name="excel_export"),
+    path("import/", excel_views.excel_import, name="excel_import"),
+    path("import/template/", excel_views.excel_template, name="excel_template"),
     path("owners/", views.owner_list, name="owner_list"),
     path("owners/new/", views.new_owner, name="new_owner"),
     path("sessions/", views.session_list, name="session_list"),

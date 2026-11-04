@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 
 from accounts.models import User
 
-from .models import DeletedGrid, OwnerAccessGrant, SampleOwner
+from .models import DeletedGrid, SampleOwner
 
 
 def current_staff(actor):
@@ -29,28 +29,17 @@ def require_session_registration(actor, owner):
 
 
 def can_edit_grid(actor, grid):
-    return _can_edit_grid(current_staff(actor), grid)
+    current_staff(actor)
+    return _can_edit_grid(grid)
 
 
-def _can_edit_grid(actor, grid):
-    """Shared edit rule; public entry points reload staff privileges first."""
-    if DeletedGrid.objects.filter(grid_id=grid.pk).exists():
-        return False
-    if not SampleOwner.objects.filter(pk=grid.session.owner_id, active=True).exists():
-        return False
-    return (
-        actor.is_superuser
-        or grid.session.prepared_by_id == actor.pk
-        or OwnerAccessGrant.objects.filter(
-            user=actor, owner_id=grid.session.owner_id, role=OwnerAccessGrant.Role.EDITOR
-        ).exists()
-    )
+def _can_edit_grid(grid):
+    """All current staff share editing access; archived records stay read-only."""
+    return not DeletedGrid.objects.filter(grid_id=grid.pk).exists()
 
 
 def require_grid_editor(actor, grid):
     actor = current_staff(actor)
-    if not _can_edit_grid(actor, grid):
-        raise PermissionDenied(
-            "Only the preparation operator, an owner Editor or an administrator can edit this grid."
-        )
+    if not _can_edit_grid(grid):
+        raise PermissionDenied("Archived grid records are read-only.")
     return actor

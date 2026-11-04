@@ -62,34 +62,21 @@ Do not enable external registrations automatically. For the future, a researcher
 
 ## 4. Authorization and roles
 
-**Owner-based grants**, not mandatory project membership:
+**Internal CCI access is shared** (confirmed 2026-11-04):
 
-- **Admin:** see/change all owners, sessions, grids, events and user/permission settings.
-- **CCI staff:** read all grid records and register new sample owners. A non-admin creator automatically receives an Editor grant for that new owner. All active owners are visible in the new-session selector, and any CCI staff member can create a session for any active owner. Operators may edit their own session grids; editing another operator's grids requires an owner Editor grant or administrator rights.
-- **Owner viewer:** read assigned owner's grids (future external users).
-- **Owner operator:** use approved lifecycle actions, but not change scientific preparation settings (future).
-- **Owner editor:** may edit authorized owner grid preparation fields and actions allowed by policy.
+- Active CCI staff and facility administrators can view, register, import, export
+  and edit all active grids. Preparation operator identity is attribution.
+- Every mutation is audited with actor, time and relevant before/after values.
+- Archived records remain read-only. Archiving requires the actor's own password.
+- Account management and editing existing owner profiles/grants remain admin-only.
+- New owner registration/import creates no accounts or automatic grants.
+- OwnerAccessGrant is retained for future external access, whose exact policy
+  remains undecided. Existing grants do not limit internal CCI staff access.
+- Inactive and non-CCI accounts have no registry access. External users are not
+  enabled by this change.
 
-Staff without owner grants may edit their own session grids, but no other operators' grids. Owner operator/viewer grants do not remove this intrinsic operator access. Deactivation blocks all edits.
-
-### Proposed action matrix
-
-| Action | Admin | CCI staff with owner editor grant | CCI staff with owner operator grant | Future owner viewer |
-|---|---|---|---|---|
-| View CCI grid registry | Yes | Yes (all CCI staff) | Yes (all CCI staff) | No; only assigned owners |
-| Register new owner (automatic code) | Yes | Yes (all CCI staff) | Yes (all CCI staff) | No |
-| Manage existing owners, codes and grants | Yes | No | No | No |
-| Create preparation session + grids | Yes | Yes (all CCI staff) | Yes (all CCI staff) | No |
-| Edit preparation fields | Yes | Yes | No | No |
-| Edit permitted preparation cells in bulk | Yes | Yes | No | No |
-| Record store / move / clip | Yes | Yes | Yes | No |
-| Record imaging / ship / discard | Yes | Yes | Yes | No |
-| Archive individual grid after own-password confirmation | Yes | Yes (all active CCI staff) | Yes (all active CCI staff) | No |
-| Change owner grant | Yes | No | No | No |
-| Edit historical physical events | Controlled correction only | No | No | No |
-| Import legacy workbook | Yes | No | No | No |
-
-Final exact roles/permissions are **proposed**; they must be confirmed before exposing external access. In v0.1 only CCI accounts use them.
+Legacy workbook interpretation and physical lifecycle actions remain separately
+scoped work. Current-format Excel import is available to all active CCI staff.
 
 **Security requirements:**
 
@@ -137,7 +124,7 @@ Final exact roles/permissions are **proposed**; they must be confirmed before ex
 Implement operations as testable service functions rather than putting state rules exclusively in view functions:
 
 - `create_preparation_session_and_grids(...)` — capture immutable snapshot; allocate N IDs safely; create N independent grids; all or nothing.
-- `update_grid_preparation(...)` / `bulk_update_grid_preparation(...)` — check owner grant, validate values, write audit history.
+- `update_grid_preparation(...)` / future `bulk_update_grid_preparation(...)` — check active staff access and archive restrictions, validate values, write audit history.
 - `assign_storage(...)`, `move_grid(...)` — validate occupancy and lifecycle, append event, update current-state projection atomically.
 - `clip_grid(...)` — mark clipped, record actor/time, optionally move to clipped location in same transaction.
 - `remove_for_imaging(...)`, `record_imaging(...)`, `return_to_storage(...)` — keep imaging separate from disposal.
@@ -170,3 +157,16 @@ database and become read-only; all normal registry/session views filter them out
 Original IDs and session relationships remain reserved. Archive views are read-only
 and passwords are excluded from logs/history/forms. No purge or restore endpoint
 is exposed. Physical lifecycle actions remain separate.
+
+
+## Excel transfer implementation
+
+`registry/excel.py` defines and reads/writes the current workbook format.
+`registry/excel_import.py` builds a read-only validation plan and atomically applies
+it after confirmation. `registry/excel_views.py` handles downloads/uploads; the
+same `search_registry` function supplies the registry and export selection.
+Workbooks stay out of Git. Preview data is held in the existing database-backed
+Django session, scoped to the logged-in actor and an expiring confirmation token.
+Confirmation revalidates current database contents. Imports serialize owner
+creation/ID allocation and reserve imported natural IDs through existing unique
+constraints. Failure rolls back owners, sessions, grids and audit together.

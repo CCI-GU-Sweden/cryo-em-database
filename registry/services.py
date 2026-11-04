@@ -282,7 +282,7 @@ def allocate_owner_code(name, preferred_code):
 
 @transaction.atomic
 def create_sample_owner(*, actor, name, affiliation="", notes="", preferred_code=""):
-    """Staff create a new owner and receive editing access in one transaction.
+    """Staff register an owner; all active CCI staff already have editing access.
 
     This command deliberately cannot update an existing owner or assign rights
     to another user. Those administration operations retain their own boundary.
@@ -301,20 +301,6 @@ def create_sample_owner(*, actor, name, affiliation="", notes="", preferred_code
             for field in ("name", "code", "affiliation", "notes", "active")
         },
     )
-    if not actor.is_superuser:
-        grant = OwnerAccessGrant.objects.create(
-            user=actor, owner=owner, role=OwnerAccessGrant.Role.EDITOR
-        )
-        record_audit(
-            actor,
-            grant,
-            "grant",
-            {
-                "user_id": {"before": None, "after": actor.pk},
-                "owner_id": {"before": None, "after": owner.pk},
-                "role": {"before": None, "after": OwnerAccessGrant.Role.EDITOR},
-            },
-        )
     return owner
 
 

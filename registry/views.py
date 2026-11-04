@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .filters import GridFilterSet, apply_property_filters
+from .filters import search_registry
 from .forms import (
     DeletedGridBrowseForm,
     DeleteGridForm,
@@ -43,22 +43,7 @@ def add_service_error(form, error):
 @login_required
 def grid_list(request):
     current_staff(request.user)
-    query = request.GET.get("q", "").strip()
-    grids = Grid.objects.active().select_related("session__owner", "session__prepared_by")
-    if query:
-        grids = grids.filter(
-            Q(grid_number__icontains=query)
-            | Q(sample_description__icontains=query)
-            | Q(session__owner__name__icontains=query)
-            | Q(session__experiment_reference__icontains=query)
-        )
-    filter_data = request.GET if "filters-TOTAL_FORMS" in request.GET else None
-    filters = GridFilterSet(filter_data, prefix="filters")
-    if filters.is_bound:
-        if filters.is_valid():
-            grids = apply_property_filters(grids, filters)
-        else:
-            grids = grids.none()  # Invalid ranges must never silently broaden results.
+    grids, query, filters = search_registry(request.GET)
     parameters = request.GET.copy()
     parameters.pop("page", None)
     page = Paginator(grids.order_by("-pk"), 50).get_page(request.GET.get("page"))

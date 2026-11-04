@@ -115,3 +115,71 @@ identifier-only rows and formulas, reports unknown formats, and supports dry-run
 and repeat execution. Ambiguous parenthetical grid references remain references;
 they are not assigned to the new preparation box field without D05 confirmation.
 The full migration/import workflow above remains future work.
+
+
+## 10. Implemented current-format transfer (2026-11-04)
+
+The sections above describe the original legacy workbook migration, which is
+still deferred. The first implemented importer accepts the application's own
+current export. It deliberately uses today's atomic fields rather than adding
+compatibility with the old combined columns.
+
+- Any active CCI staff member may export/import. Export uses the same search and
+  property filters as the registry, includes all matching active rows across all
+  pages and all preparation fields, and excludes archived grids.
+- **Grids:** merged group headings in row 1 (Info, Sample conditions, Grid
+  treatment, Freezing conditions, Experiment reference, Additional notes), unique
+  atomic column headings in row 2, data from row 3. Numeric measurements are Excel
+  numbers displayed with two fractional places; IDs/text remain literal text.
+  A repeating teal/purple/amber palette links each group heading, column headings
+  and pale data-cell backgrounds.
+- **Owners:** row-1 headings; explicit owner code/name/affiliation/notes/active
+  status. Missing owners are listed by name/code in preview and created only on
+  confirmation. Existing code/profile conflicts reject the import. No login
+  accounts or access grants are created.
+- **Sessions:** optional for hand entry; row-1 headings link a visible Session
+  label to a hidden portable UUID, snapshot schema version and original defaults JSON. Treat this as supporting transfer information; actual
+  grid values stay in separate columns. Never infer sessions from owner/date alone.
+- **Read me:** optional format marker and user instructions. When present, the
+  marker must match; column headings must always match the template. Group decorations do not become scientific data.
+- Operator login in Grids resolves to an existing account when possible. Missing
+  logins stay unknown with a warning; no account is fabricated. All CCI staff can
+  edit regardless of operator. Import audit records the acting staff member and
+  preserves the original exported operator string.
+- Date-only strings `YYYY-MM-DD` and date-only Excel cells default to 12:00 in
+  `Europe/Stockholm`, with the offset for that date (including daylight saving).
+  Preview reports this default. Full timestamps use ISO 8601 including a UTC offset;
+  timestamps with a time but no offset are rejected. Blank historical dates remain
+  unknown. Null numeric values remain unknown and explicit zero remains zero.
+- A read-only preview validates owner/session consistency, scientific types and
+  precision and duplicate/reserved IDs. Copied-from relationships are outside
+  this workbook format; no source grid is needed to transfer a filtered subset.
+  Identifier-only preallocated rows are skipped.
+- Confirmation within 20 minutes rebuilds the plan against current database state
+  and atomically creates owners, sessions, grids and import audit/provenance.
+  Unchanged existing grids are skipped; conflicts stop the entire import. Imported
+  IDs are reserved by existing uniqueness/allocation rules. Repeat import is safe.
+- Limits: .xlsx, 5 MB compressed, 50 MB expanded, 5,000 data rows per worksheet.
+  Formula/error cells are rejected; formula-like text is exported as literal text.
+- This format transfers selected current records, not accounts, grants, deleted
+  archives, physical events, audit history or a full database backup. New database
+  internal row numbers/session display numbers may differ after transfer.
+
+
+### Hand-made workbooks and plain session labels
+
+The import page supplies a blank template. A colleague fills Grids and Owners,
+using a simple **Session** label (`session-1`, `morning`, etc.) to explicitly group
+one preparation. A label is required, up to 100 characters, case-insensitive and
+local to that workbook. Do not infer sessions merely from owner/date/reference.
+The Sessions worksheet may be left empty or omitted. Read me may be omitted;
+when present, keep its template marker. New internal UUIDs are allocated automatically. If
+original defaults are not supplied, use an explicitly unknown empty snapshot and
+warn in preview; never copy a grid's actual values into alleged session defaults.
+
+For a manual file imported again, its existing grid IDs may identify the explicitly
+labelled group's previous session. Reject labels that combine IDs from different
+existing sessions. Preserve existing metadata/defaults and reject conflicts. The
+same label in a different file with entirely new grid IDs creates a new session,
+even if owner/date/operator happen to match. Exported metadata takes precedence
+and preserves portable identity without these manual-file matching rules.

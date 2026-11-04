@@ -62,8 +62,9 @@ For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
 member**. That flag permits registry access; Django's separate **Administration site access**
 flag permits entry to the administration site. The initial superuser has both
 administrative and registry access. Accounts can be deactivated rather than
-deleted. Preparation operators can edit their own session
-grids; owner Editor grants allow editing other operators' grids for that owner.
+deleted. All active CCI staff can edit every active grid. The preparation operator
+is attribution, not an editing restriction; each change records its actor, time
+and before/after values. Archived grids remain read-only.
 
 If Docker is preferred, use `docker compose up -d db` **instead of** the database
 helper, after running `python scripts/configure_local.py`. Use the individual Django
@@ -82,9 +83,8 @@ Use synthetic names and samples while evaluating this prototype:
    The first two letters of the first and last name are used: `Rafael Silva`
    becomes `rasi`. If taken, the candidates are `rsi1`–`rsi9`, `rs10`–`rs99`,
    then `r100`–`r999`. Review affiliation/notes and save to continue with that
-   owner preselected. A non-admin creator automatically receives an Editor grant
-   for this new owner and can immediately register preparations. Other users
-   receive no automatic grants. Codes are checked under a database lock on save; the
+   owner preselected. All CCI staff can immediately register and edit preparations;
+   owner registration creates no login account or access grant. Codes are checked under a database lock on save; the
    displayed code is kept if still available, otherwise the next unused one is
    assigned. Codes remain fixed after name changes. Existing owners can also be
    managed through **Account administration → Sample owners**. The admin Add
@@ -95,8 +95,7 @@ Use synthetic names and samples while evaluating this prototype:
    under **Accounts → Users**, enable
    **CCI staff member**, and set their password. First and last names are optional
    display information. All CCI staff can browse every owner and create sessions
-   for any active owner. Owner Editor grants are only needed to edit another
-   operator's grids. Ordinary operators do not
+   for any active owner, and edit every active grid. Ordinary operators do not
    need Django's **Administration site access** flag. Administrators can edit all active owners.
 4. Open **New preparation session**, select the owner, enter preparation date/time
    and shared conditions, and choose eight grids. The logged-in operator is
@@ -106,10 +105,8 @@ Use synthetic names and samples while evaluating this prototype:
    times. Confirm the other six are unchanged and expand the session's original
    settings to inspect the preserved snapshot.
 6. Use **Grids** to search by ID, sample, owner or experiment. Every CCI member can
-   view all grids and owners. Operators can edit grids from their own sessions;
-   editing another operator's grids requires an owner Editor grant. Revoking that
-   grant removes access to other operators' grids; deactivating a user prevents
-   all login and editing. **Owners** lists active and inactive owners, with
+   view all grids and owners, and edit every active grid. All edits record who
+   changed what and when. Deactivating a user prevents all login and editing. **Owners** lists active and inactive owners, with
    search and preparation links for active owners.
 
 This slice focuses on preparation, with no location-entry or physical-event
@@ -272,7 +269,7 @@ newest registrations first, include grid counts and link to session details.
 Session labels are derived from existing fields: **Session 1 - rasi - 261104**.
 The number is the existing internal session ID, `rasi` is the sample owner's code,
 and `261104` is the preparation date in YYMMDD format, using the facility timezone
-(Europe/Berlin). Unknown historical dates display `undated`. The label is not a
+(Europe/Stockholm). Unknown historical dates display `undated`. The label is not a
 new database identifier; foreign keys and immutable grid IDs remain unchanged.
 Session detail retains the preparation time; browse tables show the date only.
 
@@ -303,3 +300,49 @@ Previous-value suggestions are independent reusable vocabulary, so archiving a
 grid does not erase a value already remembered there. Full restoration and a
 permanent purge command are later work. Purging will need to preserve a minimal
 identifier reservation so a removed ID can never be reused.
+
+
+### Excel import and export
+
+On **Grids**, apply search/property filters and choose **Export filtered grids to
+Excel**. The download contains all matching active grids across every page, with
+all preparation columns regardless of the browser's column-display preferences.
+Grouped headings follow the original workbook: Info, Sample conditions, Grid
+treatment, Freezing conditions, Experiment reference and Additional notes. A
+repeating teal/purple/amber palette colours each heading and its data columns.
+Individual parameters occupy separate columns; numeric measurements use two
+fractional places. Supporting Owners and Sessions sheets preserve owner details,
+explicit session membership and original session-default snapshots.
+
+Any active CCI staff member can choose **Import Excel workbook**, upload a current
+export, review the preview, then confirm within 20 minutes. Missing owners are
+listed by name/code and created on confirmation. Import never creates accounts or
+access grants. Known preparation operators are preserved; unknown logins stay
+unknown and produce a warning. Every import records the importing staff member.
+Unchanged records are skipped; conflicting IDs, owner details or session metadata
+stop the entire import without overwriting anything. Archived IDs remain reserved.
+
+This first format supports current registry exports (.xlsx, at most 5 MB/5,000
+rows). It does not parse the original legacy combined-field workbook, store
+physical locations/events, or restore complete audit history. It transfers a
+selection of records, not a database backup. Keep exports private, for example
+under the ignored `data/exports/` directory. No new dependencies or database
+migration are required for this feature.
+
+Copied-from relationships are excluded from the workbook. A filtered subset does
+not need to include a source grid, and importing does not change existing links.
+
+
+For hand entry, use **Import Excel workbook → Download a blank import template**.
+Fill in Grids and Owners. The **Session** column accepts simple labels such as
+`session-1` and `session-2`; rows with one label must describe the same preparation
+and owner. Labels belong to the workbook and do not need to match existing session
+numbers. Leave the supporting Sessions sheet empty (or remove it). Internal keys
+are generated automatically; original shared defaults stay unknown instead of
+being guessed from the first grid. Exported files retain their portable keys in a
+hidden supporting column so ordinary re-imports still preserve session identity.
+
+Preparation dates accept `YYYY-MM-DD` text or an Excel date cell, defaulting to
+**12:00 Europe/Stockholm** on that date. Preview reports the default. Blank dates
+remain unknown; full timestamps must include a UTC offset. The entire application
+uses Europe/Stockholm for facility-local time; stored timestamps remain UTC-aware.
