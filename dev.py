@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.runtime import find_tool
+
 ROOT = Path(__file__).resolve().parent
 
 
@@ -59,7 +61,7 @@ def main() -> int:
             run_python("manage.py", "makemigrations", "--check", "--dry-run")
             run_python("manage.py", "test", "--noinput")
             # Conda installs Ruff as an executable, not an importable Python module.
-            ruff = str(Path(sys.executable).parent / "ruff")
+            ruff = str(find_tool("ruff"))
             subprocess.run([ruff, "check", "."], cwd=ROOT, check=True)
             subprocess.run([ruff, "format", "--check", "."], cwd=ROOT, check=True)
         else:
@@ -73,6 +75,9 @@ def main() -> int:
         return 0
     except subprocess.CalledProcessError as error:
         print(f"\nCommand failed (exit {error.returncode}); see the output above.", file=sys.stderr)
+        return 1
+    except FileNotFoundError as error:
+        print(f"\n{error}", file=sys.stderr)
         return 1
     return 0
 
