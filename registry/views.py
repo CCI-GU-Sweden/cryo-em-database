@@ -2,12 +2,19 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from .filters import GridFilterSet, apply_property_filters
-from .forms import EditGridForm, NewSessionForm, OwnerNameForm, OwnerRegistrationForm
+from .forms import (
+    EditGridForm,
+    NewSessionForm,
+    OwnerNameForm,
+    OwnerRegistrationForm,
+    SessionBrowseForm,
+)
 from .models import AuditEvent, Grid, PreparationSession
 from .permissions import can_edit_grid, current_staff, require_grid_editor, visible_owners
 from .preparation import PREPARATION_GROUPS
@@ -151,6 +158,52 @@ def new_owner(request):
             "form": form,
             "reviewing": reviewing,
             "proposed_code": proposed_code,
+        },
+    )
+
+
+@login_required
+def session_list(request):
+    current_staff(request.user)
+    form = SessionBrowseForm(request.GET, actor=request.user)
+    sessions = PreparationSession.objects.select_related("owner", "prepared_by").annotate(
+        grid_count=Count("grids"),
+        operator_name=Concat("prepared_by__first_name", Value(" "), "prepared_by__last_name"),
+    )
+    if form.is_valid():
+        data = form.cleaned_data
+        query = data["q"]
+        if query:
+            matches = (
+                Q(owner__name__icontains=query)
+                | Q(owner__code__icontains=query)
+                | Q(prepared_by__username__icontains=query)
+                | Q(operator_name__icontains=query)
+                | Q(experiment_reference__icontains=query)
+                | Q(project_reference__icontains=query)
+            )
+            number = query.lower().removeprefix("session ").strip()
+            if number.isascii() and number.isdigit() and len(number) <= 18:
+                matches |= Q(pk=int(number))
+            sessions = sessions.filter(matches)
+        if data["owner"]:
+            sessions = sessions.filter(owner=data["owner"])
+        if data["from_date"]:
+            sessions = sessions.filter(prepared_at__date__gte=data["from_date"])
+        if data["to_date"]:
+            sessions = sessions.filter(prepared_at__date__lte=data["to_date"])
+    else:
+        sessions = sessions.none()
+    parameters = request.GET.copy()
+    parameters.pop("page", None)
+    page = Paginator(sessions.order_by("-pk"), 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "registry/session_list.html",
+        {
+            "form": form,
+            "page": page,
+            "filter_query": parameters.urlencode(),
         },
     )
 

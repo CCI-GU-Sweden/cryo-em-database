@@ -132,3 +132,32 @@ class AdminOwnerForm(forms.ModelForm):
         self.fields["name"].widget.attrs["data-code-creating"] = (
             "true" if self.instance._state.adding else "false"
         )
+
+
+class SessionBrowseForm(forms.Form):
+    q = forms.CharField(
+        required=False,
+        max_length=200,
+        label="Search sessions",
+        help_text="Session number, owner, operator, experiment or project.",
+    )
+    owner = forms.ModelChoiceField(
+        queryset=SampleOwner.objects.none(), required=False, empty_label="All owners"
+    )
+    from_date = forms.DateField(
+        required=False, label="Prepared from", widget=forms.DateInput(attrs={"type": "date"})
+    )
+    to_date = forms.DateField(
+        required=False, label="Prepared through", widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+    def __init__(self, *args, actor, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner"].queryset = visible_owners(actor)
+
+    def clean(self):
+        data = super().clean()
+        start, finish = data.get("from_date"), data.get("to_date")
+        if start and finish and start > finish:
+            raise forms.ValidationError("The start date must not be after the end date.")
+        return data

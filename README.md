@@ -261,3 +261,17 @@ Model bounds in that table describe application validators; database constraints
 service rules and casing behavior are documented separately in the schema.
 The registry Preparation date column shows only the local date; its full timestamp
 is retained in the session and remains visible on the session detail screen.
+
+### Browse preparation sessions
+
+Use **Sessions** in the main navigation to browse preparations from all CCI staff.
+Search by session number, owner name/code, operator login/full name, experiment or
+project; optionally filter by owner and inclusive preparation dates. Results show
+newest registrations first, include grid counts and link to session details.
+
+Session labels are derived from existing fields: **Session 1 - rasi - 261104**.
+The number is the existing internal session ID, `rasi` is the sample owner's code,
+and `261104` is the preparation date in YYMMDD format, using the facility timezone
+(Europe/Berlin). Unknown historical dates display `undated`. The label is not a
+new database identifier; foreign keys and immutable grid IDs remain unchanged.
+Session detail retains the preparation time; browse tables show the date only.

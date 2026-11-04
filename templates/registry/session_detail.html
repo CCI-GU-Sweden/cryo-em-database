@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Session {{ session.pk }} · CCI Grid Registry{% endblock %}
+{% block title %}{{ session.display_name }} · CCI Grid Registry{% endblock %}
 {% block content %}
-<h1>Preparation session {{ session.pk }}</h1>
+<p><a href="{% url 'registry:session_list' %}">All sessions</a></p>
+<h1>{{ session.display_name }}</h1>
 <p>Owner: {{ session.owner }} · Prepared by: {{ session.prepared_by.get_full_name|default:session.prepared_by.username }}<br>
 Prepared: {{ session.prepared_at|date:"Y-m-d H:i T" }}<br>
 Experiment: {{ session.experiment_reference|default:"—" }} · Project: {{ session.project_reference|default:"—" }}</p>

@@ -394,6 +394,19 @@ table is generated with `python manage.py describe_grid_fields --update-docs`;
 not necessarily PostgreSQL defaults/check constraints. Refer to the invariant and
 service descriptions above for cross-field, authorization and immutability rules.
 
+## Session labels and browsing (2026-11-04)
+
+PreparationSession.display_name derives `Session <internal ID> - <owner code> -
+<YYMMDD>` from existing fields. The date is the preparation date in the facility's
+default timezone, not the entry date or viewer timezone. Missing historical dates
+use `undated`. This is presentation only: no additional name column or replacement
+primary key is introduced. Session/grid detail links use the same central label.
+
+All active CCI staff can browse all sessions, with owner, operator, reference and
+inclusive date filters, grid counts and pagination. Existing editing permissions
+are unaffected. Grid scientific values and session timestamps are not modified by
+naming or browsing.
+
 <!-- generated-grid-fields:start -->
 | Field | PostgreSQL type | NULL allowed | Empty text allowed | Application default | Model bounds |
 |---|---|---|---|---|---|
