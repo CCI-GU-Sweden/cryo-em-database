@@ -104,3 +104,14 @@ If source data contain *both* unclipped and clipped locations, create historical
 ## 8. Data privacy / Git
 
 Do not commit the original workbook, raw import reports, or exported experimental records to a public repository. Place source data under a private ignored directory such as `data/raw/` and use synthetic redacted fixtures in tests.
+
+## 9. Prototype vocabulary seeding (2026-11-03)
+
+The separate `seed_preparation_suggestions` management command reads the same
+private multirow workbook to seed optional preparation choices. It creates no
+Grid, PreparationSession, SampleOwner or physical events. It conservatively parses
+explicit units, preserves raw source/cell/checksum provenance locally, skips
+identifier-only rows and formulas, reports unknown formats, and supports dry-run
+and repeat execution. Ambiguous parenthetical grid references remain references;
+they are not assigned to the new preparation box field without D05 confirmation.
+The full migration/import workflow above remains future work.

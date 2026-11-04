@@ -1,7 +1,7 @@
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-exclude = [".conda", "accounts/migrations"]
+exclude = [".conda", "accounts/migrations", "registry/migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

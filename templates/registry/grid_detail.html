@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ grid.grid_number }} · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>{{ grid.grid_number }}</h1>
+<p>Owner: {{ grid.session.owner }} · <a href="{% url 'registry:session_detail' grid.session_id %}">Preparation session {{ grid.session_id }}</a></p>
+<p>Unclipped · Not imaged · Storage unassigned</p>
+{% if can_edit %}
+<form method="post">
+  {% csrf_token %}{{ form.expected_version }}{{ form.non_field_errors }}
+  <p>Changes apply only to this grid. Original session settings are preserved.</p>
+  {% include "registry/preparation_fields.html" %}
+  <button type="submit">Save this grid</button>
+</form>
+{% else %}
+<p>You can view this grid. An owner editor grant is needed to change preparation fields.</p>
+{% for title, fields in form.preparation_groups %}<h2>{{ title }}</h2><dl>
+{% for field in fields %}<dt>{{ field.label }}</dt><dd>{{ field.value|default_if_none:"Unknown" }}</dd>{% endfor %}
+</dl>{% endfor %}
+{% endif %}
+<h2>Database audit history</h2>
+{% for event in audit %}<article>
+<p>{{ event.recorded_at|date:"Y-m-d H:i T" }} · {{ event.actor }} · {{ event.operation }}</p>
+<details><summary>Changes</summary><dl>{% for name, change in event.changes.items %}
+<dt>{{ name }}</dt><dd>Before: {{ change.before|default_if_none:"—" }}<br>After: {{ change.after|default_if_none:"—" }}</dd>
+{% endfor %}</dl></details>
+</article>{% empty %}<p>No edits recorded.</p>{% endfor %}
+{% endblock %}

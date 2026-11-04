@@ -1,0 +1,2 @@
+.owner-code-button { margin-left: .75rem; padding: .5rem .75rem; cursor: pointer; }
+#id_owner_code_preview { background: var(--darkened-bg); color: var(--body-fg); }

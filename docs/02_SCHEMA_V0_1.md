@@ -45,7 +45,7 @@ Supporting tables (e.g. `ImportRun`, a locked `GridIdentifierCounter`, or Django
 |---|---|---|
 | `id` | UUID or bigint PK | Stable internal identity |
 | `name` | string | Required; sample owner or research group label |
-| `code` | string unique | Required after admin confirmation; prefix for generating new grid IDs |
+| `code` | string unique | Automatically assigned from name at registration; four lowercase letters/digits with a checked collision sequence; stable afterward. Future grid prefix use awaits numbering decision. |
 | `affiliation` | string? | Optional institution/group |
 | `notes` | text? | Optional |
 | `active` | boolean | Default true; deactivate, don't hard-delete referenced owners |
@@ -53,7 +53,7 @@ Supporting tables (e.g. `ImportRun`, a locked `GridIdentifierCounter`, or Django
 
 - The existing Excel `Name` is **not** an authenticated username.
 - Changing a person's name or code **must not rewrite** existing grid numbers.
-- Codes should be unique after case normalization; format/length decided before generator implementation.
+- New owner codes have four lowercase letters/digits, based on the first two letters of the first and last name, with numeric substitutions on collision. Existing codes are preserved. Operational grid numbering remains a separate decision.
 
 ### 2.2 PreparationSession
 
@@ -87,6 +87,7 @@ A session is an **actual laboratory event**, not merely a convenient batch impor
 | `sample_concentration_unit` | string? | e.g., `mg/mL` |
 | `buffer_description` | text? | Preserve complete free text, including pH and components |
 | `grid_type` | string? | Human-readable grid type such as Quantifoil/mesh |
+| `grid_box_number` | string? | Preparation grid box number; separate from physical storage |
 | `grid_type_reference` | string? | Parenthetical number; actual meaning needs confirmation |
 | `carbon_description` | string? | e.g., `No`; can be further structured later |
 | `carbon_thickness_nm` | Decimal? | Only when relevant and verified |
@@ -251,3 +252,65 @@ Never assume that grid image acquisition at another site or all disposal actions
 ## 6. Implementation guidance
 
 Recommended implementation is Django models + PostgreSQL. Ensure Django system checks, database constraints, service tests, and migration tests. Exact choices (PK type, enum implementation, audit library, list grid UI) should be decided as part of implementation, not imposed silently by this conceptual schema.
+
+## 7. Registration prototype implementation notes (2026-11-03)
+
+The initial registration slice implements SampleOwner, PreparationSession, Grid,
+OwnerAccessGrant, AuditEvent and the DEMO GridIdentifierCounter, using bigint keys.
+StorageLocation and GridEvent are deferred until the physical handling slice;
+initial physical state is displayed read-only, with no editable status columns.
+
+- New owner codes use four lowercase characters. The first and last words are
+  the name parts: Rafael Silva → `rasi`; collision sequence is `rsi1`–`rsi9`,
+  `rs10`–`rs99`, then `r100`–`r999`. Short parts are padded with `x`; one-word
+  names supply their first four letters; accents are stripped and unavailable
+  Latin letters are padded with `x`. If all candidates are occupied, allocation
+  fails explicitly rather than creating duplicates or a longer code.
+  The Generate button checks all owners, including inactive owners. Save rechecks
+  under a short table lock and the database uniqueness constraint. An available
+  displayed suggestion is preserved; occupied suggestions are replaced with the
+  next candidate. Assigned codes stay fixed, and existing longer codes remain
+  unchanged. The database retains a 40-character column for those legacy codes.
+  Operational grid sequence rules remain D01.
+- Registration allocates synthetic DEMO IDs only, with 1–100 grids per session;
+  it can be disabled with `REGISTRY_DEMO_MODE=false`. Operational ID preview and
+  owner-prefix generation remain future work. IDs never derive from login names.
+- New sessions require a timezone-aware preparation timestamp and record the
+  authenticated operator. Nullable historical date/operator fields are retained
+  for a future importer; the prototype does not create provisional legacy sessions.
+- Defaults schema version 1 uses Grid preparation field names. Decimal values are
+  strings in the JSON snapshot; unknown numeric/boolean values are JSON null.
+  Numeric grid columns use Decimal with four fractional places (concentration: three); unknown text is
+  an empty string. Concentrations with a numeric value require an explicit unit.
+- Grid creation, counter changes and audit entries commit or roll back together.
+  A unique request token makes repeated identical submissions idempotent.
+- Individual edits use a version field to reject stale saves. PostgreSQL triggers
+  protect IDs/session membership, initial defaults and append-only audit history,
+  including bulk ORM mutations. Generic admin cannot edit scientific records.
+- Owners and grants are administered by facility superusers, with audit records.
+  Read access requires active CCI membership or superuser status. Preparation
+  writes require an active owner and Editor grant, with a superuser override.
+
+These implementation choices preserve the conceptual model. The legacy grouping
+representation and correction workflow in the import specification remain open
+before the importer is implemented; they are not silently settled by this slice.
+
+## 8. Preparation entry and registry refinement (2026-11-03)
+
+- Add optional `Grid.grid_box_number` beside grid type. This describes the source
+  grid box used for preparation and is not a StorageLocation. Legacy parenthetical
+  references remain in `grid_type_reference` pending D05 clarification.
+- New sessions use defaults schema version 2, adding this box field and accepting
+  at most three decimal places for concentration. Existing immutable snapshots
+  retain their original version and values. The migration checks for meaningful
+  excess concentration digits before narrowing the numeric column; it never
+  silently rounds existing scientific data.
+- `PreparationSuggestion` is supporting vocabulary, with field name/value pairs
+  and private source provenance. It is not evidence of a physical grid, session,
+  verified scientific relationship or state transition. Seeding is dry-run
+  capable, idempotent and audited. Current grid values and remembered short values
+  supply reusable suggestions; novel entries remain permitted.
+- Registry columns and filters share an explicit property allowlist. Display
+  choices stay in per-account browser preferences; filtering runs server-side on
+  typed fields. Numeric ranges use Decimal and inclusive bounds. Unknown values
+  do not become numeric zero. All applied conditions combine with AND.

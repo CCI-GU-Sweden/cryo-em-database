@@ -2,7 +2,7 @@
 
 **Specification baseline:** v0.1  
 **Prepared:** 2026-11-02  
-**Status:** Local scaffold implemented on a feature branch; grid registration is the next slice
+**Status:** Local prototype with preparation-session registration and individual grid editing
 
 This directory contains a **repo-ready handoff** for building a small web application to register, edit, locate, and track cryo-electron microscopy (cryo-EM) grids prepared at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; the data model should support tightly restricted external accounts later.
 
@@ -17,7 +17,7 @@ conda activate ./.conda
 ```
 
 The environment lives in the ignored `.conda/` directory. It includes Python 3.13,
-Django 5.2 LTS, psycopg 3, PostgreSQL 17, python-dotenv and Ruff. PostgreSQL is
+Django 5.2 LTS, psycopg 3, PostgreSQL 17, python-dotenv, openpyxl and Ruff. PostgreSQL is
 included so local development can work without Docker; installing it does not
 start a server. The commands below initialize a private loopback database.
 
@@ -43,7 +43,7 @@ prompts you to create an administrator if none exists. On later runs it preserve
 your settings, accounts and records, then starts the app directly.
 
 Open **http://127.0.0.1:8000/** and sign in with your administrator account.
-The first page confirms the scaffold is working; grid registration comes next.
+The home page links to preparation-session registration and the grid registry.
 `configure_local.py` generates private local secrets and keeps an existing `.env`
 unchanged. The database helper initializes `.local/postgres/` on its first run,
 then starts PostgreSQL on loopback port 5433 and creates `cci_prototype` if absent.
@@ -70,6 +70,92 @@ commands (`migrate`, `createsuperuser`, `runserver`, `test`) with Docker; `dev.p
 manages the Conda PostgreSQL server. The same connection settings apply.
 Docker is optional and its configuration has not been executed in this WSL setup.
 
+### Try preparation registration
+
+Use synthetic names and samples while evaluating this prototype:
+
+1. Sign in as your local administrator and select **New preparation session**.
+2. Select **Register a sample owner**, enter a person or group name, then click
+   **Create unique code** beside the name field. The application checks existing codes and
+   shows a four-character lowercase code in a read-only field below the name.
+   The first two letters of the first and last name are used: `Rafael Silva`
+   becomes `rasi`. If taken, the candidates are `rsi1`–`rsi9`, `rs10`–`rs99`,
+   then `r100`–`r999`. Review affiliation/notes and save to continue with that
+   owner preselected. Codes are checked under a database lock on save; the
+   displayed code is kept if still available, otherwise the next unused one is
+   assigned. Codes remain fixed after name changes. Existing owners can also be
+   managed through **Account administration → Sample owners**. The admin Add
+   screen also has **Create unique code** beside Name and a read-only code field
+   below it. Code previews do not reserve identifiers; save rechecks uniqueness.
+3. For another operator, open **Account administration** and create an account
+   under **Accounts → Users**, enable
+   **CCI staff member**, and set their password. First and last names are optional
+   display information. Under **Registry → Owner access grants**, assign that
+   account the **Editor** role for the sample owner. Ordinary operators do not
+   need Django's **Staff status** flag. Administrators can edit all active owners.
+4. Open **New preparation session**, select the owner, enter preparation date/time
+   and shared conditions, and choose eight grids. The logged-in operator is
+   recorded as **Prepared by**. Session notes apply to the session; grid notes are
+   copied to each grid. Unknown measurements can stay empty.
+5. Click **Create grids**. Open two of the resulting grids and change their blot
+   times. Confirm the other six are unchanged and expand the session's original
+   settings to inspect the preserved snapshot.
+6. Use **Grids** to search by ID, sample, owner or experiment. Every CCI member can
+   view all grids; preparation edits require the owner's Editor grant. Changing
+   a grant to Viewer revokes editing; deactivating a user prevents login.
+
+This slice focuses on preparation, with no location-entry or physical-event
+controls. Grids remain unclipped, not imaged and awaiting storage. Only synthetic
+`DEMO-0001`-style IDs are allocated from a transactionally locked counter. Set
+`REGISTRY_DEMO_MODE=false` to disable creation; operational owner-based numbering
+is deliberately pending D01. The prototype limit is 100 grids per session.
+
+Repeated submissions reuse the original session rather than duplicate grids.
+Edits preserve before/after audit history, and stale edit forms cannot overwrite a
+newer edit. Grid IDs, original session membership, snapshots and audit history
+are protected in PostgreSQL; scientific records are read-only in Django admin.
+Concentration accepts up to three decimal places; other decimal measurements
+retain four. Displays omit unnecessary trailing zeros. Snapshots store decimal
+strings with field names defining the units. Extra precision is rejected for
+review rather than silently rounded. The precision migration stops for review
+if an existing concentration has a meaningful fourth decimal place.
+
+### Preparation suggestions and registry display
+
+**Box number** is beside Grid type and refers to the preparation grid box, not
+physical storage. The separate neutral Grid type reference field is retained
+until the meaning of the old workbook's parenthetical references is confirmed.
+
+Preparation text, multiline and numeric fields offer **Previous values**. Click
+that button to browse, or type to search the suggestions. Use arrow keys and Enter
+to select, or keep typing an entirely new value. Saved values become reusable;
+Unknown/Yes/No remains the fixed dropdown for double blot. Suggestions only change
+the selected field, so selecting a sample never silently fills its buffer or units.
+
+To seed suggestions from a private workbook (no grids, sessions or owners imported):
+
+```bash
+python manage.py seed_preparation_suggestions private-data/Cryo-EM_grids_example.xlsx --dry-run
+python manage.py seed_preparation_suggestions private-data/Cryo-EM_grids_example.xlsx
+```
+
+Seeding is repeatable. Raw source text and cell/checksum provenance stay in the
+local database; private vocabulary is never committed as fixtures or source code.
+Uncertain humidity stays raw, formulas are not evaluated, and ambiguous grid-type
+references do not become box numbers automatically.
+
+In **Grids**, expand **Choose columns** to select any preparation or session
+columns, show all, or reset to defaults. The browser remembers column preferences
+separately for each account. Wide tables scroll horizontally; scientific data is
+unaffected by display choices.
+
+Use **Filter by property** to add one or more conditions: case-insensitive text
+contains, inclusive numeric ranges, inclusive preparation/recording dates, or
+Yes/No/Unknown. Conditions combine with AND and the existing search. Filters work
+on hidden columns too and remain in the URL when paging; **Clear filters** resets
+the search. Invalid ranges show errors and no records, rather than silently
+returning a broader result set. The prototype supports up to 20 filter conditions.
+
 ### Verify changes
 
 Run all checks with:
@@ -85,7 +171,9 @@ at the first failed command. PostgreSQL stays running until `python dev.py stop`
 Django creates and removes a separate test database. The local database role
 needs permission to create it; the prototype cluster's initial role has this.
 Tests cover login, logout, CSRF, unsafe redirects, deactivated accounts, and
-registry/admin access boundaries. The custom user model is established in the
+registry/admin access boundaries, atomic batch creation, independent grid
+values, unknown/zero/false handling, audit integrity, retry safety, stale edits
+and concurrent ID allocation. The custom user model is established in the
 initial migration so later authentication changes retain stable user IDs.
 
 For an exact recreation of the tested **Linux x86-64** environment, use
