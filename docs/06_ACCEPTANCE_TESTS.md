@@ -5,7 +5,7 @@
 
 ## A. Registration and scientific parameters
 
-- [ ] Admin can create a SampleOwner with unique, case-insensitive code; duplicate code rejected.
+- [ ] Admin enters an owner name, generates a currently unused code and saves; collisions use the agreed four-character lowercase substitution sequence. Concurrent registrations cannot duplicate codes, and name changes preserve assigned codes.
 - [ ] Authorized CCI staff can create a PreparationSession with **one** owner, operator, optional reference, and entered common preparation parameters.
 - [ ] Creating N grids generates **exactly N unique IDs** in one transaction; no IDs/rows generated on failure.
 - [ ] Concurrent requests under the same owner prefix never create duplicate IDs.
@@ -84,3 +84,33 @@ Capture usability notes and errors; prioritize removing friction before adding A
 - [ ] Backups are scheduled and **at least one restore is tested**.
 - [ ] Basic audit and error logs available without leaking passwords/private records.
 - [ ] Installation, owner creation, grant administration, and operational recovery documented.
+
+## Registration slice validation (2026-11-03)
+
+The automated registration tests cover owner code uniqueness, eight-grid creation,
+independent edits, preserved snapshots, rollback including ID allocation, concurrent
+DEMO batches, retries, stale edits, scientific validation, authorization via forms
+and services, admin auditing and database history protection. These are scoped
+prototype checks; the full criteria above remain the v0.1 release checklist.
+
+Manual preparation-only pilot: add a synthetic owner, register eight grids, change
+two blot times, compare the remaining six and original snapshot, then log in as a
+second CCI member to verify visibility and Editor-grant behavior. Storage and
+lifecycle scenarios are deferred to the next slice.
+
+## Preparation suggestions, columns and filters (2026-11-03)
+
+- Box number is editable beside Grid type, copied into independent grids and the
+  versioned session snapshot, and is separate from storage.
+- Concentration accepts three decimal places and omits unnecessary display zeros.
+  Excess input precision is rejected; existing significant digits are protected
+  during migration.
+- Preparation fields suggest previous values while accepting novel entries.
+  Private workbook suggestions are dry-run capable, idempotent and provenance-aware;
+  they must not create physical records or convert unknown humidity to percentages.
+- Staff can choose any registry preparation/session columns and retain their choice
+  locally per account without changing data.
+- Registry text filters use contains, numeric/date filters use inclusive bounds,
+  and boolean filters distinguish Yes/No/Unknown. Multiple filters and free search
+  combine with AND, including across pagination. Invalid fields and inverted ranges
+  cannot expose arbitrary ORM lookups or silently broaden results.

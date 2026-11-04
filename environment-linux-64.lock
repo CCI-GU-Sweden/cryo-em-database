@@ -40,6 +40,7 @@ https://conda.anaconda.org/conda-forge/linux-64/cyrus-sasl-2.1.28-hac629b4_1.con
 https://conda.anaconda.org/conda-forge/linux-64/libxml2-2.15.4-h7df9aa5_1.conda#51e5162f95bd6840f6b2b3169125fff5
 https://conda.anaconda.org/conda-forge/linux-64/python-3.13.18-hf47f18c_100_cp313.conda#8a8f008a3e3ae6e4eb6e149d639ab43e
 https://conda.anaconda.org/conda-forge/noarch/asgiref-3.13.0-pyhc364b38_0.conda#668dca5079040fcdcdabcf7e4775294f
+https://conda.anaconda.org/conda-forge/noarch/et_xmlfile-2.0.0-pyhd8ed1ab_1.conda#71bf9646cbfabf3022c8da4b6b4da737
 https://conda.anaconda.org/conda-forge/linux-64/libxslt-1.1.45-h8e12856_1.conda#5c8ce6af1772fcfc2b86d17b825abc8e
 https://conda.anaconda.org/conda-forge/linux-64/openldap-2.6.13-hbde042b_0.conda#680608784722880fbfe1745067570b00
 https://conda.anaconda.org/conda-forge/noarch/pip-26.2.2-pyh145f28c_2.conda#48dd7d949a3d2106ed942dcd8f9ceb80
@@ -48,6 +49,7 @@ https://conda.anaconda.org/conda-forge/noarch/sqlparse-0.6.1-pyh5ded981_0.conda#
 https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.16.0-pyhcf101f3_0.conda#c70ad746c22219b9700931707482992c
 https://conda.anaconda.org/conda-forge/noarch/django-5.2.17-pyhd8ed1ab_0.conda#612476a46bb1cfae8ff8fbfd8d4ea15c
 https://conda.anaconda.org/conda-forge/linux-64/libpq-17.11-h9d76c99_1.conda#2081fe530503b4384b2b41d8ef0bf94f
+https://conda.anaconda.org/conda-forge/linux-64/openpyxl-3.1.5-py313heaa19e1_4.conda#2222503974e92cb807845edebb96e051
 https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.16.0-h69aa097_0.conda#c680b5747e8c4c8f23dca0bb7042a8fc
 https://conda.anaconda.org/conda-forge/linux-64/postgresql-17.11-h46ac414_1.conda#1ced84cc01d4ef10dd4493eaa3fc0107
 https://conda.anaconda.org/conda-forge/linux-64/psycopg-c-3.2.10-py313hced9b2e_0.conda#d10dd1dff4fb23e2d98e49b7373d0e48

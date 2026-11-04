@@ -4,6 +4,7 @@ data/raw/
 data/imports/
 data/exports/
 reference/private/
+Screenshot*.png
 *.sqlite3
 # Secrets and environment
 .env

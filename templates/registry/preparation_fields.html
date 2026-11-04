@@ -1,0 +1,15 @@
+{% load static %}
+{{ preparation_suggestions|json_script:"preparation-suggestions" }}
+<script src="{% static 'preparation_suggestions.js' %}" defer></script>
+<p>Type to search previous values, or enter a new value. Suggestions never fill other fields automatically.</p>
+{% for title, fields in form.preparation_groups %}
+<fieldset>
+  <legend>{{ title }}</legend>
+  <div class="field-grid">
+  {% for field in fields %}
+    <div class="field preparation-field">{{ field.label_tag }}{{ field }}{{ field.errors }}
+    {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>
+  {% endfor %}
+  </div>
+</fieldset>
+{% endfor %}

@@ -7,7 +7,7 @@ This is a **decision register**, not a requirement to answer everything before w
 
 | ID | Priority | Decision to confirm | Default until confirmed | Why it matters |
 |---|---|---|---|---|
-| D01 | Blocks ID generation | Exact owner-code syntax and numeric sequence (globally continuous vs per-owner; starting number; imported reservations) | New IDs shown as examples only; implement configurable locked per-owner counter after approval | Avoid collisions, unexpectedly changing numbering conventions |
+| D01 | Blocks ID generation | Operational grid numbering using generated owner codes (globally continuous vs per-owner; starting number; imported reservations) | New IDs shown as examples only; implement configurable locked per-owner counter after approval | Avoid collisions, unexpectedly changing numbering conventions |
 | D02 | Blocks permissions | Can every CCI staff user edit all owners, or only owners with grants? | CCI staff view all; only admins or owner-granted staff edit | Prevent unintended modifications |
 | D03 | Blocks location validation | Actual cryo storage hierarchy for **clipped** vs **unclipped** grids; which positions hold exactly one grid | Support nullable hierarchy levels and canonical position key; verify in pilot | Avoid false conflicts or double occupancy |
 | D04 | Blocks humidity conversion | Is Excel humidity `1` = 100% relative humidity, 1%, or an instrument-specific fraction? | `humidity_raw="1"`, `humidity_percent=null` | Scientific integrity |
@@ -38,6 +38,8 @@ This is a **decision register**, not a requirement to answer everything before w
 | Input styles | Web forms and spreadsheet-like table |
 | Existing IDs | Keep historical CCI IDs, allow future owner-prefix IDs |
 | Authentication | Replaceable; local accounts acceptable for initial deployment |
+| Automatic owner codes | Four lowercase characters: two letters each from first/last name (`rasi`), then one name letter + two surname letters + digit (`rsi1`), one letter each + two digits (`rs10`), then one name letter + three digits (`r100`). Checked before suggestion and transactionally at save; fixed afterward; existing codes preserved. |
+| Registration prototype | Preparation fields first; storage later. Login accounts represent CCI operators; sample owners are separate people/group records and need no account. DEMO identifiers only while D01 remains open. |
 | Prototype delivery (2026-11-03) | Local Django/PostgreSQL prototype; forms and simple table first, storage next, advanced UI after workflow review; synthetic data until operational readiness |
 | Future extensibility | OMERO, evidence, protocol documents, local LLM extraction, protocols.io later |
 

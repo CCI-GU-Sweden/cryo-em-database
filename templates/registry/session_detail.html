@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Session {{ session.pk }} · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Preparation session {{ session.pk }}</h1>
+<p>Owner: {{ session.owner }} · Prepared by: {{ session.prepared_by.get_full_name|default:session.prepared_by.username }}<br>
+Prepared: {{ session.prepared_at|date:"Y-m-d H:i T" }}<br>
+Experiment: {{ session.experiment_reference|default:"—" }} · Project: {{ session.project_reference|default:"—" }}</p>
+{% if session.notes %}<p>{{ session.notes|linebreaksbr }}</p>{% endif %}
+{% include "registry/grid_rows.html" %}
+<details><summary>Original shared settings (preserved snapshot)</summary>
+{% for title, fields in snapshot_groups %}<h2>{{ title }}</h2><dl>
+{% for label, value in fields %}<dt>{{ label|capfirst }}</dt><dd>{{ value|default_if_none:"Unknown" }}</dd>{% endfor %}
+</dl>{% endfor %}</details>
+{% endblock %}
