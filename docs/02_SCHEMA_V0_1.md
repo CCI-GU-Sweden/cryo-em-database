@@ -304,11 +304,11 @@ before the importer is implemented; they are not silently settled by this slice.
 - Add optional `Grid.grid_box_number` beside grid type. This describes the source
   grid box used for preparation and is not a StorageLocation. Legacy parenthetical
   references remain in `grid_type_reference` pending D05 clarification.
-- New sessions use defaults schema version 2, adding this box field and accepting
-  at most three decimal places for concentration. Existing immutable snapshots
-  retain their original version and values. The migration checks for meaningful
-  excess concentration digits before narrowing the numeric column; it never
-  silently rounds existing scientific data.
+- This slice introduced defaults schema version 2, the box field and a
+  three-decimal concentration limit. Later refinements below supersede that
+  version and precision policy. This original migration rejects meaningful
+  excess concentration digits; the later two-decimal migration rounds disposable
+  test data with explicit approval.
 - `PreparationSuggestion` is supporting vocabulary, with field name/value pairs
   and private source provenance. It is not evidence of a physical grid, session,
   verified scientific relationship or state transition. Seeding is dry-run
@@ -406,6 +406,38 @@ All active CCI staff can browse all sessions, with owner, operator, reference an
 inclusive date filters, grid counts and pagination. Existing editing permissions
 are unaffected. Grid scientific values and session timestamps are not modified by
 naming or browsing.
+
+## Password-confirmed grid deletion archive (2026-11-04)
+
+The Delete action is an audited record correction, separate from physical
+GridEvent disposal. Any active CCI staff member (or facility superuser) may archive
+one grid after reviewing its displayed ID/owner/session and re-entering their own
+current local password. No additional ID entry is required. Owner edit grants are not required for this distinct action. CSRF and an
+expected-version check protect the confirmation; repeated successful submissions
+are idempotent and still require the password.
+
+A supporting `DeletedGrid` table holds an immutable one-to-one Grid reference,
+required `deleted_by` user reference, `deleted_at` timestamp and internal primary
+key. The original Grid row is retained, rather than copying scientific records to
+a second physical database. Original snapshots and AuditEvents remain intact.
+Archival increments the grid's edit version and records an archive AuditEvent in
+one transaction. A failure rolls back marker, version and audit together.
+
+`Grid.objects` deliberately includes active and archived rows so global ID
+uniqueness, counter high-water marks, lineage links and original-batch retry
+checks retain historical context. Operational views use `.active()` explicitly;
+`.archived()` selects deleted records. Session displays/counts show active grids
+with separate archive counts/links. The archive is visible read-only to all CCI
+staff. Scientific edits and normal admin Grid views exclude archived records.
+PostgreSQL guards reject updates to archived grids and modification/deletion of
+archive markers, while existing hard-delete and immutable-ID protections remain.
+
+Passwords are checked server-side against the current acting account and are
+never persisted in archive/audit data. Accounts without a local password cannot
+use this confirmation flow. A later SSO deployment needs its own reauthentication
+mechanism. Restore/permanent purge tools are deferred; any eventual purge must
+keep identifier reservations and respect lineage/history dependencies. No bulk
+deletion is introduced. No physical discard or storage transition is inferred.
 
 <!-- generated-grid-fields:start -->
 | Field | PostgreSQL type | NULL allowed | Empty text allowed | Application default | Model bounds |

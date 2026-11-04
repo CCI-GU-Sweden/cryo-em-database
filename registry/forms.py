@@ -161,3 +161,19 @@ class SessionBrowseForm(forms.Form):
         if start and finish and start > finish:
             raise forms.ValidationError("The start date must not be after the end date.")
         return data
+
+
+class DeleteGridForm(forms.Form):
+    password = forms.CharField(
+        label="Your password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+    )
+    expected_version = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
+
+
+class DeletedGridBrowseForm(forms.Form):
+    q = forms.CharField(required=False, max_length=200, label="Search deleted grids")
+    session = forms.IntegerField(
+        required=False, min_value=1, max_value=9223372036854775807, label="Session number"
+    )

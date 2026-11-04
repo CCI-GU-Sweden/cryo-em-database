@@ -37,3 +37,8 @@ article { border-bottom: 1px solid #cbd8dc; }
 .suggestion-menu li { padding: .5rem; cursor: pointer; white-space: pre-wrap; overflow-wrap: anywhere; }
 .suggestion-menu li:hover, .suggestion-menu [aria-selected="true"] { background: #d8ebef; }
 [hidden] { display: none !important; }
+
+.danger-zone { margin-top: 2rem; border-top: 2px solid #ad2323; padding-top: 1rem; }
+.danger-button { background: #ad2323; color: white; border: 1px solid #7e1717; border-radius: .25rem; }
+.danger-button:hover { background: #811a1a; }
+.warning { padding: 1rem; background: #fff0e8; border-left: 4px solid #ad2323; }

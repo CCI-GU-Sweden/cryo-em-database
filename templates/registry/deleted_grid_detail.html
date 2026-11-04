@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Deleted {{ grid.grid_number }} · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Deleted grid {{ grid.grid_number }}</h1>
+<p><a href="{% url 'registry:deleted_grid_list' %}">Deleted grids</a> ·
+<a href="{% url 'registry:session_detail' grid.session_id %}">{{ grid.session.display_name }}</a></p>
+<p class="warning">Archived record — read-only. This is a registration correction, not a physical disposal event.</p>
+<p>Deleted by {{ deleted.deleted_by }} on {{ deleted.deleted_at|date:"Y-m-d H:i T" }}.</p>
+<p>Owner: {{ grid.session.owner }}</p>
+{% include "registry/preparation_readonly.html" %}
+{% include "registry/audit_history.html" %}
+{% endblock %}

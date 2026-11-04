@@ -3,7 +3,7 @@
 {% block title %}Grids · CCI Grid Registry{% endblock %}
 {% block content %}
 <h1>Grid registry</h1>
-<p><a href="{% url 'registry:new_session' %}">New preparation session</a></p>
+<p><a href="{% url 'registry:new_session' %}">New preparation session</a> · <a href="{% url 'registry:deleted_grid_list' %}">Deleted grids</a></p>
 <form method="get" id="registry-filters">
 <label for="search">Search grid ID, sample, owner or experiment</label>
 <input id="search" name="q" value="{{ query }}">

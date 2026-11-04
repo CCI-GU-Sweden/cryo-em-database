@@ -8,6 +8,8 @@ from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
 
+from .preparation import normalize_preparation_text
+
 
 class SampleOwner(models.Model):
     name = models.CharField(max_length=200)
@@ -84,7 +86,19 @@ class PreparationSession(models.Model):
         return self.display_name
 
 
+class GridQuerySet(models.QuerySet):
+    # Keep the default manager unfiltered so historical links, ID reservation and
+    # retry checks always see every record. Operational views opt into active().
+    def active(self):
+        return self.filter(deletion__isnull=True)
+
+    def archived(self):
+        return self.filter(deletion__isnull=False)
+
+
 class Grid(models.Model):
+    objects = GridQuerySet.as_manager()
+
     grid_number = models.CharField(max_length=80, unique=True)
     session = models.ForeignKey(PreparationSession, on_delete=models.PROTECT, related_name="grids")
     copied_from_grid = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True)
@@ -160,13 +174,25 @@ class Grid(models.Model):
         ]
 
     def clean(self):
-        from .preparation import normalize_preparation_text
-
         for name in ("carbon_description", "glow_atmosphere", "glow_polarity"):
             setattr(self, name, normalize_preparation_text(name, getattr(self, name)))
 
     def __str__(self):
         return self.grid_number
+
+
+class DeletedGrid(models.Model):
+    """Deletion archive marker; the original grid and its history stay intact."""
+
+    grid = models.OneToOneField(Grid, on_delete=models.PROTECT, related_name="deletion")
+    deleted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    deleted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-deleted_at", "-pk"]
+
+    def __str__(self):
+        return f"Deleted {self.grid.grid_number}"
 
 
 class GridIdentifierCounter(models.Model):

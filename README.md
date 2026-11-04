@@ -275,3 +275,31 @@ and `261104` is the preparation date in YYMMDD format, using the facility timezo
 (Europe/Berlin). Unknown historical dates display `undated`. The label is not a
 new database identifier; foreign keys and immutable grid IDs remain unchanged.
 Session detail retains the preparation time; browse tables show the date only.
+
+### Delete a mistaken grid registration
+
+From **Grids → View / edit**, scroll to the bottom and click the red **Delete**
+button. The confirmation page identifies the grid, owner and session. Enter
+**your own current account password**, then select **Delete grid**. No grid ID
+needs to be typed again.
+Cancel or simply viewing the page does not change records. Incorrect credentials
+or a grid changed since opening the page prevent deletion.
+
+Any active CCI staff member can perform this deliberate correction, independently
+of preparation-edit grants. The record moves to **Grids → Deleted grids**, a
+read-only archive in the same PostgreSQL database. Its scientific fields, session
+link, original ID and history remain intact; actor/time and an audit entry record
+the deletion. Main registry searches, session grids and active grid counts exclude
+it. Session pages link to any deleted records. Grid IDs are never recycled, and
+retrying the original session submission cannot recreate archived grids.
+
+This archives a database record, not a physical disposal event. Accounts without
+a usable local password cannot confirm deletion in this local-password prototype.
+Passwords are neither stored in archive/audit entries nor echoed on failed forms.
+The archive and grid data are read-only in both application services and ordinary
+database updates. Django admin provides no bulk or hard-delete shortcut.
+
+Previous-value suggestions are independent reusable vocabulary, so archiving a
+grid does not erase a value already remembered there. Full restoration and a
+permanent purge command are later work. Purging will need to preserve a minimal
+identifier reservation so a removed ID can never be reused.

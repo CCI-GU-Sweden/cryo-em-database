@@ -10,7 +10,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import AuditEvent, OwnerAccessGrant, SampleOwner
-from .permissions import editable_owners
 from .services import (
     create_preparation_session,
     create_sample_owner,
@@ -142,7 +141,9 @@ class StaffOwnerRegistrationTests(TestCase):
         self.assertEqual(grant_event.actor, self.staff)
         self.assertEqual(grant_event.operation, "grant")
         self.assertEqual(grant_event.changes["role"]["after"], "editor")
-        self.assertFalse(editable_owners(self.other_staff).filter(pk=owner.pk).exists())
+        self.assertFalse(
+            OwnerAccessGrant.objects.filter(user=self.other_staff, owner=owner).exists()
+        )
 
     def test_inactive_non_cci_and_anonymous_accounts_cannot_create_owners(self):
         url = reverse("registry:new_owner")

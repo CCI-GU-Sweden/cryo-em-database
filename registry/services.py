@@ -9,10 +9,12 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
+from django.views.decorators.debug import sensitive_variables
 
 from .identifiers import MAX_GRID_SEQUENCE, grid_suffix, suffix_sequence
 from .models import (
     AuditEvent,
+    DeletedGrid,
     Grid,
     GridIdentifierCounter,
     OwnerAccessGrant,
@@ -244,22 +246,23 @@ def update_grid_preparation(*, actor, grid_id, preparation, expected_version):
     values = validate_preparation({**existing_values, **preparation})
     before = preparation_snapshot(grid)
     changed_fields = [name for name in PREPARATION_FIELDS if getattr(grid, name) != values[name]]
-    if changed_fields:
-        remember_preparation_values(grid)
+    if not changed_fields:
+        return grid
+
+    remember_preparation_values(grid)
     for name in changed_fields:
         setattr(grid, name, values[name])
-    if changed_fields:
-        grid.version += 1
-        grid.full_clean()
-        grid.save(update_fields=[*changed_fields, "version", "updated_at"])
-        after = preparation_snapshot(grid)
-        record_audit(
-            actor,
-            grid,
-            "update",
-            {name: {"before": before[name], "after": after[name]} for name in changed_fields},
-        )
-        remember_preparation_values(grid)
+    grid.version += 1
+    grid.full_clean()
+    grid.save(update_fields=[*changed_fields, "version", "updated_at"])
+    after = preparation_snapshot(grid)
+    record_audit(
+        actor,
+        grid,
+        "update",
+        {name: {"before": before[name], "after": after[name]} for name in changed_fields},
+    )
+    remember_preparation_values(grid)
     return grid
 
 
@@ -347,3 +350,41 @@ def save_administration_record(*, actor, instance, preferred_code=""):
     if changes:
         record_audit(actor, instance, "update" if before else "create", changes, source="admin")
     return instance
+
+
+@sensitive_variables("password")
+@transaction.atomic
+def archive_grid(*, actor, grid_id, password, expected_version):
+    """Reauthenticate the acting staff member before moving one record to archive.
+
+    This corrects a database registration mistake; it is not a physical discard
+    event. Lock the grid to serialize deletion with edits and repeat submissions.
+    """
+    actor = current_staff(actor)
+    if not actor.has_usable_password():
+        raise ValidationError(
+            {"password": "This account has no local password. Contact an administrator."}
+        )
+    if not isinstance(password, str) or not actor.check_password(password):
+        raise ValidationError({"password": "Your password is incorrect. The grid was not deleted."})
+    grid = Grid.objects.select_for_update().get(pk=grid_id)
+    existing = DeletedGrid.objects.filter(grid=grid).first()
+    if existing:
+        return existing  # A retried confirmation never creates duplicate history.
+    if type(expected_version) is not int or grid.version != expected_version:
+        raise ValidationError("This grid changed since you opened it. Reload before deleting it.")
+    # Update before adding the marker: the database freezes archived grid rows.
+    grid.version += 1
+    grid.save(update_fields=["version", "updated_at"])
+    deleted = DeletedGrid.objects.create(grid=grid, deleted_by=actor)
+    record_audit(
+        actor,
+        grid,
+        "archive",
+        {
+            "deleted": {"before": False, "after": True},
+            "deleted_by_id": {"before": None, "after": actor.pk},
+            "deleted_at": {"before": None, "after": deleted.deleted_at.isoformat()},
+        },
+    )
+    return deleted

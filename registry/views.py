@@ -6,19 +6,25 @@ from django.db.models import Count, Q, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.debug import sensitive_post_parameters
+from django.views.decorators.http import require_GET, require_http_methods
 
 from .filters import GridFilterSet, apply_property_filters
 from .forms import (
+    DeletedGridBrowseForm,
+    DeleteGridForm,
     EditGridForm,
     NewSessionForm,
     OwnerNameForm,
     OwnerRegistrationForm,
+    PreparationForm,
     SessionBrowseForm,
 )
-from .models import AuditEvent, Grid, PreparationSession
+from .models import AuditEvent, DeletedGrid, Grid, PreparationSession
 from .permissions import can_edit_grid, current_staff, require_grid_editor, visible_owners
 from .preparation import PREPARATION_GROUPS
 from .services import (
+    archive_grid,
     create_preparation_session,
     create_sample_owner,
     suggest_owner_code,
@@ -38,7 +44,7 @@ def add_service_error(form, error):
 def grid_list(request):
     current_staff(request.user)
     query = request.GET.get("q", "").strip()
-    grids = Grid.objects.select_related("session__owner", "session__prepared_by")
+    grids = Grid.objects.active().select_related("session__owner", "session__prepared_by")
     if query:
         grids = grids.filter(
             Q(grid_number__icontains=query)
@@ -167,7 +173,8 @@ def session_list(request):
     current_staff(request.user)
     form = SessionBrowseForm(request.GET, actor=request.user)
     sessions = PreparationSession.objects.select_related("owner", "prepared_by").annotate(
-        grid_count=Count("grids"),
+        grid_count=Count("grids", filter=Q(grids__deletion__isnull=True)),
+        deleted_count=Count("grids", filter=Q(grids__deletion__isnull=False)),
         operator_name=Concat("prepared_by__first_name", Value(" "), "prepared_by__last_name"),
     )
     if form.is_valid():
@@ -229,7 +236,10 @@ def session_detail(request, pk):
         "registry/session_detail.html",
         {
             "session": session,
-            "grids": session.grids.select_related("session__owner", "session__prepared_by"),
+            "grids": session.grids.active().select_related(
+                "session__owner", "session__prepared_by"
+            ),
+            "deleted_count": session.grids.archived().count(),
             "columns": COLUMNS,
             "snapshot_groups": snapshot_groups,
         },
@@ -239,7 +249,7 @@ def session_detail(request, pk):
 @login_required
 def grid_detail(request, pk):
     current_staff(request.user)
-    grid = get_object_or_404(Grid.objects.select_related("session__owner"), pk=pk)
+    grid = get_object_or_404(Grid.objects.active().select_related("session__owner"), pk=pk)
     can_edit = can_edit_grid(request.user, grid)
     if request.method == "POST":
         require_grid_editor(request.user, grid)
@@ -270,6 +280,83 @@ def grid_detail(request, pk):
             "form": form,
             "can_edit": can_edit,
             "preparation_suggestions": preparation_suggestions() if can_edit else {},
+            "audit": audit,
+        },
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+@sensitive_post_parameters("password")
+def grid_delete(request, pk):
+    current_staff(request.user)
+    grid = get_object_or_404(Grid.objects.select_related("session__owner"), pk=pk)
+    if request.method == "GET" and DeletedGrid.objects.filter(grid=grid).exists():
+        return redirect("registry:deleted_grid_detail", pk=grid.pk)
+    form = DeleteGridForm(request.POST or None, initial={"expected_version": grid.version})
+    if request.method == "POST" and form.is_valid():
+        try:
+            archive_grid(
+                actor=request.user,
+                grid_id=grid.pk,
+                password=form.cleaned_data["password"],
+                expected_version=form.cleaned_data["expected_version"],
+            )
+        except ValidationError as error:
+            add_service_error(form, error)
+        else:
+            messages.success(request, f"{grid.grid_number} was moved to Deleted grids.")
+            return redirect("registry:grid_list")
+    return render(request, "registry/grid_delete.html", {"grid": grid, "form": form})
+
+
+@login_required
+@require_GET
+def deleted_grid_list(request):
+    current_staff(request.user)
+    form = DeletedGridBrowseForm(request.GET)
+    deleted = DeletedGrid.objects.select_related("grid__session__owner", "deleted_by")
+    if form.is_valid():
+        query = form.cleaned_data["q"]
+        if query:
+            deleted = deleted.filter(
+                Q(grid__grid_number__icontains=query)
+                | Q(grid__session__owner__name__icontains=query)
+                | Q(deleted_by__username__icontains=query)
+            )
+        if form.cleaned_data["session"]:
+            deleted = deleted.filter(grid__session_id=form.cleaned_data["session"])
+    else:
+        deleted = deleted.none()
+    parameters = request.GET.copy()
+    parameters.pop("page", None)
+    page = Paginator(deleted, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "registry/deleted_grid_list.html",
+        {
+            "form": form,
+            "page": page,
+            "filter_query": parameters.urlencode(),
+        },
+    )
+
+
+@login_required
+@require_GET
+def deleted_grid_detail(request, pk):
+    current_staff(request.user)
+    deleted = get_object_or_404(
+        DeletedGrid.objects.select_related("grid__session__owner", "deleted_by"), grid_id=pk
+    )
+    audit = AuditEvent.objects.filter(entity_type="Grid", entity_id=str(pk)).select_related("actor")
+    return render(
+        request,
+        "registry/deleted_grid_detail.html",
+        {
+            "deleted": deleted,
+            "grid": deleted.grid,
+            "form": PreparationForm(instance=deleted.grid),
             "audit": audit,
         },
     )

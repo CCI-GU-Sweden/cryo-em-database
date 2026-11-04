@@ -3,7 +3,7 @@ from django.http import HttpResponseNotAllowed, JsonResponse
 from django.urls import path, reverse
 
 from .forms import AdminOwnerForm, OwnerNameForm
-from .models import AuditEvent, Grid, OwnerAccessGrant, PreparationSession, SampleOwner
+from .models import AuditEvent, DeletedGrid, Grid, OwnerAccessGrant, PreparationSession, SampleOwner
 from .services import save_administration_record, suggest_owner_code
 
 
@@ -97,6 +97,17 @@ class ReadOnlyRecordAdmin(FacilityAdministration):
 
 
 # All scientific mutations go through the staff UI/services, even for administrators.
-admin.site.register(Grid, ReadOnlyRecordAdmin)
+@admin.register(Grid)
+class ActiveGridAdmin(ReadOnlyRecordAdmin):
+    def get_queryset(self, request):
+        return super().get_queryset(request).active()
+
+
+@admin.register(DeletedGrid)
+class DeletedGridAdmin(ReadOnlyRecordAdmin):
+    list_display = ["grid", "deleted_by", "deleted_at"]
+    list_select_related = ["grid", "deleted_by"]
+
+
 admin.site.register(PreparationSession, ReadOnlyRecordAdmin)
 admin.site.register(AuditEvent, ReadOnlyRecordAdmin)

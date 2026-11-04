@@ -1,0 +1,10 @@
+{% comment %}Shared preparation display for active and archived grid details.{% endcomment %}
+{% for title, fields in form.preparation_groups %}
+<h2>{{ title }}</h2>
+<dl>
+  {% for field in fields %}
+  <dt>{{ field.label }}</dt>
+  <dd>{{ field.value|default_if_none:"Unknown" }}</dd>
+  {% endfor %}
+</dl>
+{% endfor %}
