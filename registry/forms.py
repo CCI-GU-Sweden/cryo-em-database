@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from .models import Grid, SampleOwner
-from .permissions import editable_owners
+from .permissions import visible_owners
 from .preparation import PREPARATION_FIELDS, PREPARATION_GROUPS, compact_decimal
 from .services import validate_preparation
 
@@ -16,6 +16,15 @@ class CompactNumberInput(forms.NumberInput):
 
 
 class PreparationForm(forms.ModelForm):
+    multiple_blot = forms.IntegerField(
+        label="Multiple blots",
+        required=False,
+        min_value=0,
+        initial=0,
+        help_text="Defaults to 0. Enter a whole number, 0 or greater.",
+        widget=forms.NumberInput(attrs={"min": 0, "step": 1}),
+    )
+
     class Meta:
         model = Grid
         fields = PREPARATION_FIELDS
@@ -34,10 +43,10 @@ class PreparationForm(forms.ModelForm):
             "sample_volume_ul": "Sample volume (µL)",
             "temperature_c": "Temperature (°C)",
             "humidity_percent": "Relative humidity (%) — only if known",
-            "humidity_raw": "Humidity source wording (if uncertain)",
             "blot_time_s": "Blot time (s)",
             "hold_time_s": "Hold time (s)",
             "blot_force": "Blot force (instrument scale)",
+            "multiple_blot": "Multiple blots",
             "grid_type_reference": "Grid type reference (optional)",
             "grid_box_number": "Box number",
         }
@@ -50,6 +59,10 @@ class PreparationForm(forms.ModelForm):
             except ValidationError as error:
                 self.add_error(None, error)
         return cleaned
+
+    def clean_multiple_blot(self):
+        value = self.cleaned_data.get("multiple_blot")
+        return 0 if value is None else value
 
     def preparation_values(self):
         return {
@@ -78,7 +91,7 @@ class NewSessionForm(PreparationForm):
 
     def __init__(self, *args, actor, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["owner"].queryset = editable_owners(actor)
+        self.fields["owner"].queryset = visible_owners(actor).filter(active=True)
 
 
 class EditGridForm(PreparationForm):

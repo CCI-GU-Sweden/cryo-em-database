@@ -28,7 +28,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 | Actor | Day-one needs | Intended restrictions |
 |---|---|---|
 | CCI administrator | Create/manage accounts, owners and prefixes, access grants, import, troubleshoot | Facility-wide access and administration |
-| CCI staff/preparation operator | Create sessions, generate grids, edit allowed preparation fields, record storage and lifecycle events | View all; write access determined by admin-defined owner assignments unless admin overrides |
+| CCI staff/preparation operator | Create sessions, generate grids, edit allowed preparation fields, record storage and lifecycle events | View all owners/grids; create sessions for any active owner; edit own session grids or owner-granted records |
 | External researcher (later) | See assigned grids; possibly log limited handling actions | Not a day-one user; may not alter preparation parameters |
 | Sample owner | Named person/group to whom physical grids belong | Does not automatically have an application login or editing permission |
 
@@ -46,7 +46,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 ### Workflow B — Edit an individual grid
 
 - Open grid detail form or edit permitted preparation cells in the bulk table.
-- Correct/adjust individual parameters independently of other grids.
+- Correct/adjust individual parameters independently of other grids. The session operator may edit their grids; editing another operator's grids requires an owner Editor grant or administrator rights.
 - Preserve an audit record identifying what changed and by whom; distinguish data corrections from actual physical actions.
 - A separate `copied_from_grid` relationship may record a deliberately copied preparation pattern; do not infer parenthood solely from similar values.
 
@@ -106,6 +106,7 @@ The grid registry may later join a broader sample preparation knowledge base, li
 ## Constraints and decisions
 
 - One owner per session: **confirmed**.
+- New grid IDs: **confirmed 2026-11-04**, four-character owner prefix and a separate per-owner sequence, `0001`–`9999`, then `a001`–`z999`; preserve historical IDs.
 - Session defaults copied to each grid, with preserved snapshot: **confirmed**.
 - Experiment reference optional: **confirmed**.
 - Project is a descriptive optional field, not the permission boundary: **confirmed**.

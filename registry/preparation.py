@@ -33,11 +33,10 @@ PREPARATION_GROUPS = [
             "sample_volume_ul",
             "temperature_c",
             "humidity_percent",
-            "humidity_raw",
             "blot_time_s",
             "hold_time_s",
             "blot_force",
-            "double_blot",
+            "multiple_blot",
         ],
     ),
     ("Grid notes", ["notes"]),
@@ -59,3 +58,13 @@ def preparation_snapshot(grid):
         value = getattr(grid, name)
         values[name] = str(value) if isinstance(value, Decimal) else value
     return values
+
+
+def normalize_preparation_text(field_name, value):
+    if not isinstance(value, str):
+        return value
+    if field_name == "carbon_description":
+        return value.strip().casefold()
+    if field_name in ("glow_atmosphere", "glow_polarity"):
+        return value.strip().title()
+    return value

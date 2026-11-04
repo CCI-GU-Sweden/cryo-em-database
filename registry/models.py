@@ -60,7 +60,7 @@ class PreparationSession(models.Model):
     experiment_reference = models.CharField(max_length=200, blank=True)
     project_reference = models.CharField(max_length=200, blank=True)
     notes = models.TextField(blank=True)
-    defaults_schema_version = models.PositiveIntegerField(default=2)
+    defaults_schema_version = models.PositiveIntegerField(default=3)
     defaults = models.JSONField(default=dict)
     # Used to identify a repeated form submission; never an identifier for a grid.
     request_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -105,7 +105,6 @@ class Grid(models.Model):
         blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
-    humidity_raw = models.CharField(max_length=100, blank=True)
     blot_time_s = models.DecimalField(
         max_digits=12, decimal_places=4, null=True, blank=True, validators=[MinValueValidator(0)]
     )
@@ -114,7 +113,7 @@ class Grid(models.Model):
     )
     # Blot force is an instrument scale; do not invent units or forbid negatives yet.
     blot_force = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
-    double_blot = models.BooleanField(null=True, blank=True)
+    multiple_blot = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
     notes = models.TextField(blank=True)
     version = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -138,17 +137,27 @@ class Grid(models.Model):
                 )
             ],
             models.CheckConstraint(
+                condition=models.Q(multiple_blot__gte=0),
+                name="multiple_blot_nonnegative",
+            ),
+            models.CheckConstraint(
                 condition=models.Q(humidity_percent__gte=0, humidity_percent__lte=100),
                 name="humidity_in_percent_range",
             ),
         ]
+
+    def clean(self):
+        from .preparation import normalize_preparation_text
+
+        for name in ("carbon_description", "glow_atmosphere", "glow_polarity"):
+            setattr(self, name, normalize_preparation_text(name, getattr(self, name)))
 
     def __str__(self):
         return self.grid_number
 
 
 class GridIdentifierCounter(models.Model):
-    """One locked row serializes DEMO allocation and rolls back with the batch."""
+    """One counter per owner; allocation rolls back with a failed batch."""
 
     namespace = models.CharField(max_length=40, primary_key=True)
     next_number = models.PositiveIntegerField(default=1)

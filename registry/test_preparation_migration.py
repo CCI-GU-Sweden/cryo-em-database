@@ -1,0 +1,110 @@
+"""Exercise the approved cleanup on a populated disposable migration database."""
+
+import json
+
+from django.db import DatabaseError, connection, transaction
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TransactionTestCase
+from django.utils import timezone
+
+
+class PrototypePreparationMigrationTests(TransactionTestCase):
+    old_target = [("registry", "0005_grid_grid_box_number_and_more")]
+    new_target = [("registry", "0006_remove_grid_double_blot_remove_grid_humidity_raw_and_more")]
+
+    def test_cleanup_removes_retired_values_and_restores_history_guards(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(self.old_target)
+        self.addCleanup(lambda: MigrationExecutor(connection).migrate(self.new_target))
+        old = executor.loader.project_state(self.old_target).apps
+        user = old.get_model("accounts", "User").objects.create(username="migration-operator")
+        owner = old.get_model("registry", "SampleOwner").objects.create(
+            name="Migration Owner", code="miow"
+        )
+        defaults = {
+            "humidity_raw": "1",
+            "double_blot": False,
+            "carbon_description": "No",
+            "glow_atmosphere": "AIR",
+            "glow_polarity": "negative",
+        }
+        session = old.get_model("registry", "PreparationSession").objects.create(
+            owner_id=owner.pk,
+            prepared_by_id=user.pk,
+            prepared_at=timezone.now(),
+            defaults=defaults,
+            defaults_schema_version=2,
+        )
+        grid = old.get_model("registry", "Grid").objects.create(
+            session_id=session.pk,
+            grid_number="miow-0001",
+            humidity_raw="1",
+            double_blot=True,
+            carbon_description="NO",
+            glow_atmosphere="air",
+            glow_polarity="NEGATIVE",
+        )
+        event = old.get_model("registry", "AuditEvent").objects.create(
+            actor_id=user.pk,
+            entity_type="PreparationSession",
+            entity_id=str(session.pk),
+            operation="create",
+            changes={"defaults": {"before": None, "after": defaults}},
+        )
+        Suggestion = old.get_model("registry", "PreparationSuggestion")
+        for field, value in [
+            ("carbon_description", "No"),
+            ("carbon_description", "no"),
+            ("glow_atmosphere", "AIR"),
+            ("glow_atmosphere", "Air"),
+            ("humidity_raw", "1"),
+            ("double_blot", "False"),
+        ]:
+            Suggestion.objects.create(field_name=field, value=value)
+
+        executor = MigrationExecutor(connection)
+        executor.migrate(self.new_target)
+        current = executor.loader.project_state(self.new_target).apps
+        Grid = current.get_model("registry", "Grid")
+        Session = current.get_model("registry", "PreparationSession")
+        Audit = current.get_model("registry", "AuditEvent")
+        Suggestion = current.get_model("registry", "PreparationSuggestion")
+        result = Grid.objects.get(pk=grid.pk)
+        self.assertEqual(result.grid_number, "miow-0001")
+        self.assertEqual(result.version, 2)
+        self.assertEqual(result.multiple_blot, 0)
+        self.assertEqual(
+            (result.carbon_description, result.glow_atmosphere, result.glow_polarity),
+            ("no", "Air", "Negative"),
+        )
+        result = Session.objects.get(pk=session.pk)
+        self.assertEqual(result.defaults_schema_version, 3)
+        self.assertEqual(result.defaults["multiple_blot"], 0)
+        self.assertNotIn("humidity_raw", result.defaults)
+        self.assertNotIn("double_blot", result.defaults)
+        history = json.dumps(Audit.objects.get(pk=event.pk).changes)
+        self.assertNotIn("humidity_raw", history)
+        self.assertNotIn("double_blot", history)
+        self.assertEqual(
+            list(
+                Suggestion.objects.filter(field_name="carbon_description").values_list(
+                    "value", flat=True
+                )
+            ),
+            ["no"],
+        )
+        self.assertEqual(
+            list(
+                Suggestion.objects.filter(field_name="glow_atmosphere").values_list(
+                    "value", flat=True
+                )
+            ),
+            ["Air"],
+        )
+        self.assertFalse(
+            Suggestion.objects.filter(field_name__in=["humidity_raw", "double_blot"]).exists()
+        )
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            Session.objects.filter(pk=session.pk).update(defaults={})
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            Audit.objects.filter(pk=event.pk).update(changes={})

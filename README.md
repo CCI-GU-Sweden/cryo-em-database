@@ -62,7 +62,8 @@ For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
 member**. That flag permits registry access; Django's separate **Administration site access**
 flag permits entry to the administration site. The initial superuser has both
 administrative and registry access. Accounts can be deactivated rather than
-deleted. Future owner grants will control record editing.
+deleted. Preparation operators can edit their own session
+grids; owner Editor grants allow editing other operators' grids for that owner.
 
 If Docker is preferred, use `docker compose up -d db` **instead of** the database
 helper, after running `python scripts/configure_local.py`. Use the individual Django
@@ -74,24 +75,28 @@ Docker is optional and its configuration has not been executed in this WSL setup
 
 Use synthetic names and samples while evaluating this prototype:
 
-1. Sign in as your local administrator and select **New preparation session**.
+1. Sign in as an active CCI staff member or administrator and select **New preparation session**.
 2. Select **Register a sample owner**, enter a person or group name, then click
    **Create unique code** beside the name field. The application checks existing codes and
    shows a four-character lowercase code in a read-only field below the name.
    The first two letters of the first and last name are used: `Rafael Silva`
    becomes `rasi`. If taken, the candidates are `rsi1`–`rsi9`, `rs10`–`rs99`,
    then `r100`–`r999`. Review affiliation/notes and save to continue with that
-   owner preselected. Codes are checked under a database lock on save; the
+   owner preselected. A non-admin creator automatically receives an Editor grant
+   for this new owner and can immediately register preparations. Other users
+   receive no automatic grants. Codes are checked under a database lock on save; the
    displayed code is kept if still available, otherwise the next unused one is
    assigned. Codes remain fixed after name changes. Existing owners can also be
    managed through **Account administration → Sample owners**. The admin Add
    screen also has **Create unique code** beside Name and a read-only code field
    below it. Code previews do not reserve identifiers; save rechecks uniqueness.
+   Existing-owner changes and managing other people's grants remain admin-only.
 3. For another operator, open **Account administration** and create an account
    under **Accounts → Users**, enable
    **CCI staff member**, and set their password. First and last names are optional
-   display information. Under **Registry → Owner access grants**, assign that
-   account the **Editor** role for the sample owner. Ordinary operators do not
+   display information. All CCI staff can browse every owner and create sessions
+   for any active owner. Owner Editor grants are only needed to edit another
+   operator's grids. Ordinary operators do not
    need Django's **Administration site access** flag. Administrators can edit all active owners.
 4. Open **New preparation session**, select the owner, enter preparation date/time
    and shared conditions, and choose eight grids. The logged-in operator is
@@ -101,14 +106,24 @@ Use synthetic names and samples while evaluating this prototype:
    times. Confirm the other six are unchanged and expand the session's original
    settings to inspect the preserved snapshot.
 6. Use **Grids** to search by ID, sample, owner or experiment. Every CCI member can
-   view all grids; preparation edits require the owner's Editor grant. Changing
-   a grant to Viewer revokes editing; deactivating a user prevents login.
+   view all grids and owners. Operators can edit grids from their own sessions;
+   editing another operator's grids requires an owner Editor grant. Revoking that
+   grant removes access to other operators' grids; deactivating a user prevents
+   all login and editing. **Owners** lists active and inactive owners, with
+   search and preparation links for active owners.
 
 This slice focuses on preparation, with no location-entry or physical-event
-controls. Grids remain unclipped, not imaged and awaiting storage. Only synthetic
-`DEMO-0001`-style IDs are allocated from a transactionally locked counter. Set
-`REGISTRY_DEMO_MODE=false` to disable creation; operational owner-based numbering
-is deliberately pending D01. The prototype limit is 100 grids per session.
+controls. Grids remain unclipped, not imaged and awaiting storage. Each sample owner has an independent grid sequence starting at `0001`:
+`rasi-0001` … `rasi-9999`, then `rasi-a001` … `rasi-a999`,
+`rasi-b001` … `rasi-z999`. These reflect database generation order, not the
+preparation date. The sequence has 35,973 IDs per owner and stops explicitly when
+exhausted; batches never wrap around or partially succeed. Existing matching IDs
+are reserved automatically, and historical `CCI-…`/`DEMO-…` IDs remain unchanged.
+New generation requires a four-character lowercase owner code. A legacy owner
+with a longer code must be reviewed explicitly rather than silently renamed.
+Set `GRID_REGISTRATION_ENABLED=false` to disable registration. An old local
+`REGISTRY_DEMO_MODE=false` setting is still honored when the new setting is absent.
+The prototype limit remains 100 grids per session.
 
 Repeated submissions reuse the original session rather than duplicate grids.
 Edits preserve before/after audit history, and stale edit forms cannot overwrite a
@@ -129,7 +144,10 @@ until the meaning of the old workbook's parenthetical references is confirmed.
 Preparation text, multiline and numeric fields offer **Previous values**. Click
 that button to browse, or type to search the suggestions. Use arrow keys and Enter
 to select, or keep typing an entirely new value. Saved values become reusable;
-Unknown/Yes/No remains the fixed dropdown for double blot. Suggestions only change
+**Multiple blots** defaults to `0` and accepts non-negative whole numbers;
+blank input becomes `0`, while negatives and fractions are rejected. Carbon descriptions are case-insensitive and
+stored lowercase; glow atmosphere and polarity use capitalized words, with
+case variants merged in suggestions. Suggestions only change
 the selected field, so selecting a sample never silently fills its buffer or units.
 
 To seed suggestions from a private workbook (no grids, sessions or owners imported):
@@ -141,7 +159,8 @@ python manage.py seed_preparation_suggestions private-data/Cryo-EM_grids_example
 
 Seeding is repeatable. Raw source text and cell/checksum provenance stay in the
 local database; private vocabulary is never committed as fixtures or source code.
-Uncertain humidity stays raw, formulas are not evaluated, and ambiguous grid-type
+Uncertain source humidity is not converted to a percentage. The old humidity
+wording field has been removed. Formulas are not evaluated, and ambiguous grid-type
 references do not become box numbers automatically.
 
 In **Grids**, expand **Choose columns** to select any preparation or session
@@ -151,7 +170,8 @@ unaffected by display choices.
 
 Use **Filter by property** to add one or more conditions: case-insensitive text
 contains, inclusive numeric ranges, inclusive preparation/recording dates, or
-Yes/No/Unknown. Conditions combine with AND and the existing search. Filters work
+boolean values where available. Multiple blot is a numeric range property.
+Conditions combine with AND and the existing search. Filters work
 on hidden columns too and remain in the URL when paging; **Clear filters** resets
 the search. Invalid ranges show errors and no records, rather than silently
 returning a broader result set. The prototype supports up to 20 filter conditions.
@@ -214,8 +234,16 @@ The uploaded source workbook was inspected for this handoff: **`Cryo-EM_grids_ex
 
 ## Recommended first Codex task
 
-> Read AGENTS.md and docs/01–07. Implement roadmap Phases 0–1: a local Django/PostgreSQL prototype with login, owner administration, session registration, generated-grid table and individual grid editing. Preserve independent preparation values, immutable session defaults, stable identities and audit history. Use synthetic data and the documented DEMO identifier fallback until D01 is resolved. Include model, service, permission and form tests. Demonstrate registration before adding physical storage and advanced table interactions.
+> Read AGENTS.md and docs/01–07. Implement roadmap Phases 0–1: a local Django/PostgreSQL prototype with login, owner administration, session registration, generated-grid table and individual grid editing. Preserve independent preparation values, immutable session defaults, stable identities and audit history. Use synthetic data with the agreed owner-prefixed ID sequence. Include model, service, permission and form tests. Demonstrate registration before adding physical storage and advanced table interactions.
 
 ## Working rule
 
 Keep documentation updated when an implementation decision is approved. Schema changes should get a migration, a test, and a short explanation of impact on Excel import and future knowledge-base extension.
+
+The preparation-field refinement on 2026-11-04 is an explicitly approved cleanup
+of disposable prototype data: obsolete humidity wording and Double blot columns,
+snapshot keys, suggestion entries and audit keys are removed without archival.
+Existing blot booleans are not interpreted as counts; Multiple blots starts at `0`.
+Snapshots move to version 3 and case variants are normalized. The migration briefly
+suspends snapshot/audit guards inside its transaction and restores them afterward;
+normal application edits still preserve immutable snapshots and audit history.

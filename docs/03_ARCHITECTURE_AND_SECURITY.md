@@ -65,18 +65,21 @@ Do not enable external registrations automatically. For the future, a researcher
 **Owner-based grants**, not mandatory project membership:
 
 - **Admin:** see/change all owners, sessions, grids, events and user/permission settings.
-- **CCI staff:** read all grid records, regardless of owner; writing depends on an owner-specific grant or admin override (staff-wide editing rights are an open decision).
+- **CCI staff:** read all grid records and register new sample owners. A non-admin creator automatically receives an Editor grant for that new owner. All active owners are visible in the new-session selector, and any CCI staff member can create a session for any active owner. Operators may edit their own session grids; editing another operator's grids requires an owner Editor grant or administrator rights.
 - **Owner viewer:** read assigned owner's grids (future external users).
 - **Owner operator:** use approved lifecycle actions, but not change scientific preparation settings (future).
 - **Owner editor:** may edit authorized owner grid preparation fields and actions allowed by policy.
+
+Staff without owner grants may edit their own session grids, but no other operators' grids. Owner operator/viewer grants do not remove this intrinsic operator access. Deactivation blocks all edits.
 
 ### Proposed action matrix
 
 | Action | Admin | CCI staff with owner editor grant | CCI staff with owner operator grant | Future owner viewer |
 |---|---|---|---|---|
 | View CCI grid registry | Yes | Yes (all CCI staff) | Yes (all CCI staff) | No; only assigned owners |
-| Create owner and manage ID prefix | Yes | No | No | No |
-| Create preparation session + grids | Yes | Yes | No | No |
+| Register new owner (automatic code) | Yes | Yes (all CCI staff) | Yes (all CCI staff) | No |
+| Manage existing owners, codes and grants | Yes | No | No | No |
+| Create preparation session + grids | Yes | Yes (all CCI staff) | Yes (all CCI staff) | No |
 | Edit preparation fields | Yes | Yes | No | No |
 | Edit permitted preparation cells in bulk | Yes | Yes | No | No |
 | Record store / move / clip | Yes | Yes | Yes | No |

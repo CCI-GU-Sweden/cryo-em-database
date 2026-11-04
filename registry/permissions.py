@@ -23,8 +23,34 @@ def editable_owners(actor):
     return owners.filter(grants__user=actor, grants__role=OwnerAccessGrant.Role.EDITOR)
 
 
-def require_editor(actor, owner):
+def visible_owners(actor):
+    """Owner visibility is facility-wide, independent of editing grants."""
+    current_staff(actor)
+    return SampleOwner.objects.all()
+
+
+def require_session_registration(actor, owner):
     actor = current_staff(actor)
-    if not editable_owners(actor).filter(pk=owner.pk).exists():
-        raise PermissionDenied("You do not have permission to edit this sample owner's records.")
+    if not SampleOwner.objects.filter(pk=owner.pk, active=True).exists():
+        raise PermissionDenied("Choose an active sample owner for a new preparation session.")
+    return actor
+
+
+def can_edit_grid(actor, grid):
+    actor = current_staff(actor)
+    if not SampleOwner.objects.filter(pk=grid.session.owner_id, active=True).exists():
+        return False
+    return (
+        actor.is_superuser
+        or grid.session.prepared_by_id == actor.pk
+        or editable_owners(actor).filter(pk=grid.session.owner_id).exists()
+    )
+
+
+def require_grid_editor(actor, grid):
+    actor = current_staff(actor)
+    if not can_edit_grid(actor, grid):
+        raise PermissionDenied(
+            "Only the preparation operator, an owner Editor or an administrator can edit this grid."
+        )
     return actor

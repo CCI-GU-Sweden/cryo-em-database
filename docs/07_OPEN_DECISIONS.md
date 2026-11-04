@@ -7,10 +7,10 @@ This is a **decision register**, not a requirement to answer everything before w
 
 | ID | Priority | Decision to confirm | Default until confirmed | Why it matters |
 |---|---|---|---|---|
-| D01 | Blocks ID generation | Operational grid numbering using generated owner codes (globally continuous vs per-owner; starting number; imported reservations) | New IDs shown as examples only; implement configurable locked per-owner counter after approval | Avoid collisions, unexpectedly changing numbering conventions |
-| D02 | Blocks permissions | Can every CCI staff user edit all owners, or only owners with grants? | CCI staff view all; only admins or owner-granted staff edit | Prevent unintended modifications |
+| D01 | Confirmed 2026-11-04 | Four-character sample-owner prefix, independent per-owner sequence: 0001–9999, a001–a999, b001–z999 | Locked allocation per owner; existing matching grid suffixes reserved; old IDs preserved; stop at z999 | Chronological generation order per owner without collisions or wraparound |
+| D02 | Prototype policy confirmed 2026-11-04 | CCI staff view all owners/grids and create sessions for any active owner; may they edit other operators' grids without a grant? | Own-session edits allowed; other operators' grids require owner Editor grant or admin | Keep visibility/registration separate from editing others' records |
 | D03 | Blocks location validation | Actual cryo storage hierarchy for **clipped** vs **unclipped** grids; which positions hold exactly one grid | Support nullable hierarchy levels and canonical position key; verify in pilot | Avoid false conflicts or double occupancy |
-| D04 | Blocks humidity conversion | Is Excel humidity `1` = 100% relative humidity, 1%, or an instrument-specific fraction? | `humidity_raw="1"`, `humidity_percent=null` | Scientific integrity |
+| D04 | Blocks humidity conversion | Is Excel humidity `1` = 100% relative humidity, 1%, or an instrument-specific fraction? | No humidity wording field; `humidity_percent=null` until source convention confirmed | Scientific integrity |
 | D05 | Blocks precise field labeling | Meaning of parenthetical grid-type number (`191846`, `224782`) | `grid_type_reference` as neutral label | Avoid incorrectly calling it box/catalog number |
 | D06 | Pilot clarification | Blot force scale/unit and whether negative values are possible | Decimal field, source text preserved, no conversion | Correct validation and labels |
 | D07 | Migration | How many physical preparation sessions produced eight example grids? Exact dates/operators unknown. | Provisional legacy groupings explicitly labeled unverified, never infer from `JB002` alone | Real session relationship must not be fabricated |
@@ -26,6 +26,8 @@ This is a **decision register**, not a requirement to answer everything before w
 
 | Item | Decision |
 |---|---|
+| Owner visibility and session creation (2026-11-04) | All CCI staff see every owner and can create sessions for any active owner without grants. The session operator can edit their grids; other operators' grids require an owner Editor grant or administrator. |
+| Staff owner registration (2026-11-04) | Active CCI staff can create sample owners through the registry without administration-site access. Non-admin creators receive an Editor grant for the new owner; other grants and existing-owner administration remain admin-only. |
 | Session ownership | One sample owner per actual preparation session |
 | Defaults | Preserve session snapshot and copy parameters into each new grid |
 | Experiment reference | Optional |
@@ -38,8 +40,10 @@ This is a **decision register**, not a requirement to answer everything before w
 | Input styles | Web forms and spreadsheet-like table |
 | Existing IDs | Keep historical CCI IDs, allow future owner-prefix IDs |
 | Authentication | Replaceable; local accounts acceptable for initial deployment |
+| Preparation wording and counts (2026-11-04) | Carbon casing is normalized lowercase; glow atmosphere/polarity use capitalized words. Remove humidity wording. Replace Double blot with non-negative-integer Multiple blots, default 0. Explicitly approved cleanup of existing disposable test fields/snapshots, with no inferred historical counts. |
+| Grid identifiers (2026-11-04) | Owner code + hyphen + four-character suffix, with a separate sequence per owner: 0001–9999, a001–z999. Stop when exhausted; preserve all existing IDs. |
 | Automatic owner codes | Four lowercase characters: two letters each from first/last name (`rasi`), then one name letter + two surname letters + digit (`rsi1`), one letter each + two digits (`rs10`), then one name letter + three digits (`r100`). Checked before suggestion and transactionally at save; fixed afterward; existing codes preserved. |
-| Registration prototype | Preparation fields first; storage later. Login accounts represent CCI operators; sample owners are separate people/group records and need no account. DEMO identifiers only while D01 remains open. |
+| Registration prototype | Preparation fields first; storage later. Login accounts represent CCI operators; sample owners are separate people/group records and need no account. Owner-prefixed IDs follow the confirmed D01 rule; earlier DEMO identifiers are preserved. |
 | Prototype delivery (2026-11-03) | Local Django/PostgreSQL prototype; forms and simple table first, storage next, advanced UI after workflow review; synthetic data until operational readiness |
 | Future extensibility | OMERO, evidence, protocol documents, local LLM extraction, protocols.io later |
 

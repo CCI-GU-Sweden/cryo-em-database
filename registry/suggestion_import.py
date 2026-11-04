@@ -13,7 +13,7 @@ from django.db import transaction
 from openpyxl import load_workbook
 
 from .models import AuditEvent, Grid, PreparationSuggestion
-from .preparation import compact_decimal
+from .preparation import compact_decimal, normalize_preparation_text
 
 NUMBER = r"[+-]?\d+(?:\.\d+)?"
 
@@ -32,7 +32,9 @@ def workbook_suggestions(path):
             if value is None or value == "":
                 return
             try:
-                cleaned = Grid._meta.get_field(field).clean(value, Grid())
+                cleaned = Grid._meta.get_field(field).clean(
+                    normalize_preparation_text(field, value), Grid()
+                )
             except ValidationError:
                 warnings.append(f"{cell.coordinate}: value requires review; not suggested.")
                 return
@@ -65,7 +67,6 @@ def workbook_suggestions(path):
                 2: "sample_description",
                 4: "buffer_description",
                 6: "carbon_description",
-                10: "humidity_raw",
                 28: "notes",
             }.items():
                 cell = row[index]

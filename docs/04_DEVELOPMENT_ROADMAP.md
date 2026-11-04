@@ -51,7 +51,10 @@ Use a clearly labeled prototype database and synthetic data. Excel remains autho
 - Route mutations through services, including admin actions; prevent generic admin edits to IDs and immutable snapshots.
 - Test copying, failed-transaction rollback, unique IDs under concurrency, permissions and create/edit forms.
 
-**Identifier dependency:** resolve D01 before allocating operational owner-prefixed IDs. If needed for an earlier demo, use a reserved synthetic `DEMO-` namespace in the disposable database, visibly labeled and blocked from operational use. This does not settle owner numbering conventions.
+**Identifier decision (confirmed 2026-11-04):** new IDs use the four-character
+sample-owner code and a separate per-owner sequence: `0001`–`9999`, then
+`a001`–`a999`, `b001`–`z999`. Lock allocation transactionally and stop at exhaustion.
+Preserve existing DEMO/CCI identifiers; do not allocate new DEMO IDs.
 
 **Done when:** a colleague logs in, creates eight grids, edits two, reloads and confirms that the other six and the session snapshot are unchanged. Demonstrate validation failure without partial creation and rejection of an unauthorized edit.
 

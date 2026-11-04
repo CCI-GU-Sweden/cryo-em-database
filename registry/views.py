@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -9,11 +9,11 @@ from django.urls import reverse
 from .filters import GridFilterSet, apply_property_filters
 from .forms import EditGridForm, NewSessionForm, OwnerNameForm, OwnerRegistrationForm
 from .models import AuditEvent, Grid, PreparationSession
-from .permissions import current_staff, editable_owners, require_editor
+from .permissions import can_edit_grid, current_staff, require_grid_editor, visible_owners
 from .preparation import PREPARATION_GROUPS
 from .services import (
     create_preparation_session,
-    save_administration_record,
+    create_sample_owner,
     suggest_owner_code,
     update_grid_preparation,
 )
@@ -101,27 +101,49 @@ def new_session(request):
 
 
 @login_required
+def owner_list(request):
+    owners = visible_owners(request.user)
+    query = request.GET.get("q", "").strip()
+    if query:
+        owners = owners.filter(
+            Q(name__icontains=query) | Q(code__icontains=query) | Q(affiliation__icontains=query)
+        )
+    page = Paginator(owners, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "registry/owner_list.html",
+        {
+            "page": page,
+            "query": query,
+        },
+    )
+
+
+@login_required
 def new_owner(request):
     actor = current_staff(request.user)
-    if not actor.is_superuser:
-        raise PermissionDenied("Only an administrator can register sample owners.")
     saving = request.method == "POST" and request.POST.get("action") == "save"
     reviewing = request.method == "POST" and (saving or "affiliation" in request.POST)
     form = OwnerRegistrationForm(request.POST) if reviewing else OwnerNameForm(request.POST or None)
     proposed_code = None
     if request.method == "POST" and form.is_valid():
-        proposed_code = suggest_owner_code(form.cleaned_data["name"])
-        if saving:
-            owner = save_administration_record(
-                actor=actor,
-                instance=form.save(commit=False),
-                preferred_code=form.cleaned_data.get("owner_code_preview", ""),
-            )
-            messages.success(request, f"Sample owner registered with code {owner.code}.")
-            return redirect(f"{reverse('registry:new_session')}?owner={owner.pk}")
-        if not reviewing:
-            form = OwnerRegistrationForm(initial={"name": form.cleaned_data["name"]})
-        reviewing = True
+        try:
+            if saving:
+                owner = create_sample_owner(
+                    actor=actor,
+                    name=form.cleaned_data["name"],
+                    affiliation=form.cleaned_data["affiliation"],
+                    notes=form.cleaned_data["notes"],
+                    preferred_code=form.cleaned_data.get("owner_code_preview", ""),
+                )
+                messages.success(request, f"Sample owner registered with code {owner.code}.")
+                return redirect(f"{reverse('registry:new_session')}?owner={owner.pk}")
+            proposed_code = suggest_owner_code(form.cleaned_data["name"])
+            if not reviewing:
+                form = OwnerRegistrationForm(initial={"name": form.cleaned_data["name"]})
+            reviewing = True
+        except ValidationError as error:
+            add_service_error(form, error)
     return render(
         request,
         "registry/new_owner.html",
@@ -165,9 +187,9 @@ def session_detail(request, pk):
 def grid_detail(request, pk):
     current_staff(request.user)
     grid = get_object_or_404(Grid.objects.select_related("session__owner"), pk=pk)
-    can_edit = editable_owners(request.user).filter(pk=grid.session.owner_id).exists()
+    can_edit = can_edit_grid(request.user, grid)
     if request.method == "POST":
-        require_editor(request.user, grid.session.owner)
+        require_grid_editor(request.user, grid)
     form = EditGridForm(
         request.POST or None, instance=grid, initial={"expected_version": grid.version}
     )
