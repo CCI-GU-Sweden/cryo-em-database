@@ -2,8 +2,12 @@
 
 import os
 import shlex
+import shutil
 import subprocess
+import sys
 import tempfile
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
@@ -102,3 +106,110 @@ class DatabaseLaunchTests(TestCase):
         self.assertEqual(
             shlex.split(options), ["-h", "127.0.0.1", "-p", "5433", "-k", str(cluster)]
         )
+
+
+class DatabaseStopTests(TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.cluster = Path(directory.name) / "project with spaces" / "postgres"
+        cluster_patch = patch.object(local_database, "CLUSTER", self.cluster)
+        cluster_patch.start()
+        self.addCleanup(cluster_patch.stop)
+        tool_patch = patch.object(local_database, "find_tool", return_value=Path("pg_ctl"))
+        tool_patch.start()
+        self.addCleanup(tool_patch.stop)
+
+    def test_stop_before_initialization_does_not_run_or_create_anything(self):
+        with patch.object(local_database, "run_tool") as run, redirect_stdout(StringIO()) as output:
+            local_database.stop_cluster()
+        run.assert_not_called()
+        self.assertIn("nothing to stop", output.getvalue())
+        self.assertFalse(self.cluster.exists())
+
+    def test_stopped_cluster_returns_success_without_calling_stop(self):
+        self.cluster.mkdir(parents=True)
+        stopped = subprocess.CompletedProcess(["pg_ctl"], 3, stdout="no server running", stderr="")
+        with patch.object(local_database.subprocess, "run", return_value=stopped) as command:
+            with redirect_stdout(StringIO()) as output:
+                local_database.stop_cluster()
+                local_database.stop_cluster()
+        self.assertIn("already stopped", output.getvalue())
+        self.assertEqual(command.call_count, 2)
+        self.assertTrue(all(call.args[0][-1] == "status" for call in command.call_args_list))
+
+    def test_running_cluster_uses_its_own_directory_and_waits_for_shutdown(self):
+        self.cluster.mkdir(parents=True)
+        with patch.object(local_database, "cluster_is_running", return_value=True):
+            with patch.object(local_database, "run_tool") as run:
+                local_database.stop_cluster()
+        run.assert_called_once_with("pg_ctl", "-D", str(self.cluster), "-w", "stop")
+
+    def test_status_permission_and_directory_errors_remain_failures(self):
+        self.cluster.mkdir(parents=True)
+        for code in (1, 4):
+            result = subprocess.CompletedProcess(
+                ["pg_ctl"], code, stdout="", stderr="Cannot access directory"
+            )
+            with (
+                self.subTest(code=code),
+                patch.object(local_database.subprocess, "run", return_value=result),
+            ):
+                with redirect_stderr(StringIO()) as errors, redirect_stdout(StringIO()) as output:
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        local_database.stop_cluster()
+            self.assertIn("Cannot access directory", errors.getvalue())
+            self.assertNotIn("already stopped", output.getvalue())
+
+    def test_a_server_exiting_during_stop_is_success(self):
+        self.cluster.mkdir(parents=True)
+        with patch.object(local_database, "cluster_is_running", side_effect=[True, False]):
+            with patch.object(
+                local_database, "run_tool", side_effect=subprocess.CalledProcessError(1, ["pg_ctl"])
+            ):
+                with redirect_stdout(StringIO()) as output:
+                    local_database.stop_cluster()
+        self.assertIn("no longer running", output.getvalue())
+
+    def test_failed_stop_is_not_hidden_if_the_server_is_still_running(self):
+        self.cluster.mkdir(parents=True)
+        with patch.object(local_database, "cluster_is_running", return_value=True):
+            with patch.object(
+                local_database, "run_tool", side_effect=subprocess.CalledProcessError(1, ["pg_ctl"])
+            ):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    local_database.stop_cluster()
+
+    def test_stale_pid_file_is_not_deleted_or_used_for_a_forced_kill(self):
+        self.cluster.mkdir(parents=True)
+        pid = self.cluster / "postmaster.pid"
+        pid.write_text("123456\n")
+        with patch.object(local_database, "cluster_is_running", return_value=False):
+            with patch.object(local_database, "run_tool") as run, redirect_stdout(StringIO()):
+                local_database.stop_cluster()
+        self.assertEqual(pid.read_text(), "123456\n")
+        run.assert_not_called()
+
+    def test_status_reports_stopped_without_initialization(self):
+        with patch.object(sys, "argv", ["local_database.py", "status"]):
+            with patch.object(local_database, "load_dotenv"), redirect_stdout(StringIO()) as output:
+                local_database.main()
+        self.assertIn("No local database directory", output.getvalue())
+        self.assertFalse(self.cluster.exists())
+
+    def test_dev_stop_succeeds_in_a_fresh_checkout(self):
+        # Exercise the real two-process entry point against a temporary empty
+        # checkout, so this test cannot stop the developer's own database.
+        root = Path(__file__).resolve().parent.parent
+        checkout = self.cluster.parent
+        scripts = checkout / "scripts"
+        scripts.mkdir(parents=True)
+        shutil.copy(root / "dev.py", checkout / "dev.py")
+        for name in ("__init__.py", "runtime.py", "local_database.py"):
+            shutil.copy(root / "scripts" / name, scripts / name)
+        result = subprocess.run(
+            [sys.executable, "dev.py", "stop"], cwd=checkout, capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("nothing to stop", result.stdout)
+        self.assertNotIn("Traceback", result.stderr)

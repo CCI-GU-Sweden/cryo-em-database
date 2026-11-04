@@ -16,7 +16,7 @@
 | Current Excel transfer | Filtered XLSX export, colour groups, blank hand-entry template, plain Session labels, preview/confirmation and audited atomic import implemented |
 | Facility time | Europe/Stockholm; date-only imports default to noon and report it; blank dates stay unknown |
 | Windows launcher | Conda paths, password-file handling and startup options fixed; native Windows start/check/stop still needs colleague verification |
-| Last full validation | 119 tests and all project checks passed on Linux/WSL; a fresh temporary PostgreSQL cluster also passed startup/authentication/shutdown with spaces/apostrophe in its path |
+| Last full validation | 128 tests and all project checks passed on Linux/WSL; a fresh temporary PostgreSQL cluster also passed startup/authentication/shutdown with spaces/apostrophe in its path |
 
 Remaining work includes initial physical storage/events, full lifecycle actions,
 bulk/inline edits, original legacy workbook parsing, CSV/full-history exports,

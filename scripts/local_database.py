@@ -8,6 +8,7 @@ import argparse
 import os
 import shlex
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -59,14 +60,57 @@ def server_options(cluster: Path, port: int, *, windows: bool | None = None) -> 
     return options
 
 
+def cluster_is_running() -> bool:
+    """pg_ctl status uses 3 for stopped; other errors must remain failures."""
+    result = subprocess.run(
+        [str(find_tool("pg_ctl")), "-D", str(CLUSTER), "status"],
+        capture_output=True,
+        text=True,
+        errors="replace",
+    )
+    # Inaccessible/invalid directories (status 4), permission failures and other
+    # unexpected errors must not be reported as a successful stop.
+    if result.returncode not in (0, 3):
+        if result.stdout:
+            print(result.stdout, end="", file=sys.stderr)
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
+        result.check_returncode()
+    return result.returncode == 0
+
+
+def stop_cluster() -> None:
+    if not CLUSTER.exists():
+        print(f"No local database directory in this checkout ({CLUSTER}); nothing to stop.")
+        return
+    if not cluster_is_running():
+        print(f"Local database is already stopped for this checkout ({CLUSTER}).")
+        return
+    try:
+        run_tool("pg_ctl", "-D", str(CLUSTER), "-w", "stop")
+    except subprocess.CalledProcessError:
+        # The server can exit between the status check and the stop command.
+        # Accept that final state, but never hide a failed stop of a running server.
+        if cluster_is_running():
+            raise
+        print(f"Local database is no longer running for this checkout ({CLUSTER}).")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["start", "stop", "status"])
     args = parser.parse_args()
     load_dotenv(ROOT / ".env", override=False)
 
-    if args.action != "start":
-        run_tool("pg_ctl", "-D", str(CLUSTER), args.action)
+    if args.action == "stop":
+        stop_cluster()
+        return
+    if args.action == "status":
+        if not CLUSTER.exists():
+            print(f"No local database directory in this checkout ({CLUSTER}).")
+        else:
+            state = "running" if cluster_is_running() else "stopped"
+            print(f"Local database is {state} for this checkout ({CLUSTER}).")
         return
 
     user = os.environ.get("POSTGRES_USER", "cci")
@@ -80,11 +124,7 @@ def main() -> None:
     if not (CLUSTER / "PG_VERSION").exists():
         initialize_cluster(user, password)
 
-    status = subprocess.run(
-        [str(find_tool("pg_ctl")), "-D", str(CLUSTER), "status"],
-        capture_output=True,
-    )
-    if status.returncode != 0:
+    if not cluster_is_running():
         # TCP is loopback-only. Unix also uses a socket in the private cluster;
         # native Windows needs no Unix-socket directory.
         run_tool(
@@ -121,3 +161,7 @@ if __name__ == "__main__":
         main()
     except FileNotFoundError as error:
         raise SystemExit(str(error)) from error
+    except subprocess.CalledProcessError as error:
+        raise SystemExit(
+            f"PostgreSQL command failed (exit {error.returncode}); see output above."
+        ) from error

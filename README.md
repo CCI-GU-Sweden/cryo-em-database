@@ -59,6 +59,16 @@ python dev.py stop
 
 The helper retains the database on stop. Run
 `python scripts/local_database.py status` to check whether it is running.
+Stop/status apply only to this checkout's `.local/postgres/` directory. Stop is
+safe to repeat: if this checkout has no local database or it is already stopped,
+the command prints that state and succeeds. Permission errors and failed shutdowns
+remain errors. The command does not delete data/PID files or stop another checkout.
+
+If the app previously opened but status now says stopped, inspect the latest
+`.local/postgres.log` entries to determine whether PostgreSQL shut down or exited.
+An absent PID file alone does not explain why it stopped. The Windows confirmation
+of this scenario remains pending until the colleague's log/start/check/stop review.
+
 The launcher handles native Windows Conda
 tool paths (`Library/bin` for PostgreSQL, `Scripts` for Ruff), as well as Linux/WSL
 `bin` paths. It always uses tools from the running Python environment. The setup
@@ -197,7 +207,8 @@ python dev.py check
 
 This prepares the local database if necessary, checks Django configuration and
 missing migrations, runs the tests, and checks linting and formatting. It stops
-at the first failed command. PostgreSQL stays running until `python dev.py stop`.
+at the first failed command. Run `python dev.py stop` afterward to ensure the local
+database is stopped; it also succeeds when the database is already stopped.
 
 Django creates and removes a separate test database. The local database role
 needs permission to create it; the prototype cluster's initial role has this.
@@ -207,7 +218,7 @@ values, unknown/zero/false handling, audit integrity, retry safety, stale edits
 and concurrent ID allocation. The custom user model is established in the
 initial migration so later authentication changes retain stable user IDs.
 
-The last full verification recorded on 2026-11-04 passed 119 tests, including
+The last full verification recorded on 2026-11-04 passed 128 tests, including
 current Excel transfer, archive protection and launcher portability. Native
 Windows end-to-end and the six-staff pilot still require manual verification;
 see [the acceptance checklist](docs/06_ACCEPTANCE_TESTS.md).
