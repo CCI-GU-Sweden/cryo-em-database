@@ -168,3 +168,13 @@ lifecycle scenarios are deferred to the next slice.
 - Preparation dates in the registry show date only; stored time and session-detail
   display keep the full timestamp. Date-range filtering remains unchanged.
 - The generated field/type reference matches the authoritative Django model.
+
+## Session naming and browsing (2026-11-04)
+
+- Session names use the existing session number, owner code and facility-local
+  preparation date: `Session 1 - rasi - 261104`. Unknown dates use `undated`.
+- Navigation includes a Sessions page, visible to all active CCI staff, with grid
+  counts, detail links, search by owner/operator/reference/session number and
+  owner/date filters. Invalid ranges fail clearly and pagination retains filters.
+- Display naming handles timezone boundaries and does not modify stored timestamps,
+  snapshots, IDs or audit history. Anonymous/non-CCI/inactive users cannot browse.

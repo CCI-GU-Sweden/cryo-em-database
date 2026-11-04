@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils import timezone
 
 
 class SampleOwner(models.Model):
@@ -67,8 +68,20 @@ class PreparationSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def display_name(self):
+        # Derive the label; foreign keys continue to use the stable internal ID.
+        # Use the facility timezone so the name does not vary between viewers.
+        code = self.owner.code if self.owner_id else "unassigned"
+        date = "undated"
+        if self.prepared_at:
+            date = timezone.localtime(self.prepared_at, timezone.get_default_timezone()).strftime(
+                "%y%m%d"
+            )
+        return f"Session {self.pk or 'new'} - {code} - {date}"
+
     def __str__(self):
-        return f"Session {self.pk} · {self.owner}"
+        return self.display_name
 
 
 class Grid(models.Model):

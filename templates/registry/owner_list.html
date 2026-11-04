@@ -13,7 +13,8 @@
 <td>{{ owner.code }}</td><td>{{ owner.affiliation|default:"—" }}</td>
 <td>{{ owner.active|yesno:"Active,Inactive" }}</td>
 <td>{% if owner.active %}<a href="{% url 'registry:new_session' %}?owner={{ owner.pk }}">New session</a>
-{% else %}Inactive{% endif %}</td>
+{% else %}Inactive{% endif %}
+ · <a href="{% url 'registry:session_list' %}?owner={{ owner.pk }}">Sessions</a></td>
 </tr>{% empty %}<tr><td colspan="5">No owners found.</td></tr>{% endfor %}</tbody>
 </table></div>
 <p>Page {{ page.number }} of {{ page.paginator.num_pages }}</p>

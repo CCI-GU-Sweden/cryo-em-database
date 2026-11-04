@@ -2,7 +2,7 @@
 {% block title %}{{ grid.grid_number }} · CCI Grid Registry{% endblock %}
 {% block content %}
 <h1>{{ grid.grid_number }}</h1>
-<p>Owner: {{ grid.session.owner }} · <a href="{% url 'registry:session_detail' grid.session_id %}">Preparation session {{ grid.session_id }}</a></p>
+<p>Owner: {{ grid.session.owner }} · <a href="{% url 'registry:session_detail' grid.session_id %}">{{ grid.session.display_name }}</a></p>
 <p>Unclipped · Not imaged · Storage unassigned</p>
 {% if can_edit %}
 <form method="post">
