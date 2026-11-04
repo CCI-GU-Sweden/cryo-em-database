@@ -1,19 +1,25 @@
 # Agreed database schema — v0.1
 
-**Date:** 2026-11-02  
-**Status:** Agreed conceptual schema; physical table names and selected field details may evolve in migrations.
+**Last reviewed:** 2026-11-04\
+**Status:** Current preparation schema plus agreed future storage/lifecycle design
+
+`registry/models.py` and its migrations define the implemented schema; the
+[generated Grid field reference](#generated-grid-field-reference) below checks
+its exact types. StorageLocation, GridEvent and their state transitions are still
+designs, not deployed tables. Dated implementation notes record evolution; earlier
+snapshot versions and precision limits are superseded by the current rules.
 
 ## 0. Read this first: invariants
 
 1. A **preparation session** represents **one actual preparation/freezing session** and belongs to **exactly one sample owner**.
-2. Every new session preserves **one immutable initial defaults snapshot**, copied to **independent values for each generated grid**. Updating one grid never updates siblings or the snapshot.
+2. Normal session registration preserves **one immutable initial defaults snapshot**, copied to **independent values for each generated grid**. Imports preserve supplied original defaults or an explicitly unknown empty snapshot. Updating one grid never updates siblings or the snapshot.
 3. **Experiment reference is optional**; optional project reference is descriptive only.
 4. **Grid number is globally unique, permanent, and never reused**, regardless of owner/code changes. Historical `CCI-00001`-style IDs coexist with new owner-prefixed IDs (`kegu-1234` is illustrative).
 5. Grids start **unclipped**, **not imaged**, and **awaiting storage**. Empty storage is valid at registration.
 6. **Clipping state**, **availability/custody**, **imaging state**, and **current physical location** are different axes. Shipping does not imply imaging; imaging usually precedes disposal but never automatically proves it.
 7. Physical lifecycle actions are captured in **append-only GridEvent records**. Database corrections/metadata edits are captured separately in **AuditEvent**.
-8. All active CCI staff can view and edit all active grids. Archived grids are read-only; inactive/non-CCI users cannot edit. Enforce this server-side. Only CCI staff are onboarded initially.
-9. Don't infer any scientific value (including humidity scale and missing dates) during import.
+8. All active CCI staff and facility superusers can view and edit all active grids. Archived grids are read-only; inactive accounts and non-CCI non-administrators cannot edit. Import separately requires the CCI flag even for superusers; export follows viewing access. Enforce this server-side.
+9. Do not guess unknown scientific values, humidity scale or missing dates during import. The approved date-only rule explicitly uses noon in Europe/Stockholm and reports it; blank dates remain unknown.
 
 ## 1. Data relationships
 
@@ -31,7 +37,11 @@ erDiagram
     Grid o|--o{ Grid : copied_from
 ```
 
-**Eight primary entities:** `SampleOwner`, `PreparationSession`, `Grid`, `StorageLocation`, `GridEvent`, `AppUser`, `OwnerAccessGrant`, and `AuditEvent`.
+**Conceptual domain entities:** `SampleOwner`, `PreparationSession`, `Grid`, planned
+`StorageLocation`/`GridEvent`, `accounts.User` (AppUser in the diagram),
+`OwnerAccessGrant`, and `AuditEvent`. The implemented preparation schema also has
+`DeletedGrid`, `GridIdentifierCounter` and `PreparationSuggestion`. Copied-from
+links are reserved in the model but have no current UI/Excel workflow.
 
 Supporting tables (e.g. `ImportRun`, a locked `GridIdentifierCounter`, or Django auth group/permission tables) are permitted when needed for correctness. They do not alter the agreed domain model.
 
@@ -43,7 +53,7 @@ Supporting tables (e.g. `ImportRun`, a locked `GridIdentifierCounter`, or Django
 
 | Field | Type | Constraints / purpose |
 |---|---|---|
-| `id` | UUID or bigint PK | Stable internal identity |
+| `id` | bigint PK | Stable internal identity |
 | `name` | string | Required; sample owner or research group label |
 | `code` | string unique | Automatically assigned from name at registration; four lowercase letters/digits with a checked collision sequence; stable afterward. Future grid prefix use awaits numbering decision. |
 | `affiliation` | string? | Optional institution/group |
@@ -53,35 +63,40 @@ Supporting tables (e.g. `ImportRun`, a locked `GridIdentifierCounter`, or Django
 
 - The existing Excel `Name` is **not** an authenticated username.
 - Changing a person's name or code **must not rewrite** existing grid numbers.
-- New owner codes have four lowercase letters/digits, based on the first two letters of the first and last name, with numeric substitutions on collision. Existing codes are preserved. Operational grid numbering remains a separate decision.
+- New owner codes have four lowercase letters/digits, based on the first two letters of the first and last name, with numeric substitutions on collision. Existing codes are preserved. Grid numbering uses the confirmed per-owner sequence in section 10.
 
 ### 2.2 PreparationSession
 
 | Field | Type | Constraints / purpose |
 |---|---|---|
-| `id` | UUID or bigint PK | Stable session identity |
+| `id` | bigint PK | Stable internal session identity |
 | `owner_id` | FK SampleOwner | **Required**, exactly one owner per session |
-| `prepared_by_id` | FK AppUser? | Required for new sessions; nullable for historical imports with unknown operator |
-| `prepared_at` | timezone-aware datetime? | Required for new entries if agreed; nullable for legacy unknown dates |
+| `prepared_by_id` | FK User? | Logged-in operator for normal registration; nullable for imports with unknown operator |
+| `prepared_at` | timezone-aware datetime? | Required in normal registration; import may preserve an unknown date or apply the explicit date-only noon rule |
 | `experiment_reference` | string? | Optional free text such as `JB002` |
 | `project_reference` | string? | Optional, **not** an access-control boundary |
-| `defaults_schema_version` | positive integer | Version of initial parameter snapshot; start at `1` |
-| `defaults` | JSON object | **Immutable snapshot** once grids created; initial shared parameters |
+| `defaults_schema_version` | positive integer | Current default `4`; retained snapshots may have older versions |
+| `defaults` | JSON object | **Immutable snapshot**; imported unknown defaults are `{}`, never inferred from grid values |
+| `request_token` | unique UUID | Submission idempotency and portable Excel session identity; not the visible session number |
 | `notes` | text? | Preparation-session observations |
 | `created_at`, `updated_at` | timestamp | Automatic |
 
 A session is an **actual laboratory event**, not merely a convenient batch import. Never infer that all grids belong to one session solely because they have the same owner or experiment reference.
 
-**Snapshot format:** named parameter keys matching grid field concepts; types/units expressed using a documented schema. Could mirror the Grid preparation field names. Save the snapshot at creation, not as a live editable template; if another session is prepared with similar parameters, start a **new session** using a copied set of defaults.
+**Snapshot format:** keys match `PREPARATION_FIELDS`; Decimal values are strings,
+unknown numeric values are null and unknown text is empty text. Normal snapshots
+are made at registration. Imported original snapshots stay separate from actual
+grid values; when not supplied, `{}` explicitly means unknown. Do not make a live
+template or infer defaults from the first imported row.
 
 ### 2.3 Grid (central scientific record)
 
 | Field | Type | Constraint or meaning |
 |---|---|---|
-| `id` | UUID or bigint PK | Internal FK target |
+| `id` | bigint PK | Internal FK target |
 | `grid_number` | string unique | **Immutable** public/natural ID, e.g. `CCI-00001`, `kegu-1234` |
 | `session_id` | FK PreparationSession | Required; owner derived through session |
-| `copied_from_grid_id` | self-FK? | Optional explicit relationship, **not inferred** from similar content |
+| `copied_from_grid_id` | self-FK? | Reserved optional relationship; no current UI/Excel workflow, never inferred |
 | `sample_description` | text? | Existing `Sample` column |
 | `sample_concentration_value` | Decimal? | Numeric concentration |
 | `sample_concentration_unit` | string? | e.g., `mg/mL` |
@@ -103,6 +118,7 @@ A session is an **actual laboratory event**, not merely a convenient batch impor
 | `blot_force` | Decimal? | Scale/unit requires clarification; raw source retained in import log |
 | `multiple_blot` | non-negative integer | Multiple blots; default 0, blank input becomes 0, integer >= 0 |
 | `notes` | text? | Individual remarks/observations, including historical copies/outcomes |
+| `version` | positive integer | Optimistic concurrency; reject stale edits/archive confirmations |
 | `created_at`, `updated_at` | timestamp | Automatic |
 
 Do **not** put the latest storage location, clipping date, and imaging outcome into unrelated freely editable columns. They should be derived from or transactionally synchronized with `GridEvent` (read-only cache columns acceptable for high-performance tables).
@@ -162,7 +178,11 @@ For scientific traceability, a grid must retain its original source values via i
 
 ### 2.6 AppUser
 
-Use Django's user model or a compatible custom user model set **before the first migration** (recommended if anticipating authentication changes). At minimum: stable PK, username/login identity, email, active flag, is_staff/admin roles, timestamps. Keep owner information in `SampleOwner`; do not merge owner and login identity.
+The implemented `accounts.User(AbstractUser)` has a stable bigint key and was set
+before the first migration. It retains Django's login/password/active fields and
+adds `is_cci_staff`. Django's `is_staff` is labelled Administration site access;
+facility-wide administration requires `is_superuser`. Keep sample ownership in
+`SampleOwner`, separate from login identities.
 
 Identity is **separate from authorization**. Use local accounts initially; permit external SSO/OIDC later through a pluggable backend while retaining same internal user IDs and access grants.
 
@@ -173,10 +193,10 @@ Identity is **separate from authorization**. Use local accounts initially; permi
 | `id` | PK | |
 | `user_id` | FK AppUser | Required |
 | `owner_id` | FK SampleOwner | Required |
-| `role` | enum/string | `viewer`, `operator`, `editor` (final exact action matrix in architecture doc) |
+| `role` | enum/string | Current choices `viewer`, `operator`, `editor`; future external-action policy is undecided |
 | `created_at`, `updated_at` | timestamp | Automatic |
 
-- Unique constraint on `(user_id, owner_id)` unless intentionally implementing multiple separately scoped grants.
+- Unique constraint on `(user_id, owner_id)`.
 - Admins manage accounts and owner profiles. Active CCI staff have facility-wide
   read/edit/import/export access to active grids; archived records remain read-only.
 - Owner-based grants are retained for future external access. They do not limit
@@ -277,13 +297,14 @@ initial physical state is displayed read-only, with no editable status columns.
   per-owner sequence (see section 10). Existing DEMO IDs are preserved. Creation
   can be disabled with `GRID_REGISTRATION_ENABLED=false`. Operational ID preview
   remains future UI work; batches are limited to 1–100 grids in this prototype.
-- New sessions require a timezone-aware preparation timestamp and record the
-  authenticated operator. Nullable historical date/operator fields are retained
-  for a future importer; the prototype does not create provisional legacy sessions.
-- Defaults schema version 1 uses Grid preparation field names. Decimal values are
+- Normal registration requires a timezone-aware preparation timestamp and records
+  the authenticated operator. Current-format imports can preserve unknown dates
+  or operators; original legacy grouping remains a separate future task.
+- The original defaults schema version 1 used Grid preparation field names. Decimal values are
   strings in the JSON snapshot; unknown numeric/boolean values are JSON null.
-  Numeric grid columns use Decimal with four fractional places (concentration: three); unknown text is
-  an empty string. Concentrations with a numeric value require an explicit unit.
+  The original numeric columns had four fractional places (concentration: three);
+  current columns use two places and new snapshots use version 4 (section 12).
+  Unknown text is empty text; a numeric concentration requires an explicit unit.
 - Grid creation, counter changes and audit entries commit or roll back together.
   A unique request token makes repeated identical submissions idempotent.
 - Individual edits use a version field to reject stale saves. PostgreSQL triggers
@@ -397,6 +418,41 @@ table is generated with `python manage.py describe_grid_fields --update-docs`;
 not necessarily PostgreSQL defaults/check constraints. Refer to the invariant and
 service descriptions above for cross-field, authorization and immutability rules.
 
+### Generated Grid field reference
+
+<!-- generated-grid-fields:start -->
+| Field | PostgreSQL type | NULL allowed | Empty text allowed | Application default | Model bounds |
+|---|---|---|---|---|---|
+| `id` | `bigint` | No | No | Generated ID | >= -9223372036854775808, <= 9223372036854775807 |
+| `grid_number` | `varchar(80)` | No | No | — | — |
+| `session_id` | `bigint` | No | No | — | — |
+| `copied_from_grid_id` | `bigint` | Yes | No | — | — |
+| `sample_description` | `text` | No | Yes | — | — |
+| `sample_concentration_value` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `sample_concentration_unit` | `varchar(40)` | No | Yes | — | — |
+| `buffer_description` | `text` | No | Yes | — | — |
+| `grid_type` | `varchar(200)` | No | Yes | — | — |
+| `grid_box_number` | `varchar(100)` | No | Yes | — | — |
+| `grid_type_reference` | `varchar(200)` | No | Yes | — | — |
+| `carbon_description` | `varchar(200)` | No | Yes | — | — |
+| `carbon_thickness_nm` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `glow_atmosphere` | `varchar(100)` | No | Yes | — | — |
+| `glow_polarity` | `varchar(100)` | No | Yes | — | — |
+| `glow_current_ma` | `numeric(12, 2)` | Yes | No | — | — |
+| `glow_duration_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `sample_volume_ul` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `temperature_c` | `numeric(12, 2)` | Yes | No | — | — |
+| `humidity_percent` | `numeric(7, 2)` | Yes | No | — | >= 0, <= 100 |
+| `blot_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `hold_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `blot_force` | `numeric(12, 2)` | Yes | No | — | — |
+| `multiple_blot` | `integer` | No | No | 0 | >= 0, <= 2147483647 |
+| `notes` | `text` | No | Yes | — | — |
+| `version` | `integer` | No | No | 1 | >= 0, <= 2147483647 |
+| `created_at` | `timestamp with time zone` | No | No | Time of creation | — |
+| `updated_at` | `timestamp with time zone` | No | No | Time of save | — |
+<!-- generated-grid-fields:end -->
+
 ## Session labels and browsing (2026-11-04)
 
 PreparationSession.display_name derives `Session <internal ID> - <owner code> -
@@ -441,40 +497,6 @@ use this confirmation flow. A later SSO deployment needs its own reauthenticatio
 mechanism. Restore/permanent purge tools are deferred; any eventual purge must
 keep identifier reservations and respect lineage/history dependencies. No bulk
 deletion is introduced. No physical discard or storage transition is inferred.
-
-<!-- generated-grid-fields:start -->
-| Field | PostgreSQL type | NULL allowed | Empty text allowed | Application default | Model bounds |
-|---|---|---|---|---|---|
-| `id` | `bigint` | No | No | Generated ID | >= -9223372036854775808, <= 9223372036854775807 |
-| `grid_number` | `varchar(80)` | No | No | — | — |
-| `session_id` | `bigint` | No | No | — | — |
-| `copied_from_grid_id` | `bigint` | Yes | No | — | — |
-| `sample_description` | `text` | No | Yes | — | — |
-| `sample_concentration_value` | `numeric(12, 2)` | Yes | No | — | >= 0 |
-| `sample_concentration_unit` | `varchar(40)` | No | Yes | — | — |
-| `buffer_description` | `text` | No | Yes | — | — |
-| `grid_type` | `varchar(200)` | No | Yes | — | — |
-| `grid_box_number` | `varchar(100)` | No | Yes | — | — |
-| `grid_type_reference` | `varchar(200)` | No | Yes | — | — |
-| `carbon_description` | `varchar(200)` | No | Yes | — | — |
-| `carbon_thickness_nm` | `numeric(12, 2)` | Yes | No | — | >= 0 |
-| `glow_atmosphere` | `varchar(100)` | No | Yes | — | — |
-| `glow_polarity` | `varchar(100)` | No | Yes | — | — |
-| `glow_current_ma` | `numeric(12, 2)` | Yes | No | — | — |
-| `glow_duration_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
-| `sample_volume_ul` | `numeric(12, 2)` | Yes | No | — | >= 0 |
-| `temperature_c` | `numeric(12, 2)` | Yes | No | — | — |
-| `humidity_percent` | `numeric(7, 2)` | Yes | No | — | >= 0, <= 100 |
-| `blot_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
-| `hold_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
-| `blot_force` | `numeric(12, 2)` | Yes | No | — | — |
-| `multiple_blot` | `integer` | No | No | 0 | >= 0, <= 2147483647 |
-| `notes` | `text` | No | Yes | — | — |
-| `version` | `integer` | No | No | 1 | >= 0, <= 2147483647 |
-| `created_at` | `timestamp with time zone` | No | No | Time of creation | — |
-| `updated_at` | `timestamp with time zone` | No | No | Time of save | — |
-<!-- generated-grid-fields:end -->
-
 
 ## 15. Current-format Excel transfer and shared editing (2026-11-04)
 

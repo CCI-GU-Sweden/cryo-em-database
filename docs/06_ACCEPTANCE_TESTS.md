@@ -1,20 +1,46 @@
 # Acceptance criteria and testing scenarios
 
-**Version:** v0.1  
+**Version:** v0.1\
+**Last reviewed:** 2026-11-04\
 **Purpose:** Clear definition of done for model, services, UI, import, and security.
+
+## Current validation and remaining acceptance
+
+The last full Linux/WSL run passed **119 tests**, Django checks, migration-drift
+checks, the generated field reference, Ruff lint and formatting. Seven tests cover
+launcher portability, and a fresh temporary PostgreSQL cluster passed initialization,
+authentication and shutdown with spaces/apostrophe in its path.
+
+| Area | Evidence / remaining work |
+|---|---|
+| Preparation, IDs and edits | Automated model/service/HTTP/concurrency/migration tests; independent grid values and audit history covered |
+| Shared CCI editing | Cross-operator edits audited; inactive/non-CCI rejection and archive protections tested |
+| Current Excel format | Filtered all-page export, hand-entry labels, missing owners, conflicts, atomic/repeated imports, colour groups and noon/Stockholm defaults tested |
+| Import/export permissions | Explicit CCI flag for import, including admins; export shares registry visibility and checks direct calls |
+| Session Enter key | Targeted JavaScript event checks passed; normal suggestions/newlines/button activation retained |
+| Native Windows | Layout/password-file/startup branches unit-tested; colleague's full start/login/check/stop verification remains pending |
+| Physical handling | StorageLocation/GridEvent, occupancy and lifecycle actions not implemented |
+| Release readiness | Shared deployment, CI automation, backup schedule and tested restore are not configured |
+
+Sections A–F are the **full v0.1 acceptance checklist**, not a claim that every
+feature is implemented or manually signed off. Current-format transfer tests are
+separate from the unimplemented original legacy importer in section D. Detailed
+slice checks below record the implemented behavior; the [roadmap](04_DEVELOPMENT_ROADMAP.md)
+tracks remaining work. Do not mark Windows or the six-staff pilot complete without
+actual feedback from those runs.
 
 ## A. Registration and scientific parameters
 
-- [ ] Admin enters an owner name, generates a currently unused code and saves; collisions use the agreed four-character lowercase substitution sequence. Concurrent registrations cannot duplicate codes, and name changes preserve assigned codes.
+- [ ] CCI staff enter an owner name, generate a currently unused code and save; collisions use the agreed four-character lowercase substitution sequence. Concurrent registrations cannot duplicate codes, and name changes preserve assigned codes.
 - [ ] Authorized CCI staff can create a PreparationSession with **one** owner, operator, optional reference, and entered common preparation parameters.
 - [ ] Creating N grids generates **exactly N unique IDs** in one transaction; no IDs/rows generated on failure.
 - [ ] Concurrent requests under the same owner prefix never create duplicate IDs.
 - [ ] Grids inherit a **copy** of initial session defaults; modifying one grid does not change any other grid or the immutable session snapshot.
 - [ ] Experiment reference and project reference can remain empty.
-- [ ] New grid initially has `unclipped`, `awaiting_storage`, `not_imaged`, current location null.
+- [ ] New grid initially has `unclipped`, `awaiting_storage`, `not_imaged`, current location null. Today these are display placeholders; event-backed state is future work.
 - [ ] A user can modify individual preparation conditions in a detail form or authorized bulk table action; audit records preserve before/after values.
-- [ ] Null concentration/temperature/humidity and other unknown values remain null, not zero.
-- [ ] The UI groups glow discharge parameters but stores them separately and allows filtering/sorting numerically where appropriate.
+- [ ] Unknown measurements remain null, not zero. Multiple blots explicitly defaults to 0; imported date-only values explicitly default to noon and blank dates remain unknown.
+- [ ] The UI groups glow discharge parameters but stores them separately and filters numerically; numeric sorting controls remain future UI work.
 - [ ] Historical `CCI-00001` grid ID coexists with new owner-based ID without auto-renaming.
 
 ## B. Storage / clipping / imaging / transfer
@@ -34,7 +60,7 @@
 
 ## C. User access and administration
 
-- [ ] All authenticated CCI staff can view all owners and all grids.
+- [ ] All active CCI staff and facility superusers can view all owners and active grids, with archived records in a separate read-only area.
 - [ ] CCI admin can create/deactivate accounts, create owners, manage codes, and assign/revoke owner access grants.
 - [ ] All active CCI staff may edit every active grid and import/export current workbooks, without owner grants. Registration for any active owner requires no grant.
 - [ ] Owner grants are reserved for future external access and do not restrict internal CCI editing.
@@ -44,7 +70,11 @@
 - [ ] CSRF protection and session authorization work for every mutation.
 - [ ] Changing an authentication backend later will not invalidate owner relationships or grants.
 
-## D. Excel import and export
+## D. Original legacy workbook migration and full export (not implemented)
+
+This section covers the original private workbook and future physical/history
+export. It is not the contract for the implemented atomic-column XLSX format;
+see Current-format Excel and shared CCI editing below.
 
 - [ ] Importer reads the exact multi-row header structure of `Cryo-EM_grids_example.xlsx`.
 - [ ] Import preview identifies **8 populated grids** and skips identifier-only template rows.

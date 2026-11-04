@@ -1,10 +1,16 @@
 # Source Excel workbook — field map and migration plan
 
-**Version:** v0.1  
-**Source file inspected:** `Cryo-EM_grids_example.xlsx`  
-**Sheet:** `Sheet1`  
-**Used range:** `A1:AC724`  
+**Version:** v0.1\
+**Last reviewed:** 2026-11-04\
+**Source file inspected:** `Cryo-EM_grids_example.xlsx`\
+**Sheet:** `Sheet1`\
+**Used range:** `A1:AC724`\
 **Header row:** 3 (rows 1–2 are grouped display headers)
+
+**Implementation status:** sections 1–8 specify the original combined-field
+workbook migration, which is not implemented. Vocabulary seeding in section 9
+creates suggestions only. Current XLSX export, blank hand-entry templates and
+audited import are implemented as described in [section 10](#10-implemented-current-format-transfer-2026-11-04).
 
 ## 1. Actual source observations
 
@@ -87,9 +93,9 @@ If source data contain *both* unclipped and clipped locations, create historical
 
 ## 6. Import UX and technical behavior
 
-1. Admin uploads private workbook or points importer to local data file.
+1. A CCI staff member uploads a private workbook or points the future legacy importer to a local file. Import requires the CCI flag even for administrators.
 2. **Dry-run** shows candidate physical rows, empty template rows skipped, known values, unresolved parsing and owner/session issues.
-3. Admin resolves mapping decisions (or imports under flagged legacy grouping).
+3. Staff resolve scientific mapping decisions before confirmation (or use an explicitly reviewed provisional legacy grouping).
 4. Transactional import inserts records, events, locations, and import provenance. Conflicts cause a clear report and no accidental overwrite.
 5. Rerun of same source produces no duplicated grids or duplicate storage events; ideally use file checksum + row identity and/or per-record import keys.
 6. Export can recreate a flat grid view, but historical event details may require an additional `GridEvents` export sheet/table.

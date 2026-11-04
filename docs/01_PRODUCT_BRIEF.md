@@ -1,8 +1,14 @@
 # Product brief — CCI Cryo-EM Grid Registry
 
-**Version:** 0.1  
-**Date:** 2026-11-02  
-**Status:** Agreed operational scope; implementation details under review
+**Version:** 0.1\
+**Last reviewed:** 2026-11-04\
+**Status:** Agreed v0.1 scope; preparation and current Excel transfer implemented, physical handling deferred
+
+This brief describes the full intended workflow, including future screens/actions.
+The [roadmap](04_DEVELOPMENT_ROADMAP.md#current-implementation--2026-11-04) distinguishes
+the implemented prototype from the remaining v0.1 scope. The current table supports
+browsing/filtering and links to individual editing; bulk/inline editing and physical
+state tracking are not implemented.
 
 ## Problem
 
@@ -27,7 +33,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 
 | Actor | Day-one needs | Intended restrictions |
 |---|---|---|
-| CCI administrator | Create/manage accounts, owners and prefixes, access grants, import, troubleshoot | Facility-wide access and administration |
+| CCI administrator | Create/manage accounts, owners and prefixes, access grants, troubleshoot | Facility-wide administration; Excel import additionally requires the CCI staff flag |
 | CCI staff/preparation operator | Create sessions, generate grids, edit allowed preparation fields, record storage and lifecycle events | View all owners/grids; create sessions for any active owner; edit every active grid with a full change audit |
 | External researcher (later) | See assigned grids; possibly log limited handling actions | Not a day-one user; may not alter preparation parameters |
 | Sample owner | Named person/group to whom physical grids belong | Does not automatically have an application login or editing permission |
@@ -39,9 +45,9 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 1. Select an existing sample owner or create a new owner with a unique code/prefix.
 2. Open **New preparation session**; enter date, operator, optionally experiment/project reference and notes.
 3. Enter common sample-preparation, grid treatment, and freezing parameters (plain text or validated numeric fields).
-4. Enter the number of grids to generate and preview their new IDs.
+4. Enter the number of grids to generate (currently 1–100). ID preview is future UI work.
 5. Confirm once: create the session with an immutable default snapshot and individual grids with copied initial parameters **in one transaction**.
-6. Display the new grids in a table for rapid individual changes; storage remains empty until assigned.
+6. Display the new grids in a table with individual View/edit links; storage remains empty until assigned. Inline/bulk editing remains future work.
 
 ### Workflow B — Edit an individual grid
 
@@ -49,7 +55,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 - Correct/adjust individual parameters independently of other grids. All active CCI staff may edit every active grid. The preparation operator records attribution, while the audit identifies each editor and their changes.
 - Preserve an audit record identifying what changed and by whom; distinguish data corrections from actual physical actions.
 - Active CCI staff may delete an individual mistaken registration through a password-confirmed archive action. Deleted records leave normal views but retain their IDs, session links and history in a read-only Deleted grids area. This is separate from physical disposal.
-- A separate `copied_from_grid` relationship may record a deliberately copied preparation pattern; do not infer parenthood solely from similar values.
+- A reserved `copied_from_grid` relationship may support a future deliberate copy workflow. It is not exposed in the UI or current Excel format; do not infer it from similar values or notes.
 
 ### Workflow C — Track storage and use
 
@@ -63,7 +69,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 
 - Search by grid ID, owner, experiment reference, sample, storage location, preparation date, and availability.
 - Filter batch/session replicates; compare sample preparation differences.
-- CCI staff import current-format workbook data via validation + preview + confirmation; legacy workbook migration remains a separate step. The application exports matching records to CSV/XLSX without overwriting history.
+- Accounts marked CCI staff import current-format workbook data via preview and confirmation. Any account with registry viewing access can export its visible filtered subset to XLSX. Legacy workbook parsing and CSV export remain future work.
 
 ## Main screens
 
@@ -77,7 +83,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 
 - Simple language following existing lab concepts, with sensible defaults and input help.
 - Preserve grouped display of composite operations (e.g. "Air · Negative · 15 mA · 20 s") while storing individual fields.
-- Show units, allow nullable/unknown values, never interpret an empty value as zero.
+- Show units and preserve unknown measurements. Multiple blots explicitly defaults to 0, including blank input; date-only imports explicitly default to noon in Europe/Stockholm, while blank dates remain unknown.
 - Use contextual dropdowns and validation for constrained values, but do not block legitimate uncommon workflows.
 - Make routine events fast to record; do not require staff to think about underlying tables or authentication technologies.
 - Prevent destructive actions, accidental batch-wide editing, and editing of derived status directly.
@@ -101,7 +107,7 @@ The grid registry may later join a broader sample preparation knowledge base, li
 - Existing populated Excel rows can be imported with no lost source values and no phantom grids.
 - Search and export work for all grid records.
 - A grid's current physical location and complete history remain consistent after clipping and transfers.
-- Inactive and non-CCI users cannot alter records, including through bulk requests or direct URLs.
+- Inactive accounts and non-CCI non-administrators cannot alter records through direct URLs or services. Future bulk writes must enforce the same rules; import explicitly requires the CCI flag even for administrators.
 - Daily workflows are faster or comparably easy to Excel; feedback from all six staff guides iteration.
 
 ## Constraints and decisions

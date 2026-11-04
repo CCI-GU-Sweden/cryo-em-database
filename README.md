@@ -1,10 +1,13 @@
-# CCI Cryo-EM Grid Registry — Codex Handoff
+# CCI Cryo-EM Grid Registry
 
-**Specification baseline:** v0.1  
-**Prepared:** 2026-11-02  
-**Status:** Local prototype with preparation-session registration and individual grid editing
+**Specification baseline:** v0.1\
+**Last reviewed:** 2026-11-04\
+**Status:** Local prototype with preparation registration, browsing, audited editing, deletion archive and Excel transfer
 
-This directory contains a **repo-ready handoff** for building a small web application to register, edit, locate, and track cryo-electron microscopy (cryo-EM) grids prepared at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; the data model should support tightly restricted external accounts later.
+This repository contains the local prototype and working specifications for an internal application to register cryo-electron microscopy (cryo-EM) grids at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; physical storage/lifecycle tracking and restricted external access remain later work.
+
+For delivered features, remaining work and the next proposed slice, see the
+[current implementation status](docs/04_DEVELOPMENT_ROADMAP.md#current-implementation--2026-11-04).
 
 ## Local development environment
 
@@ -204,6 +207,11 @@ values, unknown/zero/false handling, audit integrity, retry safety, stale edits
 and concurrent ID allocation. The custom user model is established in the
 initial migration so later authentication changes retain stable user IDs.
 
+The last full verification recorded on 2026-11-04 passed 119 tests, including
+current Excel transfer, archive protection and launcher portability. Native
+Windows end-to-end and the six-staff pilot still require manual verification;
+see [the acceptance checklist](docs/06_ACCEPTANCE_TESTS.md).
+
 For an exact recreation of the tested **Linux x86-64** environment, use
 `conda create --prefix ./.conda --file environment-linux-64.lock` instead of the
 YAML create command. Other platforms should resolve `environment.yml`. After an
@@ -232,17 +240,25 @@ The initial Excel example uses `CCI-00001` etc. The new application should also 
 
 ## Important distinction
 
-- **Already agreed:** schema concepts, one owner per preparation session, copied defaults, optional experiment reference, staff-only initial access, complete history, both forms and table editing.
-- **Prototype baseline:** Django + PostgreSQL, local Django accounts, server-rendered forms and a plain table. Advanced table tooling and shared hosting follow workflow review.
-- **Unresolved:** some values/units in the source Excel, exact prefixes/sequences, whether staff may edit every owner's records, and detailed storage hierarchy rules. See `docs/07_OPEN_DECISIONS.md`.
+- **Implemented:** owner/session/grid registration, per-owner IDs, individual edits with audit history, registry column selection and filters, session browsing, password-confirmed archive, and current-format XLSX import/export.
+- **Confirmed policy:** all active CCI staff can edit all active grids; import requires the CCI flag, while export follows viewing access. New owner codes and ID sequences are settled. Facility time is Europe/Stockholm.
+- **Not yet implemented:** physical storage/lifecycle events, bulk/inline table editing, CSV export, the original combined-field workbook importer, archive restore/purge, shared hosting and backups.
+- **Unresolved:** storage hierarchy/occupancy rules and uncertain source conventions for humidity, parenthetical grid references and blot force. Native Windows end-to-end verification is pending. See `docs/07_OPEN_DECISIONS.md`.
 
 ## Source workbook
 
 The uploaded source workbook was inspected for this handoff: **`Cryo-EM_grids_example.xlsx`**, worksheet `Sheet1`, used range `A1:AC724`, headers in row 3, eight populated grid records in rows 4–11, and prefilled identifiers below. The workbook is **not duplicated in this documentation package**. Place a privately held copy under `data/raw/` for actual import tests; never commit identifying laboratory data to a public repository.
 
-## Recommended first Codex task
+## Next proposed development slice
 
-> Read AGENTS.md and docs/01–07. Implement roadmap Phases 0–1: a local Django/PostgreSQL prototype with login, owner administration, session registration, generated-grid table and individual grid editing. Preserve independent preparation values, immutable session defaults, stable identities and audit history. Use synthetic data with the agreed owner-prefixed ID sequence. Include model, service, permission and form tests. Demonstrate registration before adding physical storage and advanced table interactions.
+Complete the colleague's native Windows start/check/stop verification, then review
+the real storage hierarchy and occupancy rules with staff (decision D03). Once
+confirmed, the next proposed feature is initial store/move actions with immutable
+event history and atomic occupancy checks. Do not infer the location convention
+from the old workbook or implement clipping/imaging/shipping in that first slice.
+
+Preparation registration and current-format Excel transfer are already implemented;
+they should not be scaffolded again. See the roadmap for remaining pilot gates.
 
 ## Working rule
 

@@ -1,7 +1,7 @@
 # Open decisions and assumptions log
 
-**Version:** v0.1  
-**Date:** 2026-11-02
+**Version:** v0.1\
+**Last reviewed:** 2026-11-04
 
 This is a **decision register**, not a requirement to answer everything before writing code. Resolve blocker items before dependent features; record agreed outcomes with dates and update associated docs.
 
@@ -16,16 +16,19 @@ This is a **decision register**, not a requirement to answer everything before w
 | D07 | Migration | How many physical preparation sessions produced eight example grids? Exact dates/operators unknown. | Provisional legacy groupings explicitly labeled unverified, never infer from `JB002` alone | Real session relationship must not be fabricated |
 | D08 | Before external access | Which researcher actions are permitted (view, storage, imaging, shipment)? | No external accounts in v0.1 | Prevent overbroad data modification |
 | D09 | Before deployment | Which institutional login provider/SSO is viable? | Local Django users initially; identity adapter/OIDC later | International users / future portability |
-| D10 | UX pilot | Preferred storage and clipping workflows: separate actions or one compound step? | Both available as explicit service actions; one UI dialog may combine atomically | Reduce clicks without losing history |
-| D11 | Import policy | Should legacy `Copy of CCI-00001` notes become verified `copied_from_grid` references? | Preserve notes; do not auto-convert | Avoid inferring scientific ancestry incorrectly |
+| D10 | UX pilot | Preferred storage and clipping workflows: separate actions or one compound step? | No physical action UI yet; confirm the workflow before implementing it | Reduce clicks without losing history |
+| D11 | Future legacy import policy | Should legacy `Copy of CCI-00001` notes become verified `copied_from_grid` references? | Preserve notes; no auto-conversion. Copied-from links are excluded from the current UI/Excel format | Avoid inferring scientific ancestry incorrectly |
 | D12 | Data model | Should sample owners be people only or also research groups? | Name/affiliation/code generic enough for both | Owner life cycle and future sharing |
-| D13 | Event rules | Can imaged grids be returned to storage at CCI? Can shipped grids return? | Model permits later exceptions; don't assume imaging consumes or shipping discards | Real-world lifecycle flexibility |
-| D14 | UX | Preferred bulk editing: direct inline table edit vs select-grids update wizard? | Start with safe selected-row update and table browsing, validate with staff | Ease of use and auditability |
+| D13 | Event rules | Can imaged grids be returned to storage at CCI? Can shipped grids return? | Review exceptions before implementing state transitions; do not infer disposal from imaging/shipping | Real-world lifecycle flexibility |
+| D14 | UX | Preferred bulk editing: direct inline table edit vs select-grids update wizard? | Individual edit forms are implemented; choose a bulk workflow after staff review | Ease of use and auditability |
 
 ## Decisions already confirmed
 
 | Item | Decision |
 |---|---|
+| Local Windows launcher (2026-11-04) | Resolve PostgreSQL/Ruff inside the active Conda environment, handle Windows password-file reopening and avoid Unix socket arguments there. No environment/dependency changes. Layout tests and Linux integration pass; native Windows start/check/stop still needs colleague verification. |
+| Copy relationships in Excel (2026-11-04) | Remove Copied from grid ID from exports, templates and importer logic. Existing internal links are retained, not transferred or inferred. The copying workflow remains deferred. |
+| Git review workflow | For features, push a branch and provide the GitHub compare link with Markdown PR title/description. The user creates PRs through the website. Documentation-only work may go directly to main when explicitly authorized. |
 | Import versus export permissions (2026-11-04) | Import, preview and blank templates require the active CCI staff flag, even for administrators. Export follows existing registry visibility and filters through one shared row-access boundary. No new browsing/read-only access is enabled in this change. |
 | Facility time and date-only imports (2026-11-04) | Use Europe/Stockholm throughout the application. Date-only YYYY-MM-DD strings or Excel date cells default to 12:00 local time with the date's daylight-saving offset, reported in preview. Blank dates remain unknown; full timestamps require an offset. |
 | Owner visibility and session creation (2026-11-04) | All CCI staff see every owner and can create sessions for any active owner without grants. Updated during Excel work: all active CCI staff may edit all active grids; operator identity is attribution only. |

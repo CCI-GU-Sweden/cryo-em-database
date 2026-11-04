@@ -1,10 +1,10 @@
 # Architecture, authentication, authorization, and UI
 
-**Version:** v0.1 proposal  
-**Date:** 2026-11-02  
-**Status:** Local prototype baseline selected 2026-11-03; advanced UI and shared hosting follow workflow review
+**Version:** v0.1 working architecture\
+**Last reviewed:** 2026-11-04\
+**Status:** Implemented preparation/Excel baseline; physical handling and shared hosting remain planned
 
-## 1. Proposed architecture
+## 1. Selected prototype architecture
 
 ```mermaid
 flowchart TB
@@ -32,23 +32,35 @@ Why this stack:
 
 The local runtime uses Conda (`environment.yml`) and includes PostgreSQL tools so Docker is optional. See the README for initialization, login and tests. The initial user model separates `is_cci_staff` (registry membership) from Django `is_staff` (admin access).
 
-## 2. Code organization (suggested)
+## 2. Current code organization
 
 ```text
 config/                 # project settings / URL routing
 registry/
-  models/               # owners, sessions, grids, locations, events
-  services/             # create_session, allocate_ids, move, clip, ship, discard, import
-  selectors/            # authorized grid querysets and views
-  forms/                # validated input / event forms
-  views/                # staff web routes
-  templates/registry/   # grouped forms, table, detail and history
-  tests/                # models, services, permissions and views
-accounts/               # user account config and owner-grant admin
-imports/                # import parser, normalization, preview and report
+  models.py             # preparation records, archive markers, audit and vocabulary
+  services.py           # registration, grid edits, archive and admin commands
+  permissions.py        # active staff, visible rows and explicit import permission
+  forms.py, views.py    # staff forms and browse/detail routes
+  preparation.py        # shared preparation fields, groups and normalization
+  identifiers.py        # per-owner suffix encoding and limits
+  tables.py, filters.py # registry columns and typed search/filter selection
+  excel.py              # current workbook format and file I/O
+  excel_import.py       # preview plan and atomic audited import
+  excel_views.py        # downloads and two-step upload/confirmation
+  suggestion_import.py # vocabulary seeding; not the legacy grid importer
+  management/commands/ # generated field reference and suggestion seeder
+  migrations/           # schema changes and PostgreSQL history guards
+  tests.py, test_*.py   # models, services, migrations, permissions and HTTP tests
+accounts/               # custom User, authentication and account administration
+templates/registry/     # grouped forms, tables, details and history
+static/                 # CSS and small workflow scripts
+scripts/                # local configuration, platform tools and PostgreSQL launcher
+dev.py                  # one-command start/check/stop
 ```
 
-This is a **suggestion**, not a strict directory mandate. Prefer a manageable repository structure over premature modularity. Centralize authorization and business rules to prevent inconsistent behavior between forms, table edits, and future API endpoints.
+Keep these small modules readable; split them only when the code needs it.
+StorageLocation/GridEvent services are not implemented. Centralize authorization
+and business rules so HTTP and direct service calls follow the same policy.
 
 ## 3. Authentication should be replaceable
 
@@ -56,7 +68,9 @@ This is a **suggestion**, not a strict directory mandate. Prefer a manageable re
 
 **Later:** OIDC or another standards-based institutional identity provider (possibly university SSO / Entra ID). BankID is used in some institutional contexts but should **not** become a hard dependency; international collaborators need non-Swedish options.
 
-Keep a **stable internal AppUser ID** as the FK target. Associate external identities via a separately managed mapping rather than making email, BankID, or external subject IDs the primary key. If planning to use Django's custom user model, choose it **before running initial migrations**, because changing the user model afterward is expensive.
+The custom `accounts.User(AbstractUser)` was established in the first migration;
+keep its stable internal primary key as the FK target. Future external identities
+need a separate mapping; do not replace that key with an email or IdP subject.
 
 Do not enable external registrations automatically. For the future, a researcher account should require CCI approval and explicit assigned access.
 
@@ -94,40 +108,48 @@ scoped work. Current-format Excel import is available to all active CCI staff.
 
 ### Main registry table
 
-- Fast search and filters: ID, owner, experiment ref, sample, date, available status, clipped status, location.
-- Hide long preparation columns by default; expandable groups: **Identity**, **Preparation**, **Storage**, **Lifecycle**.
-- Safe editable cells for scientific parameters only; IDs and derived status read-only.
-- Bulk edit selected rows, with a preview showing *exact grids and old/new values* before confirming.
-- Export filtered results with stable field names and explicit units.
+- Implemented: grid/sample/owner/experiment search, typed property filters, selectable
+  columns, pagination and filtered XLSX export across all pages.
+- Preparation editing uses View/edit links to individual forms. Inline/bulk editing,
+  sorting controls and physical availability/location filters remain future work.
+- Storage currently displays Unassigned; it is not a stored location/state projection.
 
-### Session wizard
+### Session registration
 
 1. Owner selector.
 2. Preparation date/operator, optional experiment/project reference.
 3. Shared preparation fields (grouped, numeric units labeled).
-4. Count of grids to generate.
-5. Preview ID allocation and defaults.
-6. Confirm atomic creation; redirect to editable generated-grid table.
+4. Count of grids to generate (1–100).
+5. Explicitly select Create grids; Enter in an input does not submit the form.
+6. Create the batch atomically and show its table with individual edit links.
+
+This is one simple form. ID preview and a multi-step wizard are not implemented.
 
 ### Grid detail
 
-- Summary: immutable grid ID, sample owner, session, current clipping/availability/imaging states, location.
-- Individual preparation field editing.
-- Dedicated **Store**, **Move**, **Clip**, **Remove for imaging**, **Mark imaged**, **Return**, **Ship**, **Discard** actions.
-- Chronological event history and separate database audit history (admin-only where appropriate).
-- Notes and experiment reference.
+- Implemented: immutable ID, owner/session context, grouped preparation editing,
+  database audit history and password-confirmed archive.
+- The physical summary is a fixed initial-state placeholder. Store/Move/Clip/Imaging/
+  Return/Ship/Discard actions and physical event history remain planned.
 
 ### Admin
 
 - Create/deactivate users, create owners and codes, assign/revoke grants, view import reports and audit records.
-- Owner code and identifier sequence configuration. Avoid routine editing of allocated IDs.
+- Owner codes are automatic and stable after creation. Counters are managed by
+  services, not a configuration screen; generic admin cannot edit scientific records.
 
 ## 6. Transactional domain services
 
 Implement operations as testable service functions rather than putting state rules exclusively in view functions:
 
-- `create_preparation_session_and_grids(...)` — capture immutable snapshot; allocate N IDs safely; create N independent grids; all or nothing.
-- `update_grid_preparation(...)` / future `bulk_update_grid_preparation(...)` — check active staff access and archive restrictions, validate values, write audit history.
+- `create_preparation_session(...)` — capture immutable snapshot; allocate N IDs safely; create N independent grids; all or nothing.
+- `update_grid_preparation(...)` — enforce staff/archive/version rules, validate values and write audit history.
+- `archive_grid(...)` — reauthenticate and atomically mark the record read-only with audit history.
+- `preview_import(...)` / `import_workbook(...)` — validate current workbooks and apply a confirmed atomic import.
+
+Planned after storage review:
+
+- `bulk_update_grid_preparation(...)` — validate and audit a deliberately selected batch.
 - `assign_storage(...)`, `move_grid(...)` — validate occupancy and lifecycle, append event, update current-state projection atomically.
 - `clip_grid(...)` — mark clipped, record actor/time, optionally move to clipped location in same transaction.
 - `remove_for_imaging(...)`, `record_imaging(...)`, `return_to_storage(...)` — keep imaging separate from disposal.
@@ -140,6 +162,9 @@ Database transactions must guard against concurrent requests assigning the same 
 - Keep automatic created/modified timestamps, audited changes of scientific parameters, and append-only physical events.
 - For imports, preserve the source filename/checksum, timestamp, row number, warnings, normalized values and original text (private access).
 - Define PostgreSQL backups, retention policy, restore procedure and at least one tested restore before production use.
+- No backup schedule, restore procedure or shared deployment is configured yet.
+  Local data remains on the individual machine; Git stores code/docs, not the database.
+  Filtered XLSX transfer is not a complete database backup.
 - Set appropriate access controls on exports and database backups. Avoid public source control for raw research records.
 - Keep versions pinned, configuration externalized, and document local startup / deployment steps.
 
@@ -153,7 +178,9 @@ Database transactions must guard against concurrent requests assigning the same 
 
 Deleting a mistaken registration requires an authenticated active CCI account,
 current-password verification on each submission and CSRF. The confirmation page
-shows the selected grid ID, owner and session; no typed ID is required. This action is permitted facility-wide, unlike preparation editing. The
+shows the selected grid ID, owner and session; no typed ID is required. Like
+preparation editing, this action is permitted facility-wide for active CCI staff
+and facility superusers. The
 service locks the grid, checks its version and atomically creates a DeletedGrid
 marker plus AuditEvent. Stored scientific records remain in the same PostgreSQL
 database and become read-only; all normal registry/session views filter them out.

@@ -1,8 +1,32 @@
 # Development roadmap — CCI Cryo-EM Grid Registry
 
-**Version:** v0.1  
-**Date:** 2026-11-02  
+**Version:** v0.1\
+**Last reviewed:** 2026-11-04\
 **Approach:** incremental vertical slices with demoable features, tests, and real staff feedback.
+
+## Current implementation — 2026-11-04
+
+| Area | Current state |
+|---|---|
+| Local scaffold | Django/PostgreSQL, Conda, local accounts and one-command start/check/stop implemented |
+| Preparation workflow | Owner codes, per-owner grid IDs, immutable session defaults and independent grid edits implemented |
+| Browsing | Owners, sessions and grids; selectable registry columns and typed filters implemented |
+| Permissions | All active CCI staff edit all active grids; operator is attribution. Import requires the CCI flag even for admins; export follows registry viewing access |
+| Mistaken registrations | Password-confirmed archive and read-only Deleted grids implemented; restore/purge deferred |
+| Current Excel transfer | Filtered XLSX export, colour groups, blank hand-entry template, plain Session labels, preview/confirmation and audited atomic import implemented |
+| Facility time | Europe/Stockholm; date-only imports default to noon and report it; blank dates stay unknown |
+| Windows launcher | Conda paths, password-file handling and startup options fixed; native Windows start/check/stop still needs colleague verification |
+| Last full validation | 119 tests and all project checks passed on Linux/WSL; a fresh temporary PostgreSQL cluster also passed startup/authentication/shutdown with spaces/apostrophe in its path |
+
+Remaining work includes initial physical storage/events, full lifecycle actions,
+bulk/inline edits, original legacy workbook parsing, CSV/full-history exports,
+shared deployment and backup/restore. Excel transfer is not a database backup.
+
+**Next proposed slice:** finish native Windows verification and agree D03 with
+staff using real examples of storage positions and occupancy. Then implement only
+initial store/move actions with an immutable event history and atomic occupancy
+checks. Do not guess the storage hierarchy or expand this slice to every lifecycle
+action. Other scientific decisions remain in [the decision register](07_OPEN_DECISIONS.md).
 
 ## Guiding priorities
 
@@ -14,7 +38,9 @@
 
 ## Local prototype decision — 2026-11-03
 
-Start with a small local prototype to validate the data model through staff-facing forms. Full v0.1 acceptance criteria remain the release target; the first demo only needs the registration slice. Evolve the schema through migrations after feedback.
+This decision established the prototype approach. The scaffold, registration and
+current-format Excel transfer are now implemented. Full v0.1 acceptance criteria
+remain the release target; evolve the model through migrations after staff feedback.
 
 | Layer | Start with | Add after validation |
 |---|---|---|
@@ -25,15 +51,22 @@ Start with a small local prototype to validate the data model through staff-faci
 | Administration | Django admin for users, owners and access grants | Custom administration screens if useful |
 | Runtime | Conda environment from `environment.yml`, including PostgreSQL tools for a local loopback database; Docker Compose remains optional | Internal HTTPS deployment with production app server |
 | Verification | Django tests on PostgreSQL, Ruff and locked dependencies | Browser tests for advanced table interactions |
-| Excel | Synthetic fixtures | openpyxl import/export after schema review |
+| Excel | openpyxl current-format XLSX import/export and synthetic test fixtures | Original legacy parser, CSV/full-history exports after domain review |
 
 Django 5.2 has extended support through April 2028; schedule an upgrade before then. Sources: [Django supported releases](https://www.djangoproject.com/download/), [Django PostgreSQL backend](https://docs.djangoproject.com/en/5.2/ref/databases/#postgresql-notes).
 
-Local means browser and application on the same machine, bound to loopback. Create individual accounts administratively; keep password hashing, CSRF and authenticated mutations. Keep CCI staff membership separate from Django's admin-access flag. An admin account can run the initial demonstration; also test a restricted account against the existing owner-grant policy. SSO, public signup and email password recovery are unnecessary for this stage.
+Local means browser and application on the same machine, bound to loopback. Create
+individual accounts administratively; keep password hashing, CSRF and authenticated
+mutations. Keep CCI membership separate from Django's admin-site access flag.
+Verify shared CCI editing, non-CCI/inactive rejection, import's explicit CCI flag,
+export visibility and archive protections. Owner grants do not restrict internal
+CCI editing. SSO, public signup and email recovery remain outside this stage.
 
 Use a clearly labeled prototype database and synthetic data. Excel remains authoritative until operational readiness. Resets require explicit agreement and apply only to disposable data; retain migrations in Git. Before retaining real records, establish backup/restore and correction procedures. Shared LAN access is a separate deployment step.
 
 ## Phase 0 — Local scaffold
+
+**Status:** implemented and integration-tested on Linux/WSL; native Windows manual verification pending.
 
 - Configure Django/PostgreSQL, the custom user model, dependency locking, Ruff and test commands.
 - Document database startup, migrations, account creation and loopback app startup.
@@ -42,6 +75,8 @@ Use a clearly labeled prototype database and synthetic data. Excel remains autho
 **Done when:** a developer starts the application, logs in and runs tests against PostgreSQL using documented commands.
 
 ## Phase 1 — First staff demo: register and inspect grids
+
+**Status:** implemented, including later session browsing, filtering and archive refinements. ID preview and bulk/inline editing remain deferred.
 
 - Implement SampleOwner, PreparationSession, Grid, OwnerAccessGrant and AuditEvent with the services needed for registration.
 - Provide a simple session form: owner, preparation date/operator, optional reference, shared parameters and grid count.
@@ -56,22 +91,43 @@ sample-owner code and a separate per-owner sequence: `0001`–`9999`, then
 `a001`–`a999`, `b001`–`z999`. Lock allocation transactionally and stop at exhaustion.
 Preserve existing DEMO/CCI identifiers; do not allocate new DEMO IDs.
 
-**Done when:** a colleague logs in, creates eight grids, edits two, reloads and confirms that the other six and the session snapshot are unchanged. Demonstrate validation failure without partial creation and rejection of an unauthorized edit.
+**Acceptance:** a colleague logs in, creates eight grids, edits two, reloads and
+confirms that the other six and the session snapshot are unchanged. Demonstrate
+atomic validation failures, audited edits by a second CCI member, and rejection
+of inactive/non-CCI edits and archived-record changes.
+
+## Phase 1a — Current-format Excel transfer
+
+**Status:** implemented ahead of storage to support early data-model testing.
+
+- Export the filtered active subset across all pages with all atomic preparation
+  columns, original-style colour groups and supporting owner/session metadata.
+- Supply a blank template with plain Session labels and automatic internal keys;
+  original defaults stay unknown when not supplied.
+- Preview missing owners, unchanged rows, conflicts and defaulted/unknown values;
+  confirm an audited atomic import without overwrites or duplicate records.
+- Require CCI membership for import; reuse registry visibility for export.
+- Keep copied-from links, physical events and complete audit restoration outside
+  this transfer format. Original legacy workbook parsing remains Phase 4 work.
 
 ## Phase 2 — Model review and initial physical storage
+
+**Status:** not implemented; D03 must be confirmed before location validation.
 
 - Review real fields, required inputs, session boundaries, units and form usability with staff; record decisions and migrations.
 - Confirm D03 with examples of actual clipped and unclipped locations.
 - Add StorageLocation and the initial GridEvent subset: store and move, with read-only current location and append-only history.
 - Enforce occupancy in the database and update events/location atomically.
 - Test occupied destinations, concurrent assignments, rollback and permissions.
-- Add stale-edit detection before simultaneous staff editing, so a second save cannot silently overwrite another user's changes.
+- Preserve the existing version-based stale-edit protection when adding physical actions and simultaneous updates.
 
 **Done when:** staff can assign and move a synthetic grid, see both locations in history and cannot double-book a slot. Review whether real storage fits the schema comfortably.
 
 **Review gate:** proceed after registration and storage fit staff practice. Record observed friction and unresolved domain questions. Trial spreadsheet tooling only against concrete editing tasks.
 
 ## Phase 3 — Physical handling and inventory operations
+
+**Status:** deferred until initial storage has been validated.
 
 **Deliverables**
 
@@ -84,19 +140,23 @@ Preserve existing DEMO/CCI identifiers; do not allocate new DEMO IDs.
 
 **Done when:** a test scenario covers grid preparation → storage → clipping → move → imaging → discard; another covers shipment directly from storage; every event has an accurate history.
 
-## Phase 4 — Excel import/export & migration
+## Phase 4 — Original legacy workbook migration and richer export
 
-**Deliverables**
+**Status:** deferred. Current-format XLSX transfer is already implemented in Phase 1a.
+
+**Remaining deliverables**
 
 - Import parser for exact workbook headers (row 3) and source rows.
 - Preview/dry-run that skips preallocated identifiers without actual grid data.
 - Raw-value preservation, warnings for ambiguous/unknown units, duplicate detection.
-- Admin-approved import action with row-level result reports and rollback behavior.
+- Reuse the explicit CCI import permission, with reviewed mappings and row-level reports; do not add an administrator-only restriction without a new decision.
 - CSV/XLSX export with explicit headers and no implied scientific conversions.
 
 **Done when:** the eight populated demonstration rows can be imported, inspected, searched, and exported without loss of their original information; repeated import cannot silently duplicate grids.
 
-> Phase 4 parsing can start in parallel with earlier development, but production import must wait for model and event-validation stability.
+> Existing vocabulary seeding does not implement the legacy grid importer. Real
+> legacy migration waits for mapping decisions and physical-event validation;
+> ambiguous humidity, session membership and grid references must not be guessed.
 
 ## Phase 5 — Pilot with all six CCI staff
 
@@ -132,19 +192,20 @@ Preserve existing DEMO/CCI identifiers; do not allocate new DEMO IDs.
 
 ## Suggested Codex task breakdown
 
-| Task | Dependencies | Concrete output |
+| Task | Status / dependency | Concrete output |
 |---|---|---|
-| T01 | Phase 0 | Project scaffold, tests, local run instructions |
-| T02 | T01 | Registration models, grants, audit, admin and fixtures |
-| T03 | T02 | Identifier/session creation service and tests |
-| T04 | T02 | Permissions and queryset filtering tests |
-| T05 | T06, storage review | Initial store/move models, services, UI and concurrency tests |
-| T06 | T03, T04 | Session wizard and grid form |
-| T07 | T04, T05 | Lifecycle actions and event history UI |
-| T08 | Prototype review | Trial table tooling; implement safe batch updates |
-| T09 | T02, T05 | Excel import dry-run, mapping and provenance |
-| T10 | T08, T09 | Admin import, export and pilot validation |
-| T11 | All | Production settings, backup/restore, documentation |
+| T01 | Implemented; Windows manual check pending | Scaffold, Conda launcher, tests and run instructions |
+| T02 | Implemented | Registration models, audit, admin and synthetic fixtures |
+| T03 | Implemented | Owner-code and per-owner grid allocation; atomic session creation |
+| T04 | Implemented for internal accounts | Shared staff editing, import/write boundary, export visibility and permission tests |
+| T05 | Next proposed feature; requires D03 | Initial store/move models, services, UI and occupancy/concurrency tests |
+| T06 | Implemented as a simple form | New session, independent grid editing, browse/filter screens; ID preview deferred |
+| T07 | After T05 | Lifecycle actions and physical event history UI |
+| T08 | After workflow review | Safe batch updates; add table tooling only if needed |
+| T09a | Implemented | Current-format XLSX import/export, hand-entry template and provenance |
+| T09b | Mapping decisions and storage/event review | Original legacy grid importer; vocabulary seeding alone is insufficient |
+| T10 | Pilot after workflow/storage validation | Six-staff feedback, model review and permission/export checks |
+| T11 | Before retaining operational records/shared hosting | Backup/restore, production settings and deployment runbook |
 
 ## Avoid these shortcuts
 
