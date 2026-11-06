@@ -162,16 +162,22 @@ updates numeric suggestions to match; earlier snapshots retain their entered val
 
 ### Preparation suggestions and registry display
 
-**Box number** is beside Grid type and refers to the preparation grid box, not
-physical storage. The separate neutral Grid type reference field is retained
-until the meaning of the old workbook's parenthetical references is confirmed.
+**Batch (Box/LOT-number)** is beside Grid type and refers to the preparation
+grid batch, not physical storage. Ambiguous legacy parenthetical references are
+not assigned to it.
 
 Preparation text, multiline and numeric fields offer **Previous values**. Click
 that button to browse, or type to search the suggestions. Use arrow keys and Enter
 to select, or keep typing an entirely new value. Saved values become reusable;
 **Multiple blots** defaults to `0` and accepts non-negative whole numbers;
-blank input becomes `0`, while negatives and fractions are rejected. Carbon descriptions are case-insensitive and
-stored lowercase; glow atmosphere and polarity use capitalized words, with
+blank input becomes `0`, while negatives and fractions are rejected. Additional carbon
+is chosen from None, amorphous carbon, graphene oxide, graphene, or Unknown.
+Thickness is recorded in nm for amorphous carbon and layers for graphene.
+**Unknown** means information was not recorded or needs review; **None** means
+confirmed absence. The new-session form prefills the current glow discharge and
+freezing devices, but both can be changed or cleared. Existing records with no
+device stay Unknown; the current facility equipment is not inferred for them.
+Glow atmosphere and polarity use capitalized words, with
 case variants merged in suggestions. Suggestions only change
 the selected field, so selecting a sample never silently fills its buffer or units.
 

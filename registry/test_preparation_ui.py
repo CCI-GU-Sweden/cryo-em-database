@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook
 
-from .forms import EditGridForm
+from .forms import EditGridForm, NewSessionForm
 from .models import AuditEvent, Grid, PreparationSuggestion, SampleOwner
 from .services import create_preparation_session, update_grid_preparation
 from .suggestions import preparation_suggestions
@@ -63,6 +63,38 @@ class PreparationInterfaceTests(TestCase):
     def setUp(self):
         self.client.force_login(self.actor)
 
+    def test_device_defaults_are_for_new_sessions_and_can_be_corrected(self):
+        form = NewSessionForm(actor=self.actor)
+        self.assertEqual(form["glow_device"].value(), "Quorum – GloCube+")
+        self.assertEqual(form["freezing_device"].value(), "Vitrobot Mark IV")
+        self.assertEqual(EditGridForm(instance=self.first)["glow_device"].value(), "")
+        labels = {column["key"]: column["label"] for column in COLUMNS}
+        self.assertEqual(labels["glow_device"], "Glow discharge device")
+        self.assertEqual(labels["freezing_device"], "Freezing device")
+        session = create_preparation_session(
+            actor=self.actor,
+            owner=self.owner,
+            prepared_at=timezone.now(),
+            grid_count=2,
+            preparation={"glow_device": "Quorum – GloCube+", "freezing_device": "Vitrobot Mark IV"},
+            request_token=uuid4(),
+        )
+        first, second = session.grids.all()
+        self.assertEqual(session.defaults["glow_device"], "Quorum – GloCube+")
+        self.assertEqual(second.freezing_device, "Vitrobot Mark IV")
+        update_grid_preparation(
+            actor=self.actor,
+            grid_id=first.pk,
+            expected_version=first.version,
+            preparation={"glow_device": "Unknown", "freezing_device": "Another device"},
+        )
+        first.refresh_from_db()
+        self.assertEqual(first.glow_device, "")
+        self.assertEqual(first.freezing_device, "Another device")
+        self.assertEqual(second.glow_device, "Quorum – GloCube+")
+        session.refresh_from_db()
+        self.assertEqual(session.defaults["glow_device"], "Quorum – GloCube+")
+
     def query(self, *rules, **extra):
         data = {"filters-TOTAL_FORMS": len(rules), "filters-INITIAL_FORMS": 0}
         for index, rule in enumerate(rules):
@@ -97,7 +129,7 @@ class PreparationInterfaceTests(TestCase):
         self.assertContains(response, "3.12")
         self.assertNotContains(response, "3.1200")
         self.assertEqual(self.session.defaults["grid_box_number"], "box-7")
-        self.assertEqual(self.session.defaults_schema_version, 4)
+        self.assertEqual(self.session.defaults_schema_version, 7)
 
     def test_all_decimal_measurements_use_two_places_and_registry_preparation_date_omits_time(self):
         from django.db import models
@@ -130,7 +162,7 @@ class PreparationInterfaceTests(TestCase):
         self.assertIn("box-7", options["grid_box_number"])
         self.assertEqual(options["blot_time_s"], ["4", "6"])
         response = self.client.get(reverse("registry:new_session"))
-        self.assertContains(response, "Box number")
+        self.assertContains(response, "Batch (Box/LOT-number)")
         self.assertContains(response, "preparation_suggestions.js")
         self.assertContains(response, "Seeded synthetic type")
         update_grid_preparation(
@@ -287,7 +319,7 @@ class SuggestionWorkbookTests(TestCase):
             self.assertFalse(
                 PreparationSuggestion.objects.filter(field_name="humidity_percent").exists()
             )
-            self.assertTrue(
+            self.assertFalse(
                 PreparationSuggestion.objects.filter(
                     field_name="grid_type_reference", value="ref-12"
                 ).exists()

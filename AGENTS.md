@@ -58,6 +58,7 @@ Do not add local LLMs, OMERO integration, general protocol editors, or public pr
 ## Review and Git workflow
 
 - Develop features on a branch from current `main`. When preparing a PR, commit/push the branch and provide a GitHub compare link plus Markdown title/description. Leave PR creation to the user through the website.
+- When creating GitHub issues for Rafa, end the issue body with the exact sign-off `- Rafa with the help of Chappie :)`.
 - Push documentation-only changes directly to `main` when the user explicitly authorizes it; do not infer a blanket exception for other work.
 - Keep code readable, with comments explaining business rules and platform choices. Do not add compatibility layers for superseded disposable test data unless needed for an agreed workflow.
 - Linux/WSL integration and simulated Windows-layout tests pass. A colleague confirmed native Windows app startup and repeatable stop; on that setup Ctrl+C stopped both the app and PostgreSQL. A full Windows `python dev.py check` run and remaining native acceptance checks are still pending. Do not claim complete Windows validation without that evidence.

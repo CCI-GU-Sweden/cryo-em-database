@@ -33,22 +33,28 @@ class PreparationForm(forms.ModelForm):
             "sample_description": forms.Textarea(attrs={"rows": 2}),
             "buffer_description": forms.Textarea(attrs={"rows": 2}),
             "notes": forms.Textarea(attrs={"rows": 2}),
+            "glow_device": forms.TextInput(attrs={"placeholder": "Unknown"}),
+            "freezing_device": forms.TextInput(attrs={"placeholder": "Unknown"}),
         }
         labels = {
             "sample_concentration_value": "Concentration",
             "sample_concentration_unit": "Concentration unit (e.g. mg/mL)",
             "carbon_thickness_nm": "Carbon thickness (nm)",
+            "carbon_thickness_layers": "Carbon thickness (layers)",
+            "carbon_description": "Additional carbon",
+            "glow_device": "Device",
+            "freezing_device": "Device",
             "glow_current_ma": "Glow current (mA)",
             "glow_duration_s": "Glow duration (s)",
             "sample_volume_ul": "Sample volume (µL)",
             "temperature_c": "Temperature (°C)",
-            "humidity_percent": "Relative humidity (%) — only if known",
+            "humidity_percent": "Relative humidity (%)",
             "blot_time_s": "Blot time (s)",
             "hold_time_s": "Hold time (s)",
+            "drain_time_s": "Drain time (s)",
             "blot_force": "Blot force (instrument scale)",
             "multiple_blot": "Multiple blots",
-            "grid_type_reference": "Grid type reference (optional)",
-            "grid_box_number": "Box number",
+            "grid_box_number": "Batch (Box/LOT-number)",
         }
 
     def clean(self):
@@ -92,6 +98,8 @@ class NewSessionForm(PreparationForm):
     def __init__(self, *args, actor, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["owner"].queryset = visible_owners(actor).filter(active=True)
+        self.fields["glow_device"].initial = "Quorum – GloCube+"
+        self.fields["freezing_device"].initial = "Vitrobot Mark IV"
 
 
 class EditGridForm(PreparationForm):

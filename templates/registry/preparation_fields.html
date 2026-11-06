@@ -1,6 +1,7 @@
 {% load static %}
 {{ preparation_suggestions|json_script:"preparation-suggestions" }}
 <script src="{% static 'preparation_suggestions.js' %}" defer></script>
+<script src="{% static 'carbon_units.js' %}" defer></script>
 <p>Type to search previous values, or enter a new value. Suggestions never fill other fields automatically.</p>
 {% for title, fields in form.preparation_groups %}
 <fieldset>

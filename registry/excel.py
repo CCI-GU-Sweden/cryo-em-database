@@ -45,6 +45,8 @@ _preparation_form = PreparationForm()
 _labels = dict(_CONTEXT_COLUMNS)
 _labels.update({name: _preparation_form[name].label for name in PREPARATION_FIELDS})
 _labels["notes"] = "Grid notes"
+_labels["glow_device"] = "Glow discharge device"
+_labels["freezing_device"] = "Freezing device"
 GRID_GROUPS = [
     (
         "Info",

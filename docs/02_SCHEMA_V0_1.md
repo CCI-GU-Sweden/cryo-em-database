@@ -75,7 +75,7 @@ Supporting tables (e.g. `ImportRun`, a locked `GridIdentifierCounter`, or Django
 | `prepared_at` | timezone-aware datetime? | Required in normal registration; import may preserve an unknown date or apply the explicit date-only noon rule |
 | `experiment_reference` | string? | Optional free text such as `JB002` |
 | `project_reference` | string? | Optional, **not** an access-control boundary |
-| `defaults_schema_version` | positive integer | Current default `4`; retained snapshots may have older versions |
+| `defaults_schema_version` | positive integer | Current default `7`; retained snapshots may have older versions |
 | `defaults` | JSON object | **Immutable snapshot**; imported unknown defaults are `{}`, never inferred from grid values |
 | `request_token` | unique UUID | Submission idempotency and portable Excel session identity; not the visible session number |
 | `notes` | text? | Preparation-session observations |
@@ -102,19 +102,22 @@ template or infer defaults from the first imported row.
 | `sample_concentration_unit` | string? | e.g., `mg/mL` |
 | `buffer_description` | text? | Preserve complete free text, including pH and components |
 | `grid_type` | string? | Human-readable grid type such as Quantifoil/mesh |
-| `grid_box_number` | string? | Preparation grid box number; separate from physical storage |
-| `grid_type_reference` | string? | Parenthetical number; actual meaning needs confirmation |
-| `carbon_description` | string? | Case-insensitive wording, stored lowercase (e.g. `no`) |
-| `carbon_thickness_nm` | Decimal? | Only when relevant and verified |
+| `grid_box_number` | string? | Batch (Box/LOT-number); separate from physical storage |
+| `carbon_description` | string? | Unknown, none, amorphous carbon, graphene oxide, or graphene |
+| `carbon_thickness_nm` | Decimal? | Amorphous carbon thickness in nm; historical unknown-type nm values remain in nm |
+| `carbon_thickness_layers` | integer? | Non-negative count of graphene or graphene oxide layers |
+| `glow_device` | string? | Glow discharge device; blank means Unknown |
 | `glow_atmosphere` | string? | Case-insensitive input, stored with capitalized words (e.g. `Air`) |
 | `glow_polarity` | string? | Case-insensitive input, stored with capitalized words (e.g. `Negative`) |
 | `glow_current_ma` | Decimal? | e.g., `15` |
 | `glow_duration_s` | Decimal? | e.g., `20` |
+| `freezing_device` | string? | Freezing device; blank means Unknown |
 | `sample_volume_ul` | Decimal? | Existing `Amount` |
 | `temperature_c` | Decimal? | e.g., `4` |
 | `humidity_percent` | Decimal? | **Only fill after confirming source convention** |
 | `blot_time_s` | Decimal? | Numeric duration |
 | `hold_time_s` | Decimal? | Numeric duration |
+| `drain_time_s` | Decimal? | Optional non-negative drain time in seconds |
 | `blot_force` | Decimal? | Scale/unit requires clarification; raw source retained in import log |
 | `multiple_blot` | non-negative integer | Multiple blots; default 0, blank input becomes 0, integer >= 0 |
 | `notes` | text? | Individual remarks/observations, including historical copies/outcomes |
@@ -124,6 +127,14 @@ template or infer defaults from the first imported row.
 Do **not** put the latest storage location, clipping date, and imaging outcome into unrelated freely editable columns. They should be derived from or transactionally synchronized with `GridEvent` (read-only cache columns acceptable for high-performance tables).
 
 For scientific traceability, a grid must retain its original source values via import logs/archived input when parsing is lossy or uncertain. No mandatory value should be imposed simply because the future system would prefer it if legacy rows lack it.
+
+**Unknown convention:** Show Unknown for missing or unverified values, and allow
+staff to correct them later. None explicitly means the material was absent; it is
+not a synonym for Unknown. New-session forms prefill glow discharge Device with
+Quorum – GloCube+ and freezing Device with Vitrobot Mark IV; either may be changed
+or cleared. Existing grids and imports with no device remain Unknown, never
+inferred from present-day equipment. New values are copied to each grid and the
+original session snapshot. Screening for values needing review is tracked in #10.
 
 ### 2.4 StorageLocation
 
@@ -325,7 +336,8 @@ before the importer is implemented; they are not silently settled by this slice.
 
 - Add optional `Grid.grid_box_number` beside grid type. This describes the source
   grid box used for preparation and is not a StorageLocation. Legacy parenthetical
-  references remain in `grid_type_reference` pending D05 clarification.
+  references were originally retained in `grid_type_reference`; that field was
+  subsequently removed following staff feedback and D05 remains open.
 - This slice introduced defaults schema version 2, the box field and a
   three-decimal concentration limit. Later refinements below supersede that
   version and precision policy. This original migration rejects meaningful
@@ -433,18 +445,21 @@ service descriptions above for cross-field, authorization and immutability rules
 | `buffer_description` | `text` | No | Yes | — | — |
 | `grid_type` | `varchar(200)` | No | Yes | — | — |
 | `grid_box_number` | `varchar(100)` | No | Yes | — | — |
-| `grid_type_reference` | `varchar(200)` | No | Yes | — | — |
 | `carbon_description` | `varchar(200)` | No | Yes | — | — |
 | `carbon_thickness_nm` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `carbon_thickness_layers` | `integer` | Yes | No | — | >= 0, <= 2147483647 |
+| `glow_device` | `varchar(200)` | No | Yes | — | — |
 | `glow_atmosphere` | `varchar(100)` | No | Yes | — | — |
 | `glow_polarity` | `varchar(100)` | No | Yes | — | — |
 | `glow_current_ma` | `numeric(12, 2)` | Yes | No | — | — |
 | `glow_duration_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `freezing_device` | `varchar(200)` | No | Yes | — | — |
 | `sample_volume_ul` | `numeric(12, 2)` | Yes | No | — | >= 0 |
 | `temperature_c` | `numeric(12, 2)` | Yes | No | — | — |
 | `humidity_percent` | `numeric(7, 2)` | Yes | No | — | >= 0, <= 100 |
 | `blot_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
 | `hold_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
+| `drain_time_s` | `numeric(12, 2)` | Yes | No | — | >= 0 |
 | `blot_force` | `numeric(12, 2)` | Yes | No | — | — |
 | `multiple_blot` | `integer` | No | No | 0 | >= 0, <= 2147483647 |
 | `notes` | `text` | No | Yes | — | — |
