@@ -3,6 +3,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
@@ -63,7 +64,7 @@ class PreparationSession(models.Model):
     experiment_reference = models.CharField(max_length=200, blank=True)
     project_reference = models.CharField(max_length=200, blank=True)
     notes = models.TextField(blank=True)
-    defaults_schema_version = models.PositiveIntegerField(default=4)
+    defaults_schema_version = models.PositiveIntegerField(default=7)
     defaults = models.JSONField(default=dict)
     # Used to identify a repeated form submission; never an identifier for a grid.
     request_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -110,17 +111,29 @@ class Grid(models.Model):
     buffer_description = models.TextField(blank=True)
     grid_type = models.CharField(max_length=200, blank=True)
     grid_box_number = models.CharField(max_length=100, blank=True)
-    grid_type_reference = models.CharField(max_length=200, blank=True)
-    carbon_description = models.CharField(max_length=200, blank=True)
+    carbon_description = models.CharField(
+        max_length=200,
+        blank=True,
+        choices=[
+            ("", "Unknown"),
+            ("none", "None"),
+            ("amorphous carbon", "Amorphous carbon"),
+            ("graphene oxide", "Graphene oxide"),
+            ("graphene", "Graphene"),
+        ],
+    )
     carbon_thickness_nm = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
+    carbon_thickness_layers = models.PositiveIntegerField(null=True, blank=True)
+    glow_device = models.CharField(max_length=200, blank=True)
     glow_atmosphere = models.CharField(max_length=100, blank=True)
     glow_polarity = models.CharField(max_length=100, blank=True)
     glow_current_ma = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     glow_duration_s = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
+    freezing_device = models.CharField(max_length=200, blank=True)
     sample_volume_ul = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
@@ -136,6 +149,9 @@ class Grid(models.Model):
         max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     hold_time_s = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
+    )
+    drain_time_s = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)]
     )
     # Blot force is an instrument scale; do not invent units or forbid negatives yet.
@@ -161,6 +177,7 @@ class Grid(models.Model):
                     "sample_volume_ul",
                     "blot_time_s",
                     "hold_time_s",
+                    "drain_time_s",
                 )
             ],
             models.CheckConstraint(
@@ -174,8 +191,28 @@ class Grid(models.Model):
         ]
 
     def clean(self):
-        for name in ("carbon_description", "glow_atmosphere", "glow_polarity"):
+        for name in (
+            "carbon_description",
+            "glow_atmosphere",
+            "glow_polarity",
+            "glow_device",
+            "freezing_device",
+        ):
             setattr(self, name, normalize_preparation_text(name, getattr(self, name)))
+        if self.carbon_description == "none" and (
+            self.carbon_thickness_nm is not None or self.carbon_thickness_layers is not None
+        ):
+            raise ValidationError("No thickness is needed when additional carbon is None.")
+        if (
+            self.carbon_description == "amorphous carbon"
+            and self.carbon_thickness_layers is not None
+        ):
+            raise ValidationError("Enter amorphous carbon thickness in nm, not layers.")
+        if (
+            self.carbon_description in ("graphene", "graphene oxide")
+            and self.carbon_thickness_nm is not None
+        ):
+            raise ValidationError("Enter graphene thickness in layers, not nm.")
 
     def __str__(self):
         return self.grid_number

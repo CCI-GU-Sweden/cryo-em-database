@@ -39,7 +39,11 @@ class ExcelTests(TestCase):
                 "sample_description": "Synthetic protein",
                 "sample_volume_ul": "3.50",
                 "hold_time_s": "0",
-                "carbon_description": "no",
+                "drain_time_s": "1.25",
+                "carbon_description": "graphene",
+                "carbon_thickness_layers": "2",
+                "glow_device": "Quorum – GloCube+",
+                "freezing_device": "Vitrobot Mark IV",
             },
             request_token=uuid4(),
             experiment_reference="EXCEL-TEST",
@@ -106,6 +110,11 @@ class ExcelTests(TestCase):
         self.assertEqual(first.session_id, second.session_id)
         self.assertEqual(first.session.defaults, {})
         self.assertEqual(first.sample_volume_ul, self.session.grids.first().sample_volume_ul)
+        self.assertEqual(str(first.drain_time_s), "1.25")
+        self.assertEqual(first.carbon_description, "graphene")
+        self.assertEqual(first.carbon_thickness_layers, 2)
+        self.assertEqual(first.glow_device, "Quorum – GloCube+")
+        self.assertEqual(first.freezing_device, "Vitrobot Mark IV")
         # Re-saving Excel changes the file checksum, not the identity of its grids.
         payload["sha256"] = "different-file-checksum"
         self.assertEqual(import_workbook(actor=self.staff, payload=payload)["existing_grids"], 2)

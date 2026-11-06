@@ -22,4 +22,6 @@ def column_value(grid, key):
     if column["kind"] == "date":
         format_string = "%Y-%m-%d" if key == "prepared_at" else "%Y-%m-%d %H:%M"
         return timezone.localtime(value).strftime(format_string)
+    if value == "" and key in {"glow_device", "freezing_device", "carbon_description"}:
+        return "Unknown"
     return compact_decimal(value) if value != "" else "—"

@@ -33,8 +33,8 @@ audited import are implemented as described in [section 10](#10-implemented-curr
 | C | `Sample` | `Grid.sample_description` | Preserve original text, including annotations/IDs. |
 | D | `Concentration` | `Grid.sample_concentration_value` + `_unit` | Parse `6 mg/ml` to `6`, `mg/mL`; retain raw value. |
 | E | `Buffer` | `Grid.buffer_description` | Preserve full reagent list and pH as free text. |
-| F | `Grid type (type, boxnumber)` | `Grid.grid_type` + `grid_type_reference` | The parenthetical number is ambiguous; do not label definitively as a catalogue/box number. |
-| G | `Carbon (type, thickness)` | `Grid.carbon_description` + optional `carbon_thickness_nm` | `No` is not a thickness; keep text. |
+| F | `Grid type (type, boxnumber)` | `Grid.grid_type` | The parenthetical number is ambiguous and is not assigned to the batch field. |
+| G | `Carbon (type, thickness)` | Legacy mapping requires review | Original source wording remains in the source workbook; do not infer layer counts. |
 | H | `Glow discharge (atmosphere, polarity, current, time)` | `glow_atmosphere`, `glow_polarity`, `glow_current_ma`, `glow_duration_s` | Example `Air, Negative, 15 mA, 20 s`. Parse conservatively. |
 | I | `Amount` | `Grid.sample_volume_ul` | Example `3.5 µl`; normalize unit display only after verifying unit. |
 | J | `Temperature` | `Grid.temperature_c` | Example `4 °C`. |
@@ -46,7 +46,7 @@ audited import are implemented as described in [section 10](#10-implemented-curr
 | P | `Dewar` (unclipped) | `StorageLocation.dewar` for initial `stored` event | See parent group heading row 2. |
 | Q | `Cane` (unclipped) | `StorageLocation.cane` | Numeric IDs can be converted to string safely. |
 | R | `Puck (number/color)` (unclipped) | `StorageLocation.puck`, optional `puck_color` | Distinguish number versus color when present. |
-| S | `Box (Boxslot)` (unclipped) | `StorageLocation.box` | Example `CCI-UC-001`; not the same as grid type reference. |
+| S | `Box (Boxslot)` (unclipped) | `StorageLocation.box` | Example `CCI-UC-001`; separate from the preparation batch. |
 | T | `Grid slot` (unclipped) | `StorageLocation.slot` | Example positions 1–4. |
 | U | `Freeze date` | `PreparationSession.prepared_at` **only if session membership verified** | Unknown in example; preserve grid-specific raw value if sessions are ambiguous. |
 | V | `Dewar` (clipped) | `StorageLocation.dewar` for clipping/move event | Blank in examples. |

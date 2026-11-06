@@ -23,7 +23,12 @@ from .models import (
     SampleOwner,
 )
 from .permissions import current_staff, require_grid_editor, require_session_registration
-from .preparation import PREPARATION_FIELDS, compact_decimal, preparation_snapshot
+from .preparation import (
+    PREPARATION_FIELDS,
+    compact_decimal,
+    normalize_preparation_text,
+    preparation_snapshot,
+)
 
 
 def record_audit(actor, instance, operation, changes, source="ui"):
@@ -80,6 +85,26 @@ def validate_preparation(values):
     if unexpected:
         raise ValidationError("Only preparation fields may be changed.")
     values = dict(values)
+    if "carbon_description" in values:
+        values["carbon_description"] = normalize_preparation_text(
+            "carbon_description", values["carbon_description"]
+        )
+    layers = values.get("carbon_thickness_layers")
+    if layers not in (None, ""):
+        try:
+            layer_number = Decimal(str(layers))
+            valid_layers = type(layers) is not bool and layer_number.is_finite()
+            valid_layers = (
+                valid_layers
+                and layer_number >= 0
+                and layer_number == layer_number.to_integral_value()
+            )
+        except (InvalidOperation, ValueError):
+            valid_layers = False
+        if not valid_layers:
+            raise ValidationError(
+                {"carbon_thickness_layers": "Enter a whole number of layers, 0 or greater."}
+            )
     count = values.get("multiple_blot")
     if count is None or count == "":
         count = 0

@@ -83,8 +83,15 @@ def _session_values(row, snapshot, owner, warnings):
     if not isinstance(defaults, dict) or version < 1:
         raise ValidationError("Session defaults must be a JSON object with a positive version.")
     # Validate current scientific defaults without replacing the original snapshot.
-    if version == 4 and defaults:
-        validate_preparation(defaults)
+    if version in (4, 5, 6, 7) and defaults:
+        # Older snapshots remain immutable and may contain the retired field.
+        current_defaults = dict(defaults)
+        if version == 4:
+            current_defaults.pop("grid_type_reference", None)
+        if version < 6:
+            # Historical free text and nm values remain in the immutable snapshot.
+            current_defaults.pop("carbon_description", None)
+        validate_preparation(current_defaults)
     return {
         "owner": owner,
         "prepared_by": user,
@@ -124,7 +131,7 @@ def _session_source(label, snapshot, rows):
     return (
         str(existing.request_token) if existing else str(uuid4()),
         {
-            "defaults_schema_version": existing.defaults_schema_version if existing else 4,
+            "defaults_schema_version": existing.defaults_schema_version if existing else 7,
             "defaults": json.dumps(existing.defaults if existing else {}),
         },
     )

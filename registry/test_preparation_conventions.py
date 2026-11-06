@@ -36,27 +36,27 @@ class PreparationConventionTests(TestCase):
 
     def test_casing_is_normalized_on_creation_and_edit_without_changing_other_text(self):
         grid = self.create(
-            carbon_description=" No ",
+            carbon_description=" Graphene ",
             glow_atmosphere="aIR",
             glow_polarity="nEGATIVE",
             sample_description="Protein ABC",
         )
-        self.assertEqual(grid.carbon_description, "no")
+        self.assertEqual(grid.carbon_description, "graphene")
         self.assertEqual(grid.glow_atmosphere, "Air")
         self.assertEqual(grid.glow_polarity, "Negative")
         self.assertEqual(grid.sample_description, "Protein ABC")
-        self.assertEqual(grid.session.defaults["carbon_description"], "no")
+        self.assertEqual(grid.session.defaults["carbon_description"], "graphene")
         grid = update_grid_preparation(
             actor=self.actor,
             grid_id=grid.pk,
             expected_version=grid.version,
             preparation={
-                "carbon_description": "NO",
+                "carbon_description": "GRAPHENE",
                 "glow_atmosphere": "mixed gas",
                 "glow_polarity": "POSITIVE",
             },
         )
-        self.assertEqual(grid.carbon_description, "no")
+        self.assertEqual(grid.carbon_description, "graphene")
         self.assertEqual(grid.glow_atmosphere, "Mixed Gas")
         self.assertEqual(grid.glow_polarity, "Positive")
 
@@ -98,7 +98,38 @@ class PreparationConventionTests(TestCase):
         self.assertNotContains(response, "Humidity source wording")
         self.assertNotIn("humidity_raw", EditGridForm.base_fields)
         self.assertNotIn("double_blot", EditGridForm.base_fields)
-        self.assertEqual(self.create().session.defaults_schema_version, 4)
+        self.assertEqual(self.create().session.defaults_schema_version, 7)
         self.assertContains(
             self.client.get(reverse("registry:grid_list")), 'data-column="multiple_blot"'
         )
+
+    def test_drain_time_is_optional_nonnegative_and_snapshotted(self):
+        self.assertIsNone(self.create().drain_time_s)
+        grid = self.create(drain_time_s="1.25")
+        self.assertEqual(grid.drain_time_s, Decimal("1.25"))
+        self.assertEqual(grid.session.defaults["drain_time_s"], "1.25")
+        with self.assertRaises(ValidationError):
+            self.create(drain_time_s="-1")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Grid.objects.filter(pk=grid.pk).update(drain_time_s=-1)
+
+    def test_additional_carbon_choices_and_units(self):
+        self.assertEqual(self.create().carbon_description, "")
+        self.assertEqual(self.create(carbon_description="none").carbon_description, "none")
+        grid = self.create(carbon_description="graphene", carbon_thickness_layers=2)
+        self.assertEqual(grid.session.defaults["carbon_thickness_layers"], 2)
+        self.assertEqual(
+            self.create(
+                carbon_description="amorphous carbon", carbon_thickness_nm="3.5"
+            ).carbon_thickness_nm,
+            Decimal("3.5"),
+        )
+        for invalid in [
+            {"carbon_description": "other"},
+            {"carbon_description": "none", "carbon_thickness_nm": 2},
+            {"carbon_description": "graphene", "carbon_thickness_nm": 2},
+            {"carbon_description": "amorphous carbon", "carbon_thickness_layers": 2},
+            {"carbon_description": "graphene oxide", "carbon_thickness_layers": "1.5"},
+        ]:
+            with self.subTest(invalid=invalid), self.assertRaises(ValidationError):
+                self.create(**invalid)

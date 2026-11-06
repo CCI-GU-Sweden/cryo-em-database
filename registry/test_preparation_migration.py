@@ -164,3 +164,67 @@ class DecimalPrecisionMigrationTests(TransactionTestCase):
             ),
             ["1.24"],
         )
+
+
+class CarbonChoicesMigrationTests(TransactionTestCase):
+    def test_unmatched_carbon_becomes_unknown_without_reinterpreting_nm(self):
+        old_target = [("registry", "0011_alter_preparationsession_defaults_schema_version")]
+        new_target = [("registry", "0012_grid_carbon_thickness_layers_and_more")]
+        executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
+        executor.migrate(old_target)
+        self.addCleanup(lambda: MigrationExecutor(connection).migrate(latest))
+        old = executor.loader.project_state(old_target).apps
+        owner = old.get_model("registry", "SampleOwner").objects.create(name="Carbon", code="carb")
+        session = old.get_model("registry", "PreparationSession").objects.create(
+            owner=owner,
+            defaults={"carbon_description": "unfamiliar", "carbon_thickness_nm": "4"},
+            defaults_schema_version=5,
+        )
+        Grid = old.get_model("registry", "Grid")
+        grid = Grid.objects.create(
+            session=session,
+            grid_number="carb-0001",
+            carbon_description="unfamiliar",
+            carbon_thickness_nm=4,
+        )
+        executor = MigrationExecutor(connection)
+        executor.migrate(new_target)
+        current = executor.loader.project_state(new_target).apps
+        result = current.get_model("registry", "Grid").objects.get(pk=grid.pk)
+        self.assertEqual(result.carbon_description, "")
+        self.assertEqual(result.carbon_thickness_nm, 4)
+        self.assertIsNone(result.carbon_thickness_layers)
+        saved = current.get_model("registry", "PreparationSession").objects.get(pk=session.pk)
+        self.assertEqual(saved.defaults["carbon_description"], "unfamiliar")
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            current.get_model("registry", "PreparationSession").objects.filter(
+                pk=session.pk
+            ).update(defaults={})
+
+
+class DeviceMigrationTests(TransactionTestCase):
+    def test_existing_records_keep_unknown_devices_and_original_snapshot(self):
+        old_target = [("registry", "0012_grid_carbon_thickness_layers_and_more")]
+        new_target = [("registry", "0013_grid_freezing_device_grid_glow_device_and_more")]
+        executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
+        executor.migrate(old_target)
+        self.addCleanup(lambda: MigrationExecutor(connection).migrate(latest))
+        old = executor.loader.project_state(old_target).apps
+        owner = old.get_model("registry", "SampleOwner").objects.create(name="Device", code="devi")
+        session = old.get_model("registry", "PreparationSession").objects.create(
+            owner=owner, defaults={"notes": "original"}, defaults_schema_version=6
+        )
+        grid = old.get_model("registry", "Grid").objects.create(
+            session=session, grid_number="devi-0001"
+        )
+        executor = MigrationExecutor(connection)
+        executor.migrate(new_target)
+        current = executor.loader.project_state(new_target).apps
+        result = current.get_model("registry", "Grid").objects.get(pk=grid.pk)
+        self.assertEqual(result.glow_device, "")
+        self.assertEqual(result.freezing_device, "")
+        result = current.get_model("registry", "PreparationSession").objects.get(pk=session.pk)
+        self.assertEqual(result.defaults, {"notes": "original"})
+        self.assertEqual(result.defaults_schema_version, 6)

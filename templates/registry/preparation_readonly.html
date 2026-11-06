@@ -4,7 +4,7 @@
 <dl>
   {% for field in fields %}
   <dt>{{ field.label }}</dt>
-  <dd>{{ field.value|default_if_none:"Unknown" }}</dd>
+  <dd>{% if field.name == "glow_device" or field.name == "freezing_device" or field.name == "carbon_description" %}{{ field.value|default:"Unknown" }}{% else %}{{ field.value|default_if_none:"Unknown" }}{% endif %}</dd>
   {% endfor %}
 </dl>
 {% endfor %}

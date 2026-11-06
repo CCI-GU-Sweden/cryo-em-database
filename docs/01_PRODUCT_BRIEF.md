@@ -84,6 +84,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 - Simple language following existing lab concepts, with sensible defaults and input help.
 - Preserve grouped display of composite operations (e.g. "Air · Negative · 15 mA · 20 s") while storing individual fields.
 - Show units and preserve unknown measurements. Multiple blots explicitly defaults to 0, including blank input; date-only imports explicitly default to noon in Europe/Stockholm, while blank dates remain unknown.
+- Use **Unknown** consistently when a value is not recorded or needs review. Keep **None** distinct when it asserts absence, such as no additional carbon. Unknown values can be corrected later; a review filter is tracked separately in issue #10.
 - Use contextual dropdowns and validation for constrained values, but do not block legitimate uncommon workflows.
 - Make routine events fast to record; do not require staff to think about underlying tables or authentication technologies.
 - Prevent destructive actions, accidental batch-wide editing, and editing of derived status directly.

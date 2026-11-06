@@ -88,8 +88,10 @@ def workbook_suggestions(path):
                 grid_type = re.fullmatch(r"(.+?)\s*\(([^()]*)\)\s*", str(cell.value))
                 add("grid_type", grid_type[1].strip() if grid_type else cell.value, cell)
                 if grid_type:
-                    # Meaning remains D05 until staff confirm it is a box number.
-                    add("grid_type_reference", grid_type[2], cell)
+                    # The parenthetical value has no confirmed meaning and is not a batch.
+                    warnings.append(
+                        f"{cell.coordinate}: parenthetical grid reference not suggested."
+                    )
             cell = row[7]
             glow = re.fullmatch(
                 rf"\s*([^,]+),\s*([^,]+),\s*({NUMBER})\s*mA,\s*({NUMBER})\s*s\s*", str(cell.value)

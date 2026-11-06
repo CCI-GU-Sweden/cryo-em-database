@@ -21,20 +21,25 @@ PREPARATION_GROUPS = [
         [
             "grid_type",
             "grid_box_number",
-            "grid_type_reference",
             "carbon_description",
             "carbon_thickness_nm",
+            "carbon_thickness_layers",
         ],
     ),
-    ("Glow discharge", ["glow_atmosphere", "glow_polarity", "glow_current_ma", "glow_duration_s"]),
+    (
+        "Glow discharge",
+        ["glow_device", "glow_atmosphere", "glow_polarity", "glow_current_ma", "glow_duration_s"],
+    ),
     (
         "Freezing and blotting",
         [
+            "freezing_device",
             "sample_volume_ul",
             "temperature_c",
             "humidity_percent",
             "blot_time_s",
             "hold_time_s",
+            "drain_time_s",
             "blot_force",
             "multiple_blot",
         ],
@@ -63,6 +68,9 @@ def preparation_snapshot(grid):
 def normalize_preparation_text(field_name, value):
     if not isinstance(value, str):
         return value
+    if field_name in ("glow_device", "freezing_device"):
+        value = value.strip()
+        return "" if value.casefold() == "unknown" else value
     if field_name == "carbon_description":
         return value.strip().casefold()
     if field_name in ("glow_atmosphere", "glow_polarity"):

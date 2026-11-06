@@ -45,7 +45,12 @@ for name in PREPARATION_FIELDS:
     COLUMNS.append(
         {
             "key": name,
-            "label": PreparationForm.Meta.labels.get(name, str(field.verbose_name).capitalize()),
+            "label": {
+                "glow_device": "Glow discharge device",
+                "freezing_device": "Freezing device",
+            }.get(
+                name, PreparationForm.Meta.labels.get(name, str(field.verbose_name).capitalize())
+            ),
             "lookup": name,
             "kind": kind,
         }
