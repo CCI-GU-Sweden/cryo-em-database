@@ -136,26 +136,36 @@ or cleared. Existing grids and imports with no device remain Unknown, never
 inferred from present-day equipment. New values are copied to each grid and the
 original session snapshot. Screening for values needing review is tracked in #10.
 
-### 2.4 StorageLocation
+### 2.4 Storage hierarchy and StorageLocation (planned)
 
-| Field | Type | Purpose |
-|---|---|---|
-| `id` | UUID or bigint PK | Internal identity |
-| `location_code` | string unique | Canonical physical-position key; avoid SQL nullable-composite uniqueness pitfalls |
-| `dewar` | string? | Dewar identifier |
-| `cane` | string? | Cane identifier |
-| `puck` | string? | Puck identifier |
-| `puck_color` | string? | Puck color where used |
-| `box` | string? | Box identifier |
-| `slot` | string? | Grid slot; strings accommodate alphanumeric positions |
-| `location_kind` | string? | Optional `unclipped`/`clipped` storage-layout descriptor |
-| `notes` | text? | Optional |
+The agreed CCI hierarchy is **Dewar → Cane → Puck → Gridbox → Gridslot**;
+[storage requirements](08_STORAGE_LOCATIONS.md) describe the four initial
+gridbox layouts and user workflow. These are design requirements, not yet deployed
+models. The older generic nullable location sketch is superseded for CCI storage.
 
-- Use a canonical normalized path based on the **confirmed local storage hierarchy**. A position must identify one physically meaningful grid slot.
-- The workbook has distinct unclipped and clipped location columns; both can map to this table, distinguished by event time and optionally `location_kind`.
-- Do not enforce that every storage location has all five levels; different devices may use different hierarchy depths.
-- A grid may have **no** current storage location, e.g. freshly prepared, removed, shipped, or discarded.
-- Prevent **simultaneous assignment of two available grids to the same one-grid storage slot**, using transaction-safe constraints/service logic.
+| Level | Planned representation and constraints |
+|---|---|
+| Dewar | Distinct configurable entity. The initial UI enforces `Dewar 1`. |
+| Cane | Distinct entity under a dewar. The initial UI enforces `Cane 1`. |
+| Puck | Controlled colour, initially one of eight listed in the storage document; colour identifies a puck within its cane. Support later colour additions. At most 12 physical gridboxes per puck; do not track a box's position within the puck. |
+| Gridbox type | Controlled definition with name, SVG image, capacity and valid slot/side layout, including clipping compatibility. Four initial types; additions are rare. |
+| Gridbox | Free-text name, a unique physical-box identifier across the registry, plus type and current parent puck when placed. Previously used names can be selected. |
+| Gridslot | A position within a box, defined by its type; include side for the two-sided box. Each slot has at most one current grid, and a grid has at most one current slot. |
+
+StorageLocation in event relationships denotes a physically meaningful grid slot;
+whether it is a dedicated slot entity or another structured representation is an
+implementation choice. Enforce type, position, clipping compatibility, puck and
+slot capacity server-side and transactionally, including concurrent writes.
+Gridboxes are long-lived physical inventory, reusable across projects; a vacated
+slot can hold another grid without losing previous occupant history. Track stock,
+placement in a puck, and discard separately from whether slots contain grids: an
+empty box still counts while physically in a puck, whereas a box in stock does
+not. A two-sided box counts once. The inventory representation and rules for
+box movement, discard and corrections remain to be agreed; `is_active` alone
+is insufficient. Gridbox-name normalization also remains open. A grid can have no
+current slot, including when newly prepared, removed, shipped or discarded.
+Preserve location and event history; do not infer a current slot from old workbook
+values without the separate import rules.
 
 ### 2.5 GridEvent (append-only physical history)
 

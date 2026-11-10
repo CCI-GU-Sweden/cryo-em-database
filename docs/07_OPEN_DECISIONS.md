@@ -9,7 +9,7 @@ This is a **decision register**, not a requirement to answer everything before w
 |---|---|---|---|---|
 | D01 | Confirmed 2026-11-04 | Four-character sample-owner prefix, independent per-owner sequence: 0001–9999, a001–a999, b001–z999 | Locked allocation per owner; existing matching grid suffixes reserved; old IDs preserved; stop at z999 | Chronological generation order per owner without collisions or wraparound |
 | D02 | Updated and confirmed 2026-11-04 | All active CCI staff may view/edit every active grid and import/export current Excel workbooks | Operator identity is attribution; edits and imports are audited; archive read-only | Simplify collaboration for six staff; external access remains deferred |
-| D03 | Blocks location validation | Actual cryo storage hierarchy for **clipped** vs **unclipped** grids; which positions hold exactly one grid | Support nullable hierarchy levels and canonical position key; verify in pilot | Avoid false conflicts or double occupancy |
+| D03 | Confirmed 2026-11-10; details open | CCI storage hierarchy and gridbox layouts | Dewar → Cane → Puck → Gridbox → Gridslot; enforce valid slots, clipping compatibility, unique occupancy and a maximum of 12 boxes per puck. See [storage requirements](08_STORAGE_LOCATIONS.md). | Avoid false conflicts or double occupancy; name normalization and box movement/retirement remain open |
 | D04 | Blocks humidity conversion | Is Excel humidity `1` = 100% relative humidity, 1%, or an instrument-specific fraction? | No humidity wording field; `humidity_percent=null` until source convention confirmed | Scientific integrity |
 | D05 | Open for legacy import | Meaning of parenthetical grid-type number (`191846`, `224782`) | Do not assign it to Batch; Grid type reference removed following staff feedback | Avoid incorrectly calling it box/catalog number |
 | D06 | Pilot clarification | Blot force scale/unit and whether negative values are possible | Decimal field, source text preserved, no conversion | Correct validation and labels |
@@ -21,6 +21,7 @@ This is a **decision register**, not a requirement to answer everything before w
 | D12 | Data model | Should sample owners be people only or also research groups? | Name/affiliation/code generic enough for both | Owner life cycle and future sharing |
 | D13 | Event rules | Can imaged grids be returned to storage at CCI? Can shipped grids return? | Review exceptions before implementing state transitions; do not infer disposal from imaging/shipping | Real-world lifecycle flexibility |
 | D14 | UX | Preferred bulk editing: direct inline table edit vs select-grids update wizard? | Individual edit forms are implemented; choose a bulk workflow after staff review | Ease of use and auditability |
+| D15 | Storage design | How are gridboxes placed into stock or a puck, moved, discarded or corrected, including boxes containing grids? | Preserve box identity and history; distinguish physical box location/status from grid-slot occupancy; no deletion of history | Reusable boxes, capacity and safe inventory handling |
 
 ## Decisions already confirmed
 

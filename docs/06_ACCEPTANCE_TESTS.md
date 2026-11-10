@@ -22,6 +22,27 @@ authentication and shutdown with spaces/apostrophe in its path.
 | Physical handling | StorageLocation/GridEvent, occupancy and lifecycle actions not implemented |
 | Release readiness | Shared deployment, CI automation, backup schedule and tested restore are not configured |
 
+### Planned CCI storage acceptance (not yet implemented)
+
+- The initial UI fixes Dewar 1 and Cane 1; data structures can support further
+  dewars and canes without redesign. Puck colour is selected from the configured
+  list, and a puck is identified by its colour within its cane.
+- A puck can contain up to 12 physical gridboxes. A thirteenth assignment is
+  rejected, including concurrent attempts; the position of a box within its puck
+  is not recorded. A two-sided box counts once.
+- A gridbox name identifies one physical box across the registry. Reusing an
+  existing name selects that box, while creating a duplicate is rejected.
+- Box inventory distinguishes in-stock, in-puck and discarded boxes from grid
+  slot occupancy. A box in a puck counts against capacity even when empty; a box
+  in stock does not. A vacated grid slot can hold another grid while retaining
+  the earlier occupant's history, including across projects.
+- Each box type determines the valid grid slots, their sides and clipping
+  compatibility. The four supplied SVGs represent the initial layouts. Reject
+  invalid slots, incompatible grids, and concurrent double occupancy server-side.
+- Storage actions preserve history, actor and event time; a grid can occupy at
+  most one current slot. Shipping or disposal frees the slot without erasing its
+  history. Storage remains optional when grids are registered.
+
 Sections A–F are the **full v0.1 acceptance checklist**, not a claim that every
 feature is implemented or manually signed off. Current-format transfer tests are
 separate from the unimplemented original legacy importer in section D. Detailed
