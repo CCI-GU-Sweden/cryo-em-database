@@ -1,9 +1,11 @@
 from django.urls import path
 
-from . import excel_views, views
+from . import excel_views, storage_views, views
 
 app_name = "registry"
 urlpatterns = [
+    path("inventory/", storage_views.inventory, name="inventory"),
+    path("inventory/<int:pk>/", storage_views.box_detail, name="box_detail"),
     path("", views.grid_list, name="grid_list"),
     path("export/", excel_views.excel_export, name="excel_export"),
     path("import/", excel_views.excel_import, name="excel_import"),

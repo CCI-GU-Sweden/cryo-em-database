@@ -42,6 +42,12 @@ authentication and shutdown with spaces/apostrophe in its path.
 - Storage actions preserve history, actor and event time; a grid can occupy at
   most one current slot. Shipping or disposal frees the slot without erasing its
   history. Storage remains optional when grids are registered.
+- Missing initial storage is flagged for review without asserting that the grid
+  was physically unstored; later legitimate states with no current slot are not
+  automatically treated as missing initial storage.
+- Immediate clipping before first storage is supported and recorded as a physical
+  event. The current clipped state determines valid box types and sides in the
+  UI and on the server; it cannot be silently edited without history.
 
 Sections A–F are the **full v0.1 acceptance checklist**, not a claim that every
 feature is implemented or manually signed off. Current-format transfer tests are
@@ -307,3 +313,15 @@ lifecycle scenarios are deferred to the next slice.
 - Exported portable keys remain authoritative and hidden in the supporting sheet.
 - Teal/purple/amber group colours cycle across merged headings, column headings
   and pale data cells. Styling does not affect values or import parsing.
+
+## Reusable box inventory foundation (2026-11-10)
+
+- Registration trims names and rejects duplicates without case distinctions;
+  each box receives the correct physical slots for its type.
+- Staff-only forms and direct commands enforce authorization, stale-version
+  rejection, capacity and atomic history updates.
+- Boxes containing grids cannot be discarded; empty boxes can be discarded and
+  remain read-only with history preserved.
+- External transfer requires a destination, records actual/entry time and actor,
+  frees puck capacity, and retains the box and contents in a Transferred view.
+- Grid placement/clipping and custody synchronization remain future work.

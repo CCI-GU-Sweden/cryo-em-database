@@ -14,7 +14,7 @@ state tracking are not implemented.
 
 CCI currently tracks cryo-EM grids in an Excel workbook. Each row represents a physical grid, with fields for sample preparation, grid treatment, freezing conditions, unclipped/clipped storage, experiment reference, and notes. The workbook is flexible but does not provide reliable uniqueness enforcement, owner-based permissions, event-based inventory history, controlled entry, or a straightforward web workflow.
 
-A preparation session normally produces several replicate grids. The operator begins by choosing the sample owner (e.g., Ketan Gupta, with prefix `kegu`), enters **common preparation conditions**, chooses how many grids to generate, and then **individually edits** grid-specific differences and storage positions. Grids begin **unclipped** with no storage assigned. Grids may be stored, moved, clipped, removed for imaging, imaged (usually followed by disposal), discarded directly, or shipped to another site. When shipped, CCI needs to know that the grid has left CCI custody; its later off-site fate is not required for the initial application.
+A preparation session normally produces several replicate grids. The operator begins by choosing the sample owner (e.g., Ketan Gupta, with prefix `kegu`), enters **common preparation conditions**, chooses how many grids to generate, and then **individually edits** grid-specific differences and storage positions. Grids begin **unclipped** and are normally stored immediately after preparation; some are clipped before their first storage. Missing storage information should be flagged for review, not interpreted as proof that a grid was not stored. Grids may be stored, moved, clipped, removed for imaging, imaged (usually followed by disposal), discarded directly, or shipped to another site. When shipped, CCI needs to know that the grid has left CCI custody; its later off-site fate is not required for the initial application.
 
 ## Primary goal
 
@@ -47,7 +47,7 @@ Replace the present manual Excel registry with a **simple, reliable, editable we
 3. Enter common sample-preparation, grid treatment, and freezing parameters (plain text or validated numeric fields).
 4. Enter the number of grids to generate (currently 1–100). ID preview is future UI work.
 5. Confirm once: create the session with an immutable default snapshot and individual grids with copied initial parameters **in one transaction**.
-6. Display the new grids in a table with individual View/edit links; storage remains empty until assigned. Inline/bulk editing remains future work.
+6. Display the new grids in a table with individual View/edit links. Record actual clipping and storage when known; missing storage is flagged for review. The current prototype still leaves storage empty until the physical-handling workflow is implemented. Inline/bulk editing remains future work.
 
 ### Workflow B — Edit an individual grid
 
