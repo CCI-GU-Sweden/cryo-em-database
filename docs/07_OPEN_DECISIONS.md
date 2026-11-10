@@ -16,12 +16,12 @@ This is a **decision register**, not a requirement to answer everything before w
 | D07 | Migration | How many physical preparation sessions produced eight example grids? Exact dates/operators unknown. | Provisional legacy groupings explicitly labeled unverified, never infer from `JB002` alone | Real session relationship must not be fabricated |
 | D08 | Before external access | Which researcher actions are permitted (view, storage, imaging, shipment)? | No external accounts in v0.1 | Prevent overbroad data modification |
 | D09 | Before deployment | Which institutional login provider/SSO is viable? | Local Django users initially; identity adapter/OIDC later | International users / future portability |
-| D10 | UX pilot | Preferred storage and clipping workflows: separate actions or one compound step? | No physical action UI yet; confirm the workflow before implementing it | Reduce clicks without losing history |
+| D10 | UX pilot | Preferred storage and clipping workflows: separate actions or one compound step? | Grids are normally stored immediately and may be clipped first; show missing storage for review. A combined workflow may record distinct physical events; exact interaction remains open. | Reduce clicks without losing history |
 | D11 | Future legacy import policy | Should legacy `Copy of CCI-00001` notes become verified `copied_from_grid` references? | Preserve notes; no auto-conversion. Copied-from links are excluded from the current UI/Excel format | Avoid inferring scientific ancestry incorrectly |
 | D12 | Data model | Should sample owners be people only or also research groups? | Name/affiliation/code generic enough for both | Owner life cycle and future sharing |
 | D13 | Event rules | Can imaged grids be returned to storage at CCI? Can shipped grids return? | Review exceptions before implementing state transitions; do not infer disposal from imaging/shipping | Real-world lifecycle flexibility |
 | D14 | UX | Preferred bulk editing: direct inline table edit vs select-grids update wizard? | Individual edit forms are implemented; choose a bulk workflow after staff review | Ease of use and auditability |
-| D15 | Storage design | How are gridboxes placed into stock or a puck, moved, discarded or corrected, including boxes containing grids? | Preserve box identity and history; distinguish physical box location/status from grid-slot occupancy; no deletion of history | Reusable boxes, capacity and safe inventory handling |
+| D15 | Partly confirmed 2026-11-10 | Box placement, transfer, discard and corrections | Preserve identity/history; reject discard while occupied; record external destination/time and remove transferred boxes from active CCI inventory. Corrections and off-site returns remain open. | Reusable boxes, capacity and safe inventory handling |
 
 ## Decisions already confirmed
 
@@ -68,3 +68,14 @@ Reason:
 Affected documentation / migrations:
 Tests required:
 ```
+
+## Box inventory decisions (2026-11-10)
+
+- A box containing any grid cannot be discarded. Empty boxes may be discarded;
+  retain the box identity and history.
+- Box movements preserve identity and contents. Box events retain source and
+  destination pucks so future grid history can resolve physical movement.
+- External transfers record receiving laboratory/destination and time; transferred
+  boxes leave the active CCI inventory but remain inspectable. Off-site tracking
+  and returns are deferred. Grid custody synchronization is required before grid
+  placement is enabled.

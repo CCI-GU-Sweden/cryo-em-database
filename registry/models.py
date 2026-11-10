@@ -266,3 +266,7 @@ class PreparationSuggestion(models.Model):
                 fields=["field_name", "value"], name="unique_preparation_suggestion"
             )
         ]
+
+
+# Register the inventory models with the same Django application.
+from .storage_models import BoxEvent, Cane, Dewar, GridBox, GridBoxType, GridSlot, Puck  # noqa: E402, F401

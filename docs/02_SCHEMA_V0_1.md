@@ -9,13 +9,18 @@ its exact types. StorageLocation, GridEvent and their state transitions are stil
 designs, not deployed tables. Dated implementation notes record evolution; earlier
 snapshot versions and precision limits are superseded by the current rules.
 
+The storage-inventory branch implements Dewar, Cane, Puck, GridBoxType,
+GridBox, GridSlot and immutable BoxEvent history as an inventory foundation.
+Individual grid storage/clipping events and custody synchronization remain the
+next slice. See the implementation notes in [storage requirements](08_STORAGE_LOCATIONS.md).
+
 ## 0. Read this first: invariants
 
 1. A **preparation session** represents **one actual preparation/freezing session** and belongs to **exactly one sample owner**.
 2. Normal session registration preserves **one immutable initial defaults snapshot**, copied to **independent values for each generated grid**. Imports preserve supplied original defaults or an explicitly unknown empty snapshot. Updating one grid never updates siblings or the snapshot.
 3. **Experiment reference is optional**; optional project reference is descriptive only.
 4. **Grid number is globally unique, permanent, and never reused**, regardless of owner/code changes. Historical `CCI-00001`-style IDs coexist with new owner-prefixed IDs (`kegu-1234` is illustrative).
-5. Grids start **unclipped**, **not imaged**, and **awaiting storage**. Empty storage is valid at registration.
+5. Grids start **unclipped**, **not imaged**, and **awaiting storage**. They are normally stored immediately, sometimes after clipping. Empty storage is permitted at registration but needs review; missing information does not prove a grid is physically unstored.
 6. **Clipping state**, **availability/custody**, **imaging state**, and **current physical location** are different axes. Shipping does not imply imaging; imaging usually precedes disposal but never automatically proves it.
 7. Physical lifecycle actions are captured in **append-only GridEvent records**. Database corrections/metadata edits are captured separately in **AuditEvent**.
 8. All active CCI staff and facility superusers can view and edit all active grids. Archived grids are read-only; inactive accounts and non-CCI non-administrators cannot edit. Import separately requires the CCI flag even for superusers; export follows viewing access. Enforce this server-side.
@@ -245,7 +250,7 @@ The application should compute or transactionally maintain **independent state a
 
 | Axis | Values | Source |
 |---|---|---|
-| `clip_state` | `unclipped`, `clipped` | Starts unclipped; changes at `clipped` event |
+| `clip_state` | `unclipped`, `clipped` | Starts unclipped; changes at `clipped` event, which may be recorded before first storage |
 | `availability` | `awaiting_storage`, `in_storage`, `removed_for_imaging`, `off_site`, `discarded` | Derived from latest applicable events |
 | `imaging_state` | `not_imaged`, `imaged` | Imaging events; does not imply disposal |
 | `current_location` | StorageLocation or null | Derived from storage/retrieval/shipping/disposal events |

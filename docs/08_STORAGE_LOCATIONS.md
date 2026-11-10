@@ -151,8 +151,8 @@ slots are empty. Keep discarded boxes and their grid histories available for
 inspection rather than silently deleting them.
 
 The specific stock, placement, removal, discard and correction workflows,
-including when moving or discarding a box containing grids is allowed and how
-box-location history is recorded, require agreement before implementation.
+including corrections and off-site returns, require further agreement. The
+implemented foundation below records movements and forbids discarding occupied boxes.
 No project relationship or box state should be inferred from its current or
 previous grid occupants.
 
@@ -247,6 +247,14 @@ A grid that is shipped or discarded no longer occupies a CCI storage position. I
 
 Clipping is a separate physical event and clipping state, but it affects which gridbox types/sides can accept the grid. For example, an unclipped grid cannot be assigned to the clipped side of a `Clipped + unclipped (4 + 4)` gridbox.
 
+CCI staff normally store grids immediately after preparation. Some grids are
+clipped before that first storage. The UI should show each grid's clipped or
+unclipped state and use it to offer compatible box types and sides; the backend
+must enforce the same rule. A boolean display/cache may represent this state,
+but changes must record the clipping event rather than silently overwrite it.
+Recording immediate clipping and first storage may be combined in a workflow,
+provided the individual physical events and their history are retained.
+
 ## 8. User-interface requirements
 
 The storage form should be straightforward for CCI staff:
@@ -260,7 +268,14 @@ The storage form should be straightforward for CCI staff:
 
 The interface should show the hierarchy in a readable, associated form. It may also display a compact combined location string in the grid registry table, while retaining each component as an individual database field/reference.
 
-For batch registration, the storage fields should initially be empty. Storage is assigned when the physical grid is placed in a known location. The application may support assigning locations to several grids in one operation, provided each selected position is validated and unique.
+Storage may be entered at or after batch registration when the actual location is
+known. A grid without recorded storage should be flagged as needing review, rather
+than being silently treated as physically unstored. The review rule must account
+for legitimate later states such as removal, shipment or disposal, rather than
+flagging every grid with no current slot. The application may support assigning
+locations to several grids in one operation, provided each selected position is
+validated and unique. The exact registration and review interaction remains to
+be designed; do not infer unknown event times or locations.
 
 ## 9. Initial configuration and future extension
 
@@ -315,3 +330,43 @@ Until these points are confirmed, the implementation should use the values and v
 - Clipping state is distinct from storage location and overall grid availability.
 - Storage movements are historical events; previous locations must not be overwritten.
 - The model must support additional dewars and canes through configuration in a future version.
+
+## Inventory foundation implementation (2026-11-10)
+
+The storage-inventory branch provides a Gridboxes screen for staff to register
+physical boxes, inspect their SVG and slot layout, search names, and view stock,
+puck, discarded or transferred inventory. The default CCI inventory excludes
+discarded and transferred boxes; All is the last filter option and includes both. Names are trimmed and matched without
+case distinctions across the registry. The initial configuration includes Dewar 1,
+Cane 1, eight puck colours and four box types. Type and colour management remain
+future work.
+
+Box placement, return to stock, discard and external transfer use authorized,
+transactional services, version checks and an immutable box-event history. Box
+movements preserve box identity and slot contents. A puck holds at most 12 boxes,
+including empty boxes. A box containing any grids cannot be discarded. Discarded
+boxes remain inspectable and cannot be reused.
+
+A physical box may also be transferred to another laboratory, including with its
+contents. Record the receiving laboratory/destination, actual transfer time and
+entry time, actor and previous puck. The box then releases its CCI puck space and
+is excluded from the default CCI inventory view. A separate Transferred filter
+keeps its history and last contents accessible. Further off-site tracking and
+return workflows are outside this slice. Transfer is distinct from disposal.
+
+The inventory foundation includes physical slot definitions and one-grid
+occupancy constraints. Grid placement, clipping, individual grid lifecycle,
+review flags and synchronization of grid custody during whole-box transfer must
+be implemented together in the subsequent physical-grid slice. Staff cannot yet
+assign grids through this inventory screen.
+
+### Correcting the latest box action
+
+Staff can correct the latest movement, transfer or discard from box history by
+entering their own password and a reason; no username is required. Recheck staff
+access and the box version on the server. Registration and correction entries
+cannot themselves be reversed through this action. Preserve the original event
+and append an immutable correction linked to it, with actor, time and reason.
+Restore the previous active state and puck only if that puck still has capacity;
+otherwise explain the conflict and leave all records unchanged. This is correction
+of a mistaken entry, not a physical return from another laboratory.
