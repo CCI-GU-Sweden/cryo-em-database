@@ -3,12 +3,12 @@
 {% block content %}
 <h1>{{ grid.grid_number }}</h1>
 <p>Owner: {{ grid.session.owner }} · <a href="{% url 'registry:session_detail' grid.session_id %}">{{ grid.session.display_name }}</a></p>
-<p>Unclipped · Not imaged · Storage unassigned</p>
+<p>{% if grid.is_clipped %}Clipped{% else %}Unclipped{% endif %} · <a href="{% url 'registry:grid_storage' grid.pk %}">Location and storage actions</a></p>
 {% if can_edit %}
 <form method="post">
   {% csrf_token %}{{ form.expected_version }}{{ form.non_field_errors }}
   <p>Changes apply only to this grid. Original session settings are preserved.</p>
-  {% include "registry/preparation_fields.html" %}
+  {% include "registry/preparation_fields.html" with collapsible=True %}
   <button type="submit">Save this grid</button>
 </form>
 {% else %}

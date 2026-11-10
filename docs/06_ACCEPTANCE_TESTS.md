@@ -19,7 +19,7 @@ authentication and shutdown with spaces/apostrophe in its path.
 | Import/export permissions | Explicit CCI flag for import, including admins; export shares registry visibility and checks direct calls |
 | Session Enter key | Targeted JavaScript event checks passed; normal suggestions/newlines/button activation retained |
 | Native Windows | Colleague confirmed app startup and repeated stop; Ctrl+C also stopped PostgreSQL on that setup. Full check/login/data-retention/path-space acceptance remains pending |
-| Physical handling | StorageLocation/GridEvent, occupancy and lifecycle actions not implemented |
+| Physical handling | Inventory, grid placement/clipping, occupancy and box transfers implemented on grid-storage branch; imaging/removal/disposal and returns remain deferred |
 | Release readiness | Shared deployment, CI automation, backup schedule and tested restore are not configured |
 
 ### Planned CCI storage acceptance (not yet implemented)
@@ -335,3 +335,26 @@ lifecycle scenarios are deferred to the next slice.
   confirmations. Never record or redisplay the password.
 - Restore stock/puck state and clear mistaken transfer/discard state atomically;
   reject a full previous puck without changing box state or history.
+
+## Grid placement slice
+
+- Session detail exposes locations and actions; box search and selection precede
+  a dropdown of free compatible slots, with C/U prefixes on mixed boxes.
+- Inline box registration returns to the same grid with the box selected.
+- Server commands reject occupied slots, stale grid versions, incompatible
+  clipping states, archived grids and discarded or transferred boxes. Stock boxes remain eligible.
+- Clipping and placement history is immutable, and box movement/transfer and
+  correction events propagate to contained grids without changing preparation.
+
+- Clipping can be updated in either direction from the individual preparation
+  form after Freezing and blotting. Changes record before/after history without
+  a separate correction flag. An incompatible recorded slot is freed and storage
+  is marked for review, with a warning and original location history preserved.
+
+## Puck inventory and registration
+
+- Puck table shows distinct occupied box spaces out of 12, grid counts and the
+  pilot assumption: pucks with grids are in the dewar; empty pucks are in stock.
+- Staff can register a unique name/colour using their own password without a
+  username prompt. Reject incorrect passwords, duplicate names ignoring case,
+  inactive/non-CCI accounts and CSRF failures. New pucks have 12 positions.

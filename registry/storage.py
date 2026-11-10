@@ -50,7 +50,7 @@ def register_box(*, actor, name, box_type_id, puck_id=None):
     for side, spec in kind.layout.items():
         for position in range(1, spec["capacity"] + 1):
             GridSlot.objects.create(box=box, side=side, position=position)
-    BoxEvent.objects.create(
+    record_box_event(
         box=box, actor=actor, operation="registered", to_puck=box.puck, occurred_at=timezone.now()
     )
     record_audit(
@@ -84,6 +84,16 @@ def correct_last_box_action(*, actor, box_id, expected_version, event_id, passwo
         raise ValidationError("This box changed. Reload before correcting its latest action.")
     if event.operation not in {"move", "transfer", "discard"}:
         raise ValidationError("Only the latest movement, transfer or discard can be corrected.")
+    from .storage_models import GridEvent
+
+    if (
+        GridEvent.objects.filter(grid__gridslot__box=box, recorded_at__gt=event.recorded_at)
+        .exclude(box_event=event)
+        .exists()
+    ):
+        raise ValidationError(
+            "Grids in this box changed after that action. Review their history first."
+        )
     previous = box.puck
     # The original state was active. Keep the original entry immutable and add
     # a correction; this is a data correction, not a physical return from a lab.
@@ -94,7 +104,7 @@ def correct_last_box_action(*, actor, box_id, expected_version, event_id, passwo
     box.version += 1
     box.full_clean()
     box.save()
-    BoxEvent.objects.create(
+    record_box_event(
         box=box,
         actor=actor,
         operation="correction",
@@ -159,7 +169,7 @@ def change_box(
     box.version += 1
     box.full_clean()
     box.save()
-    BoxEvent.objects.create(
+    record_box_event(
         box=box,
         actor=actor,
         operation=action,
@@ -181,3 +191,91 @@ def change_box(
         },
     )
     return box
+
+
+def record_box_event(**values):
+    event = BoxEvent.objects.create(**values)
+    from .models import Grid
+    from .storage_models import GridEvent
+
+    for slot in event.box.slots.filter(grid__isnull=False).select_related("grid"):
+        grid = slot.grid
+        if hasattr(grid, "deletion"):
+            raise ValidationError("A box containing archived grids cannot be changed.")
+        latest = grid.physical_events.order_by("-occurred_at").first()
+        if latest and event.occurred_at < latest.occurred_at:
+            raise ValidationError("Box action time must not precede its grids’ latest events.")
+        GridEvent.objects.create(
+            grid=grid,
+            actor=event.actor,
+            operation="box_" + event.operation,
+            occurred_at=event.occurred_at,
+            box_event=event,
+            details={
+                "destination": event.destination,
+                "from_puck": str(event.from_puck) if event.from_puck else "",
+                "to_puck": str(event.to_puck) if event.to_puck else "",
+            },
+        )
+        Grid.objects.filter(pk=grid.pk).update(version=grid.version + 1)
+    sync_puck_locations(actor=event.actor)
+    return event
+
+
+@transaction.atomic
+def record_puck_location(*, actor, puck_id, expected_version, in_dewar):
+    from .storage_models import PuckEvent
+
+    actor = current_staff(actor)
+    lock_inventory()
+    puck = Puck.objects.select_for_update().get(pk=puck_id)
+    if type(expected_version) is not int or puck.version != expected_version:
+        raise ValidationError("This puck changed. Reload before updating it.")
+    if in_dewar is not None and type(in_dewar) is not bool:
+        raise ValidationError("Choose a valid dewar status.")
+    before = puck.in_dewar
+    if before is in_dewar:
+        return puck
+    puck.in_dewar = in_dewar
+    puck.version += 1
+    puck.save(update_fields=["in_dewar", "version"])
+    PuckEvent.objects.create(puck=puck, actor=actor, in_dewar=in_dewar)
+    record_audit(actor, puck, "location", {"in_dewar": {"before": before, "after": in_dewar}})
+    return puck
+
+
+def sync_puck_locations(*, actor):
+    # Current pilot convention: any grid implies the puck is in the dewar;
+    # an empty puck is in stock, even if it contains empty boxes.
+    for puck in Puck.objects.all():
+        occupied = GridSlot.objects.filter(box__puck=puck, grid__isnull=False).exists()
+        record_puck_location(
+            actor=actor, puck_id=puck.pk, expected_version=puck.version, in_dewar=occupied
+        )
+
+
+@sensitive_variables("password")
+@transaction.atomic
+def register_puck(*, actor, name, password):
+    from .storage_models import Cane, PuckEvent
+
+    actor = current_staff(actor)
+    if (
+        not actor.has_usable_password()
+        or not isinstance(password, str)
+        or not actor.check_password(password)
+    ):
+        raise ValidationError({"password": "Your password is incorrect. No puck was registered."})
+    color = "_".join(name.strip().casefold().replace("_", " ").split())
+    if not color:
+        raise ValidationError({"name": "Enter a puck name / colour."})
+    if len(color) > 40:
+        raise ValidationError({"name": "Use at most 40 characters."})
+    lock_inventory()
+    cane = Cane.objects.get(name="Cane 1", dewar__name="Dewar 1")
+    if Puck.objects.filter(cane=cane, color__iexact=color).exists():
+        raise ValidationError({"name": "This puck name / colour is already registered."})
+    puck = Puck.objects.create(cane=cane, color=color, in_dewar=False)
+    PuckEvent.objects.create(puck=puck, actor=actor, in_dewar=False)
+    record_audit(actor, puck, "create", {"name_color": color, "in_dewar": False})
+    return puck

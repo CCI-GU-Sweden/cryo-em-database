@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="154.22488mm"
-   height="118.97359mm"
-   viewBox="0 0 154.22488 118.97359"
+   width="90.509666mm"
+   height="87.864281mm"
+   viewBox="0 0 90.509666 87.864281"
    version="1.1"
    id="svg20031"
    inkscape:version="1.1.2 (b8e25be833, 2022-02-05)"
@@ -173,13 +173,10 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(275.36527,-280.64693)">
+     transform="translate(243.50765,-311.75622)">
     <g
        id="g31537"
-       transform="translate(-169.84954,420.80824)"
-       inkscape:export-filename="clip-12.svg"
-       inkscape:export-xdpi="96"
-       inkscape:export-ydpi="96">
+       transform="translate(-169.84954,420.80824)">
       <text
          xml:space="preserve"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.7556px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -194,7 +191,10 @@
            y="-125.77872"
            style="stroke-width:0.264583">Clipped grids (12)</tspan></text>
       <g
-         id="g31391">
+         id="g31391"
+         inkscape:export-filename="clipped-12.svg"
+         inkscape:export-xdpi="600"
+         inkscape:export-ydpi="600">
         <g
            id="g13947"
            transform="translate(-124.40922,-180.69934)"

@@ -14,6 +14,47 @@ from .storage_models import BoxEvent, GridBox, GridBoxType, Puck
 
 
 class StorageTests(TestCase):
+    def test_puck_detail_lists_only_its_boxes_and_requires_staff(self):
+        box = self.create("Box in selected puck", self.puck)
+        self.create("Box in stock")
+        self.client.force_login(self.actor)
+        url = reverse("registry:puck_detail", args=[self.puck.pk])
+        response = self.client.get(url)
+        self.assertContains(response, box.name)
+        self.assertNotContains(response, "Box in stock")
+        self.assertContains(response, "1/12")
+        self.assertContains(response, "0/8")
+        self.assertContains(response, reverse("registry:box_detail", args=[box.pk]))
+        self.assertContains(self.client.get(reverse("registry:puck_inventory")), url)
+        self.actor.is_cci_staff = False
+        self.actor.save()
+        self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_password_confirmed_puck_registration(self):
+        from .storage import register_puck
+
+        self.actor.set_password("test-puck-password")
+        self.actor.save()
+        with self.assertRaises(ValidationError):
+            register_puck(actor=self.actor, name="Orange", password="incorrect")
+        puck = register_puck(actor=self.actor, name=" Orange ", password="test-puck-password")
+        self.assertEqual(puck.color, "orange")
+        self.assertFalse(puck.in_dewar)
+        with self.assertRaises(ValidationError):
+            register_puck(actor=self.actor, name="ORANGE", password="test-puck-password")
+        self.client.force_login(self.actor)
+        url = reverse("registry:puck_inventory")
+        self.assertContains(self.client.get(url), "0/12")
+        self.assertEqual(
+            self.client.post(url, {"name": "Pink", "password": "test-puck-password"}).status_code,
+            302,
+        )
+        self.actor.is_cci_staff = False
+        self.actor.save()
+        with self.assertRaises(PermissionDenied):
+            register_puck(actor=self.actor, name="Denied", password="test-puck-password")
+        self.assertEqual(self.client.get(url).status_code, 403)
+
     @classmethod
     def setUpTestData(cls):
         cls.actor = get_user_model().objects.create_user(username="inventory", is_cci_staff=True)
@@ -270,3 +311,59 @@ class InventoryConcurrencyTests(TransactionTestCase):
             result = list(workers.map(attempt, [1, 2]))
         self.assertEqual(sum(result), 1)
         self.assertEqual(GridBox.objects.filter(puck=puck).count(), 12)
+
+    def test_two_grids_cannot_claim_the_same_slot(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        from django.db import close_old_connections
+
+        from .grid_storage import place_grid
+        from .storage_models import Cane, Dewar
+
+        actor = get_user_model().objects.create_user(username="slot-race", is_cci_staff=True)
+        dewar, _ = Dewar.objects.get_or_create(name="Dewar 1")
+        cane, _ = Cane.objects.get_or_create(dewar=dewar, name="Cane 1")
+        puck, _ = Puck.objects.get_or_create(cane=cane, color="green")
+        kind, _ = GridBoxType.objects.get_or_create(
+            code="race-slot",
+            defaults={
+                "name": "Race layout",
+                "svg": "grid-boxes/unclip-4.svg",
+                "layout": {"unclipped": {"capacity": 4, "clipped": False}},
+            },
+        )
+        box = register_box(actor=actor, name="Race box", box_type_id=kind.pk, puck_id=puck.pk)
+        owner = SampleOwner.objects.create(name="Slot race owner", code="race")
+        grids = list(
+            create_preparation_session(
+                actor=actor,
+                owner=owner,
+                prepared_at=timezone.now(),
+                grid_count=2,
+                preparation={},
+                request_token=uuid4(),
+            ).grids.all()
+        )
+        slot = box.slots.first()
+
+        def attempt(grid):
+            close_old_connections()
+            try:
+                place_grid(
+                    actor=actor,
+                    grid_id=grid.pk,
+                    slot_id=slot.pk,
+                    clipped=False,
+                    expected_version=grid.version,
+                    occurred_at=timezone.now(),
+                )
+                return True
+            except ValidationError:
+                return False
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            results = list(workers.map(attempt, grids))
+        self.assertEqual(sum(results), 1)
+        self.assertEqual(sum(g.physical_events.count() for g in grids), 1)

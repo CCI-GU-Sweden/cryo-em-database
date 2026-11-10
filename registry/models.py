@@ -99,6 +99,7 @@ class GridQuerySet(models.QuerySet):
 
 class Grid(models.Model):
     objects = GridQuerySet.as_manager()
+    is_clipped = models.BooleanField(default=False)
 
     grid_number = models.CharField(max_length=80, unique=True)
     session = models.ForeignKey(PreparationSession, on_delete=models.PROTECT, related_name="grids")
@@ -269,4 +270,4 @@ class PreparationSuggestion(models.Model):
 
 
 # Register the inventory models with the same Django application.
-from .storage_models import BoxEvent, Cane, Dewar, GridBox, GridBoxType, GridSlot, Puck  # noqa: E402, F401
+from .storage_models import BoxEvent, Cane, Dewar, GridBox, GridBoxType, GridEvent, GridSlot, Puck  # noqa: E402, F401

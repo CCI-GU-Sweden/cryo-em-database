@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="315.11533mm"
-   height="118.97376mm"
-   viewBox="0 0 315.11533 118.97376"
+   width="90.509666mm"
+   height="87.864258mm"
+   viewBox="0 0 90.509666 87.864258"
    version="1.1"
    id="svg20031"
    inkscape:version="1.1.2 (b8e25be833, 2022-02-05)"
@@ -40,25 +40,28 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(355.81049,-11.156568)">
+     transform="translate(243.50765,-42.266066)">
     <g
        id="g31581"
        transform="translate(-546.67182,199.51767)">
       <text
          xml:space="preserve"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.7556px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-         x="189.87743"
+         x="187.13306"
          y="-173.97849"
          id="text1026"
          inkscape:export-xdpi="96"
          inkscape:export-ydpi="96"><tspan
            sodipodi:role="line"
            id="tspan1024"
-           x="189.87743"
+           x="187.13306"
            y="-173.97849"
-           style="stroke-width:0.264583">Clipped grids unclipped grids (4 + 4)</tspan></text>
+           style="stroke-width:0.264583">Clipped grids  unclipped grids (4 + 4)</tspan></text>
       <g
-         id="g31346">
+         id="g31346"
+         inkscape:export-filename="unclipped-4-clipped-4"
+         inkscape:export-xdpi="600"
+         inkscape:export-ydpi="600">
         <g
            id="g941"
            transform="translate(252.41306,-228.89895)"

@@ -451,6 +451,7 @@ service descriptions above for cross-field, authorization and immutability rules
 | Field | PostgreSQL type | NULL allowed | Empty text allowed | Application default | Model bounds |
 |---|---|---|---|---|---|
 | `id` | `bigint` | No | No | Generated ID | >= -9223372036854775808, <= 9223372036854775807 |
+| `is_clipped` | `boolean` | No | No | False | — |
 | `grid_number` | `varchar(80)` | No | No | — | — |
 | `session_id` | `bigint` | No | No | — | — |
 | `copied_from_grid_id` | `bigint` | Yes | No | — | — |
@@ -555,3 +556,14 @@ JSON is required. Explicitly labelled groups without existing IDs receive new
 UUIDs and an unknown empty defaults snapshot. Re-import can resolve an explicitly
 labelled group through its existing grid IDs, but cannot merge distinct existing
 sessions. Exported UUIDs remain authoritative when supporting metadata is present.
+
+## Grid placement implementation (grid-storage branch)
+
+The earlier GridEvent section describes the wider lifecycle design. This slice
+implements `Grid.is_clipped` plus immutable GridEvent records for clipping,
+storage/movement and box movement/transfer/correction. Events retain grid, actor,
+action/entry times, source/destination slots and a box-event link where applicable.
+Location text at placement is retained in event details. Current occupancy is the
+GridSlot-to-Grid relation; physical custody is resolved through that slot's box.
+No preparation snapshot is changed by placement. Removal, imaging, disposal and
+physical returns remain outside the implemented event commands.

@@ -103,6 +103,20 @@ class NewSessionForm(PreparationForm):
 
 
 class EditGridForm(PreparationForm):
+    is_clipped = forms.BooleanField(
+        required=False,
+        label="Clipped",
+        help_text=(
+            "If this status conflicts with the current slot, "
+            "the location is cleared and marked for review."
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial["is_clipped"] = self.instance.is_clipped
+
     expected_version = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
 
 

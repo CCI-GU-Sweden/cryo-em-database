@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% block content %}
+<p><a href="{% url 'registry:puck_inventory' %}">All pucks</a></p>
+<h1>{{ puck }} puck</h1>
+<p>{{ puck.in_dewar|yesno:'In dewar,In stock,Unknown' }} · {{ boxes|length }}/12 box spaces occupied</p>
+<table><thead><tr><th>Gridbox</th><th>Type</th><th>Occupied slots</th></tr></thead><tbody>
+{% for box in boxes %}<tr><td><a href="{% url 'registry:box_detail' box.pk %}">{{ box.name }}</a></td><td>{{ box.box_type }}</td><td>{{ box.occupied_slots }}/{{ box.total_slots }}</td></tr>
+{% empty %}<tr><td colspan="3">No gridboxes stored in this puck.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}

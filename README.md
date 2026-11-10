@@ -401,3 +401,22 @@ Preparation dates accept `YYYY-MM-DD` text or an Excel date cell, defaulting to
 **12:00 Europe/Stockholm** on that date. Preview reports the default. Blank dates
 remain unknown; full timestamps must include a UTC offset. The entire application
 uses Europe/Stockholm for facility-local time; stored timestamps remain UTC-aware.
+
+### Grid placement and puck inventory
+
+From a session's **Grid locations and actions** table, choose **Store / move**.
+Select a compatible box by typing its name, then choose a free slot. Mixed boxes
+use C1–C4 and U1–U4. If a box is in stock, choose a puck with space; placement
+records both actions together. **Register new gridbox** creates a box inline and
+returns to the same grid. Missing storage displays **Unknown — needs review**.
+
+Individual grid preparation groups can be expanded/collapsed and start open.
+Clipping status can be changed after Freezing and blotting; an incompatible
+recorded slot is released with a warning and retained history. Box transfers and
+corrections are reflected in contained grids' history and current location.
+
+**Gridboxes** shows occupied grid slots; **Pucks** shows occupied box spaces out
+of 12 and links to the boxes inside each puck. Staff can register a new unique
+puck name/colour using their own password. For the pilot, pucks with grids are
+assumed to be in the dewar and pucks without grids are assumed to be in stock.
+Imaging/removal, disposal, off-site returns and bulk placement remain future work.

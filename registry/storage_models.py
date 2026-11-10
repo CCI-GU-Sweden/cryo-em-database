@@ -19,14 +19,23 @@ class Cane(models.Model):
 
 
 class Puck(models.Model):
+    in_dewar = models.BooleanField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
     cane = models.ForeignKey(Cane, on_delete=models.PROTECT)
     color = models.CharField(max_length=40)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["cane", "color"], name="unique_puck_color")]
+        constraints = [models.UniqueConstraint(Lower("color"), "cane", name="unique_puck_color")]
 
     def __str__(self):
         return self.color.replace("_", " ").title()
+
+
+class PuckEvent(models.Model):
+    puck = models.ForeignKey(Puck, on_delete=models.PROTECT, related_name="events")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    in_dewar = models.BooleanField(null=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
 
 
 class GridBoxType(models.Model):
@@ -96,3 +105,17 @@ class BoxEvent(models.Model):
 
     class Meta:
         ordering = ["-pk"]
+
+
+class GridEvent(models.Model):
+    grid = models.ForeignKey(
+        "registry.Grid", related_name="physical_events", on_delete=models.PROTECT
+    )
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    operation = models.CharField(max_length=30)
+    occurred_at = models.DateTimeField()
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    from_slot = models.ForeignKey(GridSlot, null=True, on_delete=models.PROTECT, related_name="+")
+    to_slot = models.ForeignKey(GridSlot, null=True, on_delete=models.PROTECT, related_name="+")
+    box_event = models.ForeignKey(BoxEvent, null=True, on_delete=models.PROTECT)
+    details = models.JSONField(default=dict)

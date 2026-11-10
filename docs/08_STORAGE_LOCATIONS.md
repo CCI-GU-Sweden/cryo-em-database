@@ -370,3 +370,67 @@ and append an immutable correction linked to it, with actor, time and reason.
 Restore the previous active state and puck only if that puck still has capacity;
 otherwise explain the conflict and leave all records unchanged. This is correction
 of a mistaken entry, not a physical return from another laboratory.
+
+## Grid placement workflow (grid-storage branch)
+
+Session detail lists grid locations and links to Store / move. Staff choose the
+clipping state for this placement, type to filter box names, select a box, then select a
+free compatible slot. Mixed boxes use C1–C4 and U1–U4; other layouts use slot
+numbers. Boxes in stock or in CCI pucks can be selected. For a stock box, require a
+puck with fewer than 12 boxes before confirming placement. Move the box into
+that puck and place the grid in one transaction, rechecking capacity at commit.
+The searchable box dropdown offers only boxes with a free compatible slot and
+narrows as staff type. An inline Register new
+gridbox form preserves the grid and clipping context and selects the new box.
+
+Placement records immutable physical GridEvent history, distinct from database
+edit auditing. Clipping before placement is recorded separately and cannot be
+reversed by unchecking a stored grid's clipped state. All placement and box
+commands use the same inventory transaction lock, with stale-grid checks and
+unique slot occupancy. Missing locations display Unknown — needs review.
+
+Box movements, transfers and their corrections append events to each contained
+grid and invalidate older grid edit forms. Custody follows the current box:
+transferred grids cannot be placed again until the mistaken box transfer is
+corrected. Off-site returns and individual removal/disposal remain later work.
+Grid registration archives cannot hide a grid occupying a slot.
+
+### Clipping status in grid preparation
+
+The individual grid preparation form exposes Clipped after Freezing and blotting.
+Staff can change the recorded status in either direction; no separate correction
+flag or action is required. Save changes to preparation and clipping atomically,
+checking permissions and the displayed grid version. Record actor/time and the
+before/after status in immutable physical history and audit the database edit.
+
+If the new status conflicts with the occupied slot, release that recorded slot
+and show storage as Unknown — needs review. Explain this in the form and show a
+warning after saving. Preserve the previous location in history. Do not relocate
+the grid to an invented destination or change the session-default snapshot.
+Transferred grids require the mistaken transfer to be resolved before changing
+clipping state.
+
+## Puck inventory (grid-storage branch)
+
+The Pucks table shows occupied gridbox spaces out of 12 and the count of grids.
+For the pilot, a puck containing grids is assumed to be in the dewar; a puck
+without grids is assumed to be in stock, even if it contains empty boxes. This
+is an explicit pilot convention, not an independently observed physical state.
+The initial database is classified accordingly, and placement, clipping changes
+that clear locations, and box movements/transfers synchronize the recorded
+puck status. Status changes retain actor/time and audit history.
+
+New puck registration requires the signed-in staff member's password, without
+asking for their username again. For the pilot, name and colour are one property:
+registration adds a unique Puck name / colour in Cane 1, ignoring case and
+normalizing whitespace. All pucks have 12 box positions, including new pucks;
+there is no per-puck capacity setting. Newly registered empty pucks start in stock.
+
+Puck names in the inventory table link to a detail view listing that puck's
+physical gridboxes, each box's type and occupied grid-slot count. Box names link
+to their inspection pages. All views require active CCI staff or facility
+administration access and show shared inventory regardless of creator.
+
+Event history and transfer status display dates and times to the minute for
+readability. Stored timestamps retain full precision, and action-time inputs
+preserve seconds to avoid rounding a new action before a recent physical event.
