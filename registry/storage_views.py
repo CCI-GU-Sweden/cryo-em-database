@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.debug import sensitive_post_parameters
 
 from .permissions import current_staff
-from .storage import change_box, register_box
+from .storage import change_box, correct_last_box_action, register_box
 from .storage_models import GridBox, GridBoxType, Puck
 
 
@@ -38,6 +39,17 @@ class BoxActionForm(forms.Form):
         help_text="Local time in Europe/Stockholm.",
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
     )
+
+
+class BoxCorrectionForm(forms.Form):
+    password = forms.CharField(
+        label="Your password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+    )
+    reason = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}))
+    expected_version = forms.IntegerField(widget=forms.HiddenInput)
+    event_id = forms.IntegerField(widget=forms.HiddenInput)
 
 
 @login_required
@@ -80,13 +92,27 @@ def inventory(request):
 
 
 @login_required
+@sensitive_post_parameters("password")
 def box_detail(request, pk):
     current_staff(request.user)
     box = get_object_or_404(GridBox.objects.select_related("box_type", "puck"), pk=pk)
-    form = BoxActionForm(
-        request.POST or None, initial={"expected_version": box.version, "puck": box.puck_id}
+    correcting = request.method == "POST" and request.POST.get("intent") == "correct"
+    latest = box.events.first()
+    correction_form = BoxCorrectionForm(
+        request.POST if correcting else None,
+        initial={"expected_version": box.version, "event_id": latest.pk if latest else None},
     )
-    if request.method == "POST" and form.is_valid():
+    if correcting and correction_form.is_valid():
+        try:
+            correct_last_box_action(actor=request.user, box_id=pk, **correction_form.cleaned_data)
+            return redirect("registry:box_detail", pk=pk)
+        except ValidationError as error:
+            correction_form.add_error(None, error)
+    form = BoxActionForm(
+        request.POST if request.method == "POST" and not correcting else None,
+        initial={"expected_version": box.version, "puck": box.puck_id},
+    )
+    if request.method == "POST" and not correcting and form.is_valid():
         try:
             change_box(
                 actor=request.user,
@@ -100,4 +126,13 @@ def box_detail(request, pk):
             return redirect("registry:box_detail", pk=pk)
         except ValidationError as error:
             form.add_error(None, error)
-    return render(request, "registry/box_detail.html", {"box": box, "form": form})
+    return render(
+        request,
+        "registry/box_detail.html",
+        {
+            "box": box,
+            "form": form,
+            "correction_form": correction_form,
+            "can_correct": latest and latest.operation in {"move", "discard", "transfer"},
+        },
+    )

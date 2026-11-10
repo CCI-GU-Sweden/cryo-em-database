@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from .models import SampleOwner
 from .services import create_preparation_session
-from .storage import change_box, register_box
+from .storage import change_box, correct_last_box_action, register_box
 from .storage_models import BoxEvent, GridBox, GridBoxType, Puck
 
 
@@ -153,6 +153,82 @@ class StorageTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             self.change(box)
+
+    def test_password_correction_preserves_transfer_history(self):
+        self.actor.set_password("test-correction-password")
+        self.actor.save()
+        box = self.create(puck=self.puck)
+        box = change_box(
+            actor=self.actor,
+            box_id=box.pk,
+            expected_version=box.version,
+            action="transfer",
+            transfer_destination="Partner lab",
+        )
+        event = box.events.first()
+        args = dict(
+            actor=self.actor,
+            box_id=box.pk,
+            expected_version=box.version,
+            event_id=event.pk,
+            reason="Entered by mistake",
+        )
+        with self.assertRaises(ValidationError):
+            correct_last_box_action(**args, password="incorrect")
+        box = correct_last_box_action(**args, password="test-correction-password")
+        self.assertIsNone(box.transferred_at)
+        self.assertEqual(box.puck_id, self.puck.pk)
+        event.refresh_from_db()
+        self.assertEqual(event.destination, "Partner lab")
+        self.assertEqual(box.events.first().correction_of_id, event.pk)
+        with self.assertRaises(ValidationError):
+            correct_last_box_action(**args, password="test-correction-password")
+
+    def test_correction_rejects_full_previous_puck(self):
+        self.actor.set_password("test-correction-password")
+        self.actor.save()
+        box = self.change(self.create(puck=self.puck))
+        event = box.events.first()
+        for n in range(12):
+            self.create(f"Capacity {n}", self.puck)
+        with self.assertRaisesMessage(ValidationError, "12 gridboxes"):
+            correct_last_box_action(
+                actor=self.actor,
+                box_id=box.pk,
+                expected_version=box.version,
+                event_id=event.pk,
+                password="test-correction-password",
+                reason="Mistake",
+            )
+        box.refresh_from_db()
+        self.assertIsNone(box.puck_id)
+        self.assertEqual(box.events.count(), 2)
+
+    def test_correction_form_uses_password_without_username(self):
+        self.actor.set_password("test-correction-password")
+        self.actor.save()
+        box = self.change(self.create(), "discard")
+        event = box.events.first()
+        self.client.force_login(self.actor)
+        url = reverse("registry:box_detail", args=[box.pk])
+        response = self.client.get(url)
+        self.assertContains(response, "Correct last action")
+        self.assertNotContains(response, 'name="username"')
+        payload = {
+            "intent": "correct",
+            "expected_version": box.version,
+            "event_id": event.pk,
+            "password": "test-correction-password",
+            "reason": "Accidental discard",
+        }
+        from django.test import Client
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.actor)
+        self.assertEqual(csrf_client.post(url, payload).status_code, 403)
+        self.assertEqual(self.client.post(url, payload).status_code, 302)
+        box.refresh_from_db()
+        self.assertFalse(box.discarded)
 
 
 class InventoryConcurrencyTests(TransactionTestCase):

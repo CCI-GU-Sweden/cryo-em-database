@@ -359,3 +359,14 @@ occupancy constraints. Grid placement, clipping, individual grid lifecycle,
 review flags and synchronization of grid custody during whole-box transfer must
 be implemented together in the subsequent physical-grid slice. Staff cannot yet
 assign grids through this inventory screen.
+
+### Correcting the latest box action
+
+Staff can correct the latest movement, transfer or discard from box history by
+entering their own password and a reason; no username is required. Recheck staff
+access and the box version on the server. Registration and correction entries
+cannot themselves be reversed through this action. Preserve the original event
+and append an immutable correction linked to it, with actor, time and reason.
+Restore the previous active state and puck only if that puck still has capacity;
+otherwise explain the conflict and leave all records unchanged. This is correction
+of a mistaken entry, not a physical return from another laboratory.

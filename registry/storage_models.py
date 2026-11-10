@@ -81,6 +81,10 @@ class GridSlot(models.Model):
 
 
 class BoxEvent(models.Model):
+    correction_of = models.OneToOneField(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="correction"
+    )
+    reason = models.TextField(blank=True)
     box = models.ForeignKey(GridBox, related_name="events", on_delete=models.PROTECT)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     operation = models.CharField(max_length=30)

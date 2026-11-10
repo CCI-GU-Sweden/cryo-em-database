@@ -325,3 +325,13 @@ lifecycle scenarios are deferred to the next slice.
 - External transfer requires a destination, records actual/entry time and actor,
   frees puck capacity, and retains the box and contents in a Transferred view.
 - Grid placement/clipping and custody synchronization remain future work.
+
+## Password-confirmed box corrections
+
+- Correct only the latest movement, transfer or discard; retain the original and
+  append actor/time/reason and a link to the corrected event.
+- Require the signed-in staff member's password, without re-entering a username.
+  Reject incorrect/unusable passwords, revoked access, CSRF failures and stale
+  confirmations. Never record or redisplay the password.
+- Restore stock/puck state and clear mistaken transfer/discard state atomically;
+  reject a full previous puck without changing box state or history.
