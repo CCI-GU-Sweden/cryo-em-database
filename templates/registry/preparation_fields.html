@@ -2,10 +2,15 @@
 {{ preparation_suggestions|json_script:"preparation-suggestions" }}
 <script src="{% static 'preparation_suggestions.js' %}" defer></script>
 <script src="{% static 'carbon_units.js' %}" defer></script>
+{% if collapsible %}
+<div class="group-controls" data-group-controls hidden><button type="button" data-expand-groups>Expand all</button> <button type="button" data-collapse-groups>Collapse all</button></div>
+<script src="{% static 'preparation_groups.js' %}" defer></script>
+{% endif %}
 <p>Type to search previous values, or enter a new value. Suggestions never fill other fields automatically.</p>
 {% for title, fields in form.preparation_groups %}
-<fieldset>
-  <legend>{{ title }}</legend>
+{% if collapsible %}<details class="preparation-group" data-preparation-group open><summary>{{ title }}</summary>{% endif %}
+<fieldset aria-label="{{ title }}">
+  {% if not collapsible %}<legend>{{ title }}</legend>{% endif %}
   <div class="field-grid">
   {% for field in fields %}
     <div class="field preparation-field">{{ field.label_tag }}{{ field }}{{ field.errors }}
@@ -13,4 +18,13 @@
   {% endfor %}
   </div>
 </fieldset>
+{% if collapsible %}</details>{% endif %}
+{% if title == 'Freezing and blotting' and form.is_clipped %}
+{% if collapsible %}<details class="preparation-group" data-preparation-group open><summary>Clipping</summary>{% endif %}
+<fieldset aria-label="Clipping">{% if not collapsible %}<legend>Clipping</legend>{% endif %}
+{{ form.is_clipped.label_tag }}{{ form.is_clipped }}{{ form.is_clipped.errors }}
+<p>{{ form.is_clipped.help_text }}</p>
+</fieldset>
+{% if collapsible %}</details>{% endif %}
+{% endif %}
 {% endfor %}

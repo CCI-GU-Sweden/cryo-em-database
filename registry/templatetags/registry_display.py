@@ -11,7 +11,9 @@ register = template.Library()
 def column_value(grid, key):
     column = COLUMN_BY_KEY[key]
     if key == "storage":
-        return "Unassigned"
+        from registry.grid_storage import location
+
+        return location(grid)
     value = grid
     for attribute in column["lookup"].split("__"):
         value = getattr(value, attribute, None)

@@ -1,9 +1,12 @@
 from django.urls import path
 
-from . import excel_views, storage_views, views
+from . import excel_views, grid_storage_views, storage_views, views
 
 app_name = "registry"
 urlpatterns = [
+    path("pucks/<int:pk>/", storage_views.puck_detail, name="puck_detail"),
+    path("pucks/", storage_views.puck_inventory, name="puck_inventory"),
+    path("grids/<int:pk>/storage/", grid_storage_views.grid_storage, name="grid_storage"),
     path("inventory/", storage_views.inventory, name="inventory"),
     path("inventory/<int:pk>/", storage_views.box_detail, name="box_detail"),
     path("", views.grid_list, name="grid_list"),

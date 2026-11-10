@@ -1,10 +1,11 @@
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.debug import sensitive_post_parameters
 
+from .event_time import current_action_time
 from .permissions import current_staff
 from .storage import change_box, correct_last_box_action, register_box
 from .storage_models import GridBox, GridBoxType, Puck
@@ -34,10 +35,12 @@ class BoxActionForm(forms.Form):
         required=False, max_length=200, label="Receiving laboratory / destination"
     )
     occurred_at = forms.DateTimeField(
-        initial=timezone.now,
+        initial=current_action_time,
         label="Action date and time",
         help_text="Local time in Europe/Stockholm.",
-        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M:%S", attrs={"type": "datetime-local", "step": "1"}
+        ),
     )
 
 
@@ -67,7 +70,10 @@ def inventory(request):
             return redirect("registry:box_detail", pk=box.pk)
         except ValidationError as error:
             form.add_error(None, error)
-    boxes = GridBox.objects.select_related("box_type", "puck")
+    boxes = GridBox.objects.select_related("box_type", "puck").annotate(
+        total_slots=Count("slots"),
+        occupied_slots=Count("slots", filter=Q(slots__grid__isnull=False)),
+    )
     query = request.GET.get("q", "").strip()
     if query:
         boxes = boxes.filter(name__icontains=query)
@@ -136,3 +142,51 @@ def box_detail(request, pk):
             "can_correct": latest and latest.operation in {"move", "discard", "transfer"},
         },
     )
+
+
+@login_required
+@sensitive_post_parameters("password")
+def puck_inventory(request):
+    from .storage import register_puck
+
+    current_staff(request.user)
+    form = PuckRegistrationForm(request.POST if request.method == "POST" else None)
+    if form.is_bound and form.is_valid():
+        try:
+            register_puck(actor=request.user, **form.cleaned_data)
+            return redirect("registry:puck_inventory")
+        except ValidationError as error:
+            form.add_error(None, error)
+    inventory = (
+        pucks()
+        .annotate(
+            occupied_spaces=Count("gridbox", distinct=True),
+            grid_count=Count("gridbox__slots__grid"),
+        )
+        .order_by("color")
+    )
+    return render(request, "registry/puck_inventory.html", {"pucks": inventory, "form": form})
+
+
+class PuckRegistrationForm(forms.Form):
+    name = forms.CharField(max_length=40, label="Puck name / colour")
+    password = forms.CharField(
+        label="Your password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+    )
+
+
+@login_required
+def puck_detail(request, pk):
+    current_staff(request.user)
+    puck = get_object_or_404(pucks(), pk=pk)
+    boxes = (
+        GridBox.objects.filter(puck=puck)
+        .select_related("box_type")
+        .annotate(
+            total_slots=Count("slots"),
+            occupied_slots=Count("slots", filter=Q(slots__grid__isnull=False)),
+        )
+    )
+    return render(request, "registry/puck_detail.html", {"puck": puck, "boxes": boxes})

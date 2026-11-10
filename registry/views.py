@@ -28,7 +28,6 @@ from .services import (
     create_preparation_session,
     create_sample_owner,
     suggest_owner_code,
-    update_grid_preparation,
 )
 from .suggestions import preparation_suggestions
 from .tables import COLUMNS
@@ -242,7 +241,10 @@ def grid_detail(request, pk):
     )
     if request.method == "POST" and form.is_valid():
         try:
-            update_grid_preparation(
+            from .grid_storage import save_preparation_and_clipping
+
+            saved, location_released = save_preparation_and_clipping(
+                clipped=form.cleaned_data["is_clipped"],
                 actor=request.user,
                 grid_id=grid.pk,
                 preparation=form.preparation_values(),
@@ -252,6 +254,12 @@ def grid_detail(request, pk):
             add_service_error(form, error)
         else:
             messages.success(request, "Grid preparation saved. Other grids were not changed.")
+            if location_released:
+                messages.warning(
+                    request,
+                    "Clipping status changed. The previous slot is incompatible. "
+                    "Storage is now Unknown — needs review.",
+                )
             return redirect("registry:grid_detail", pk=grid.pk)
     audit = AuditEvent.objects.filter(entity_type="Grid", entity_id=str(grid.pk)).select_related(
         "actor"

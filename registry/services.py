@@ -378,12 +378,21 @@ def archive_grid(*, actor, grid_id, password, expected_version):
         )
     if not isinstance(password, str) or not actor.check_password(password):
         raise ValidationError({"password": "Your password is incorrect. The grid was not deleted."})
+    from .storage import lock_inventory
+
+    lock_inventory()
     grid = Grid.objects.select_for_update().get(pk=grid_id)
     existing = DeletedGrid.objects.filter(grid=grid).first()
     if existing:
         return existing  # A retried confirmation never creates duplicate history.
     if type(expected_version) is not int or grid.version != expected_version:
         raise ValidationError("This grid changed since you opened it. Reload before deleting it.")
+    from .storage_models import GridSlot
+
+    if GridSlot.objects.filter(grid=grid).exists():
+        raise ValidationError(
+            "This grid occupies a physical box slot. Resolve its storage before archiving it."
+        )
     # Update before adding the marker: the database freezes archived grid rows.
     grid.version += 1
     grid.save(update_fields=["version", "updated_at"])

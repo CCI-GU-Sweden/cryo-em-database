@@ -1,0 +1,267 @@
+from uuid import uuid4
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from .grid_storage import location, place_grid
+from .models import SampleOwner
+from .services import create_preparation_session
+from .storage import change_box, correct_last_box_action, register_box
+from .storage_models import GridBoxType, Puck
+
+
+class GridStorageTests(TestCase):
+    def test_default_placement_time_follows_same_second_clipping_update(self):
+        from unittest.mock import patch
+
+        from .grid_storage import save_preparation_and_clipping
+        from .grid_storage_views import PlacementForm
+
+        grid = self.session.grids.first()
+        instant = timezone.now().replace(microsecond=500000)
+        with patch("registry.grid_storage.timezone.now", return_value=instant):
+            grid, _ = save_preparation_and_clipping(
+                actor=self.actor,
+                grid_id=grid.pk,
+                preparation={},
+                clipped=True,
+                expected_version=grid.version,
+            )
+            field = PlacementForm()["occurred_at"]
+            self.assertIn('step="1"', str(field))
+            entered = field.field.clean(field.field.widget.format_value(field.value()))
+        self.assertGreater(entered, instant)
+        place_grid(
+            actor=self.actor,
+            grid_id=grid.pk,
+            slot_id=self.box.slots.filter(side="clipped").first().pk,
+            clipped=True,
+            expected_version=grid.version,
+            occurred_at=entered,
+        )
+
+    def test_preparation_clipping_change_releases_incompatible_location(self):
+        from .grid_storage import save_preparation_and_clipping
+
+        grid = self.session.grids.first()
+        slot = self.box.slots.filter(side="unclipped").first()
+        grid = self.place(grid, slot)
+        defaults = grid.session.defaults.copy()
+        grid, released = save_preparation_and_clipping(
+            actor=self.actor,
+            grid_id=grid.pk,
+            expected_version=grid.version,
+            preparation={"notes": "Updated"},
+            clipped=True,
+        )
+        self.assertTrue(released)
+        self.assertTrue(grid.is_clipped)
+        slot.refresh_from_db()
+        self.assertIsNone(slot.grid_id)
+        self.assertIn("needs review", location(grid))
+        self.assertEqual(grid.session.defaults, defaults)
+        grid, released = save_preparation_and_clipping(
+            actor=self.actor,
+            grid_id=grid.pk,
+            expected_version=grid.version,
+            preparation={},
+            clipped=False,
+        )
+        self.assertFalse(grid.is_clipped)
+        self.assertFalse(released)
+        self.assertEqual(grid.physical_events.filter(operation="clipping_updated").count(), 2)
+
+    def test_preparation_view_exposes_and_saves_clipping(self):
+        from .preparation import preparation_snapshot
+
+        grid = self.session.grids.first()
+        self.client.force_login(self.actor)
+        url = reverse("registry:grid_detail", args=[grid.pk])
+        self.assertContains(self.client.get(url), 'name="is_clipped"')
+        data = {
+            key: value if value is not None else ""
+            for key, value in preparation_snapshot(grid).items()
+        }
+        data.update(expected_version=grid.version, is_clipped="on")
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        grid.refresh_from_db()
+        self.assertTrue(grid.is_clipped)
+
+    def test_stock_box_requires_space_and_failed_placement_changes_nothing(self):
+        stock = register_box(actor=self.actor, name="Needs puck", box_type_id=self.box.box_type_id)
+        for n in range(11):
+            register_box(
+                actor=self.actor,
+                name=f"Full puck {n}",
+                box_type_id=self.box.box_type_id,
+                puck_id=self.box.puck_id,
+            )
+        grid = self.session.grids.first()
+        slot = stock.slots.filter(side="unclipped").first()
+        self.client.force_login(self.actor)
+        response = self.client.get(
+            reverse("registry:grid_storage", args=[grid.pk]), {"box_name": stock.name}
+        )
+        self.assertFalse(
+            response.context["form"].fields["puck"].queryset.filter(pk=self.box.puck_id).exists()
+        )
+        with self.assertRaisesMessage(ValidationError, "12 gridboxes"):
+            place_grid(
+                actor=self.actor,
+                grid_id=grid.pk,
+                slot_id=slot.pk,
+                clipped=False,
+                expected_version=grid.version,
+                occurred_at=timezone.now(),
+                puck_id=self.box.puck_id,
+            )
+        stock.refresh_from_db()
+        slot.refresh_from_db()
+        self.assertIsNone(stock.puck_id)
+        self.assertIsNone(slot.grid_id)
+        self.assertEqual(stock.events.count(), 1)
+
+    def test_incompatible_box_selection_explains_why_slots_are_unavailable(self):
+        box = register_box(
+            actor=self.actor,
+            name="Unclipped only",
+            box_type_id=GridBoxType.objects.get(code="unclipped4").pk,
+        )
+        self.client.force_login(self.actor)
+        url = reverse("registry:grid_storage", args=[self.session.grids.first().pk])
+        response = self.client.get(url, {"box_name": box.name, "clipped": "1"})
+        self.assertContains(response, "cannot accept a clipped grid")
+        self.assertIsNone(response.context["box"])
+        response = self.client.get(url, {"box_name": box.name})
+        self.assertContains(response, "Available slot")
+        self.assertEqual(response.context["form"].fields["slot"].queryset.count(), 4)
+
+    def test_box_picker_includes_free_stock_and_filters_by_exact_selection(self):
+        stock = register_box(actor=self.actor, name="Stock box", box_type_id=self.box.box_type_id)
+        self.client.force_login(self.actor)
+        grid = self.session.grids.first()
+        url = reverse("registry:grid_storage", args=[grid.pk])
+        response = self.client.get(url)
+        self.assertContains(response, 'value="Stock box"')
+        self.assertContains(response, 'list="available-boxes"')
+        response = self.client.get(url, {"box_name": "Stock box"})
+        self.assertEqual(response.context["box"], stock)
+        self.assertContains(response, "Place this box in puck")
+        slot = stock.slots.filter(side="unclipped").first()
+        with self.assertRaisesMessage(ValidationError, "Choose the puck"):
+            self.place(grid, slot)
+        grid = place_grid(
+            actor=self.actor,
+            grid_id=grid.pk,
+            slot_id=slot.pk,
+            clipped=False,
+            expected_version=grid.version,
+            occurred_at=timezone.now(),
+            puck_id=self.box.puck_id,
+        )
+        stock.refresh_from_db()
+        self.assertEqual(stock.puck_id, self.box.puck_id)
+        self.assertNotIn("Box in stock", location(grid))
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.actor = get_user_model().objects.create_user(
+            username="placer", is_cci_staff=True, password="test-storage"
+        )
+        cls.owner = SampleOwner.objects.create(name="Storage owner", code="stow")
+        cls.session = create_preparation_session(
+            actor=cls.actor,
+            owner=cls.owner,
+            prepared_at=timezone.now(),
+            grid_count=2,
+            preparation={},
+            request_token=uuid4(),
+        )
+        cls.box = register_box(
+            actor=cls.actor,
+            name="Mixed storage box",
+            box_type_id=GridBoxType.objects.get(code="mixed8").pk,
+            puck_id=Puck.objects.first().pk,
+        )
+
+    def place(self, grid, slot, clipped=False):
+        return place_grid(
+            actor=self.actor,
+            grid_id=grid.pk,
+            slot_id=slot.pk,
+            clipped=clipped,
+            expected_version=grid.version,
+            occurred_at=timezone.now(),
+        )
+
+    def test_placement_clipping_movement_and_transfer_correction(self):
+        a, b = self.session.grids.all()
+        u = self.box.slots.filter(side="unclipped").first()
+        c = self.box.slots.filter(side="clipped").first()
+        a = self.place(a, u)
+        puck = self.box.puck
+        puck.refresh_from_db()
+        self.assertTrue(puck.in_dewar)
+        self.client.force_login(self.actor)
+        puck_page = self.client.get(reverse("registry:puck_inventory"))
+        self.assertContains(puck_page, "In dewar")
+        self.assertContains(puck_page, "1/12")
+        inventory = self.client.get(reverse("registry:inventory"))
+        self.assertContains(inventory, "Occupied slots")
+        self.assertContains(inventory, "1/8")
+        with self.assertRaises(ValidationError):
+            self.place(b, u)
+        a = self.place(a, c, True)
+        u.refresh_from_db()
+        self.assertIsNone(u.grid_id)
+        self.assertTrue(a.is_clipped)
+        self.assertEqual(a.physical_events.count(), 3)
+        box = change_box(
+            actor=self.actor,
+            box_id=self.box.pk,
+            expected_version=self.box.version,
+            action="transfer",
+            transfer_destination="Other lab",
+        )
+        self.assertIn("Other lab", location(a))
+        a.refresh_from_db()
+        with self.assertRaises(ValidationError):
+            self.place(a, c, True)
+        correct_last_box_action(
+            actor=self.actor,
+            box_id=box.pk,
+            expected_version=box.version,
+            event_id=box.events.first().pk,
+            password="test-storage",
+            reason="Mistake",
+        )
+        self.assertNotIn("Transferred", location(a))
+        self.assertEqual(a.physical_events.count(), 5)
+
+    def test_ui_keeps_session_context_and_inline_registration(self):
+        self.client.force_login(self.actor)
+        grid = self.session.grids.first()
+        url = reverse("registry:grid_storage", args=[grid.pk])
+        response = self.client.get(url, {"box": self.box.pk, "clipped": "1"})
+        self.assertContains(response, "C1")
+        self.assertNotContains(response, ">U1<")
+        self.assertContains(response, "Register new gridbox")
+        response = self.client.post(
+            url,
+            {
+                "intent": "new_box",
+                "clipped": "1",
+                "name": "Inline box",
+                "box_type": self.box.box_type_id,
+                "puck": self.box.puck_id,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("box=", response.url)
+        self.assertContains(
+            self.client.get(reverse("registry:session_detail", args=[self.session.pk])),
+            "Grid locations and actions",
+        )
