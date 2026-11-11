@@ -102,7 +102,7 @@ def place_grid(*, actor, grid_id, slot_id, clipped, expected_version, occurred_a
         to_slot=slot,
         details={"from": before, "to": location(grid)},
     )
-    sync_puck_locations(actor=actor)
+    sync_puck_locations(actor=actor, emptied_puck_ids=[current.box.puck_id] if current else [])
     return grid
 
 
@@ -159,5 +159,5 @@ def save_preparation_and_clipping(*, actor, grid_id, preparation, clipped, expec
         "update_clipping",
         {"is_clipped": {"before": old, "after": clipped}, "location_released": released},
     )
-    sync_puck_locations(actor=actor)
+    sync_puck_locations(actor=actor, emptied_puck_ids=[current.box.puck_id] if released else [])
     return grid, released

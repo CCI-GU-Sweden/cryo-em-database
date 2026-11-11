@@ -261,6 +261,8 @@ def grid_detail(request, pk):
                     "Storage is now Unknown — needs review.",
                 )
             return redirect("registry:grid_detail", pk=grid.pk)
+    for field in form.fields.values():
+        field.widget.attrs["form"] = "grid-preparation-form"
     audit = AuditEvent.objects.filter(entity_type="Grid", entity_id=str(grid.pk)).select_related(
         "actor"
     )

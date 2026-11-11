@@ -49,3 +49,5 @@ article { border-bottom: 1px solid #cbd8dc; }
 .preparation-group > summary { cursor: pointer; padding: .75rem 1rem; font-weight: 600; background: #edf2f4; }
 .preparation-group > fieldset { border: 0; margin: 0; }
 .group-controls { margin: 1rem 0; }
+[data-inline-storage] { padding: 1rem; }
+[data-inline-storage] [role="status"]:not(:empty) { padding: .75rem; background: #eaf4f4; }

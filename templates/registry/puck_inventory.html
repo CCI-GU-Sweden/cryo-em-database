@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block content %}
 <h1>Puck inventory</h1>
-<p>Each puck holds 12 gridboxes. Pucks containing grids are assumed to be in the dewar; pucks without grids are assumed to be in stock.</p>
+<p>Each puck holds 12 gridboxes. Pucks containing grids must be in the dewar. Open a puck to record its location; empty pucks initially default to stock.</p>
 <table><thead><tr><th>Puck</th><th>Occupied box spaces</th><th>Grids</th><th>Location</th></tr></thead><tbody>
 {% for puck in pucks %}<tr><td><a href="{% url 'registry:puck_detail' puck.pk %}">{{ puck }}</a></td><td>{{ puck.occupied_spaces }}/12</td><td>{{ puck.grid_count }}</td><td>{% if puck.in_dewar %}In dewar{% else %}In stock{% endif %}</td></tr>{% endfor %}
 </tbody></table>

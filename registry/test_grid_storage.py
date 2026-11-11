@@ -14,6 +14,104 @@ from .storage_models import GridBoxType, Puck
 
 
 class GridStorageTests(TestCase):
+    def test_loaded_boxes_and_pucks_cannot_be_returned_to_stock(self):
+        from .storage import record_puck_location
+
+        grid = self.place(
+            self.session.grids.first(), self.box.slots.filter(side="unclipped").first()
+        )
+        puck = self.box.puck
+        puck.refresh_from_db()
+        event_count = self.box.events.count()
+        with self.assertRaisesMessage(ValidationError, "Empty it before returning it to stock"):
+            change_box(
+                actor=self.actor,
+                box_id=self.box.pk,
+                expected_version=self.box.version,
+                action="move",
+                puck_id=None,
+            )
+        with self.assertRaisesMessage(ValidationError, "Empty the boxes in this puck"):
+            record_puck_location(
+                actor=self.actor, puck_id=puck.pk, expected_version=puck.version, in_dewar=False
+            )
+        self.box.refresh_from_db()
+        puck.refresh_from_db()
+        self.assertEqual(self.box.puck_id, puck.pk)
+        self.assertTrue(puck.in_dewar)
+        self.assertEqual(self.box.events.count(), event_count)
+        self.assertIn(self.box.name, location(grid))
+        self.client.force_login(self.actor)
+        response = self.client.post(
+            reverse("registry:puck_detail", args=[puck.pk]),
+            {
+                "in_dewar": "no",
+                "expected_version": puck.version,
+            },
+        )
+        self.assertContains(response, "Empty the boxes in this puck")
+        response = self.client.post(
+            reverse("registry:box_detail", args=[self.box.pk]),
+            {
+                "action": "move",
+                "puck": "",
+                "expected_version": self.box.version,
+                "occurred_at": timezone.now().isoformat(),
+            },
+        )
+        self.assertContains(response, "Empty it before returning it to stock")
+
+    def test_detail_contains_storage_group_between_clipping_and_notes(self):
+        self.client.force_login(self.actor)
+        grid = self.session.grids.first()
+        response = self.client.get(reverse("registry:grid_detail", args=[grid.pk]))
+        html = response.content.decode()
+        self.assertLess(
+            html.index("<summary>Clipping</summary>"), html.index('id="storage-actions"')
+        )
+        self.assertLess(
+            html.index('id="storage-actions"'), html.index("<summary>Grid notes</summary>")
+        )
+        self.assertContains(response, 'form="grid-preparation-form"')
+        self.assertContains(response, "inline_grid_storage.js")
+
+    def test_inline_storage_selection_placement_and_new_box_stay_in_panel(self):
+        self.client.force_login(self.actor)
+        grid = self.session.grids.first()
+        url = reverse("registry:grid_storage", args=[grid.pk]) + "?inline=1"
+        response = self.client.get(url, {"inline": "1", "box": self.box.pk})
+        self.assertContains(response, "data-storage-content")
+        self.assertNotContains(response, "<html")
+        slot = self.box.slots.filter(side="unclipped").first()
+        response = self.client.post(
+            url,
+            {
+                "intent": "place",
+                "box": self.box.pk,
+                "slot": slot.pk,
+                "clipped": "0",
+                "expected_version": grid.version,
+                "occurred_at": timezone.now().isoformat(),
+            },
+            follow=True,
+        )
+        self.assertContains(response, 'data-placed="1"')
+        grid.refresh_from_db()
+        self.assertContains(response, f'data-version="{grid.version}"')
+        self.assertIn(self.box.name, location(grid))
+        response = self.client.post(
+            url,
+            {
+                "intent": "new_box",
+                "name": "Panel box",
+                "box_type": self.box.box_type_id,
+                "puck": self.box.puck_id,
+            },
+            follow=True,
+        )
+        self.assertContains(response, "<h2>Panel box</h2>")
+        self.assertNotContains(response, "<html")
+
     def test_default_placement_time_follows_same_second_clipping_update(self):
         from unittest.mock import patch
 
