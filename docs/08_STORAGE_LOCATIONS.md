@@ -464,3 +464,15 @@ has grids. Empty pucks initially default to stock, but staff may explicitly put
 an empty puck in the dewar; unrelated inventory activity must preserve that
 recorded location. When the last grids actually leave a puck, the pilot inference
 can return it to stock. The occupied-puck rule always takes precedence.
+
+## Grouped registry filters (registry-filter-export branch)
+
+The registry separates Sample and preparation filters from Storage filters,
+with independent Add filter controls. All selected filters combine with AND.
+Storage properties are puck, gridbox, gridbox type, slot, and clipped/unclipped
+status. Inventory choices use stable database IDs; mixed-box slot labels use
+C/U indices. Puck and type selections narrow box choices, and selected boxes
+narrow slot choices in the browser. Server validation and filtering remain
+independent of those browser controls, including requests for filtered Excel
+exports. Invalid choices produce errors and no results. Dedicated Needs review
+screening and new storage columns in exported workbooks remain separate work.

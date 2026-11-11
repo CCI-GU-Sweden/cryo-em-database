@@ -7,6 +7,14 @@ from registry.tables import COLUMN_BY_KEY
 register = template.Library()
 
 
+@register.inclusion_tag("registry/storage_links.html")
+def storage_links(grid):
+    from registry.grid_storage import slot_label
+
+    slot = getattr(grid, "gridslot", None)
+    return {"slot": slot, "label": slot_label(slot) if slot else None}
+
+
 @register.filter
 def column_value(grid, key):
     column = COLUMN_BY_KEY[key]

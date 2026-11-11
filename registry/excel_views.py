@@ -15,7 +15,9 @@ from .excel_import import import_workbook, preview_import
 from .filters import search_registry
 from .forms import ExcelImportForm
 from .models import Grid
-from .permissions import require_grid_importer
+from .owner_queries import search_owners
+from .permissions import current_staff, require_grid_importer
+from .session_queries import search_sessions
 
 PREVIEW_SESSION_KEY = "registry_excel_preview"
 PREVIEW_LIFETIME_SECONDS = 20 * 60
@@ -42,7 +44,9 @@ def excel_template(request):
 @require_GET
 def excel_export(request):
     grids, _, filters = search_registry(request.GET, actor=request.user)
-    if filters.is_bound and not filters.is_valid():
+    if (filters.is_bound and not filters.is_valid()) or (
+        filters.storage_filters.is_bound and not filters.storage_filters.is_valid()
+    ):
         return HttpResponse("Correct the registry filters before exporting.", status=400)
     try:
         content = export_workbook(actor=request.user, grids=grids)
@@ -50,6 +54,36 @@ def excel_export(request):
         return HttpResponse(" ".join(error.messages), status=400, content_type="text/plain")
     date = timezone.localdate().strftime("%Y%m%d")
     return _download(content, f"cci-grids-{date}.xlsx")
+
+
+@login_required
+@require_GET
+def session_excel_export(request):
+    current_staff(request.user)
+    form, sessions = search_sessions(request.GET, actor=request.user)
+    if not form.is_valid():
+        return HttpResponse("Correct the session filters before exporting.", status=400)
+    grids = Grid.objects.active().filter(session_id__in=sessions.values("pk"))
+    try:
+        content = export_workbook(actor=request.user, grids=grids)
+    except ValidationError as error:
+        return HttpResponse(" ".join(error.messages), status=400, content_type="text/plain")
+    date = timezone.localdate().strftime("%Y%m%d")
+    return _download(content, f"cci-session-grids-{date}.xlsx")
+
+
+@login_required
+@require_GET
+def owner_excel_export(request):
+    current_staff(request.user)
+    _, owners = search_owners(request.GET, actor=request.user)
+    grids = Grid.objects.active().filter(session__owner_id__in=owners.values("pk"))
+    try:
+        content = export_workbook(actor=request.user, grids=grids)
+    except ValidationError as error:
+        return HttpResponse(" ".join(error.messages), status=400, content_type="text/plain")
+    date = timezone.localdate().strftime("%Y%m%d")
+    return _download(content, f"cci-owner-grids-{date}.xlsx")
 
 
 @login_required

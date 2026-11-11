@@ -1,7 +1,7 @@
 """Excel transfers preserve scientific values and never overwrite existing records."""
 
 import copy
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 from unittest.mock import patch
 from uuid import uuid4
@@ -17,8 +17,11 @@ from openpyxl import load_workbook
 
 from .excel import GRID_GROUPS, GROUP_COLORS, export_workbook, read_workbook
 from .excel_import import import_workbook, preview_import
+from .grid_storage import place_grid
 from .models import AuditEvent, DeletedGrid, Grid, PreparationSession, SampleOwner
 from .services import create_preparation_session, update_grid_preparation
+from .storage import change_box, register_box
+from .storage_models import Cane, Dewar, GridBoxType, Puck
 
 User = get_user_model()
 
@@ -246,6 +249,101 @@ class ExcelTests(TestCase):
             self.assertEqual(sheet.cell(2, column).fill.fgColor.rgb[-6:], heading)
             self.assertEqual(sheet.cell(3, column).fill.fgColor.rgb[-6:], body)
             column += len(names)
+        book.close()
+
+    def test_export_includes_current_storage_and_transfer_history(self):
+        grid = self.session.grids.first()
+        dewar, _ = Dewar.objects.get_or_create(name="Dewar 1")
+        cane, _ = Cane.objects.get_or_create(dewar=dewar, name="Cane 1")
+        puck, _ = Puck.objects.get_or_create(cane=cane, color="green", defaults={"in_dewar": True})
+        box_type = GridBoxType.objects.create(
+            code="excel-box",
+            name="Excel box",
+            svg="excel-box.svg",
+            layout={"unclipped": {"capacity": 4, "clipped": False}},
+        )
+        box = register_box(
+            actor=self.staff,
+            name="excel-transfer-box",
+            box_type_id=box_type.pk,
+            puck_id=puck.pk,
+        )
+        in_cci_grid = self.session.grids.exclude(pk=grid.pk).first()
+        in_cci_box = register_box(
+            actor=self.staff,
+            name="excel-cci-box",
+            box_type_id=box_type.pk,
+            puck_id=puck.pk,
+        )
+        place_grid(
+            actor=self.staff,
+            grid_id=in_cci_grid.pk,
+            slot_id=in_cci_box.slots.get(side="unclipped", position=1).pk,
+            clipped=False,
+            expected_version=in_cci_grid.version,
+            occurred_at=timezone.now(),
+        )
+        slot = box.slots.get(side="unclipped", position=1)
+        now = timezone.now()
+        place_grid(
+            actor=self.staff,
+            grid_id=grid.pk,
+            slot_id=slot.pk,
+            clipped=False,
+            expected_version=grid.version,
+            occurred_at=now,
+        )
+        box.refresh_from_db()
+        change_box(
+            actor=self.staff,
+            box_id=box.pk,
+            expected_version=box.version,
+            action="transfer",
+            occurred_at=now + timedelta(minutes=1),
+            transfer_destination="Partner laboratory",
+        )
+
+        book = load_workbook(BytesIO(self.workbook()))
+        sheet = book["Grids"]
+        headers = {cell.value: cell.column for cell in sheet[2]}
+        row = next(
+            number
+            for number in range(3, sheet.max_row + 1)
+            if sheet.cell(number, headers["Grid ID"]).value == grid.grid_number
+        )
+        self.assertEqual(sheet.cell(row, headers["Clipped"]).value, "No")
+        self.assertEqual(
+            sheet.cell(row, headers["Storage status"]).value,
+            "Transferred to Partner laboratory",
+        )
+        self.assertIsNone(sheet.cell(row, headers["Dewar"]).value)
+        self.assertIsNone(sheet.cell(row, headers["Cane"]).value)
+        self.assertIsNone(sheet.cell(row, headers["Puck"]).value)
+        self.assertEqual(sheet.cell(row, headers["Gridbox type"]).value, "Excel box")
+        self.assertEqual(sheet.cell(row, headers["Gridbox"]).value, box.name)
+        self.assertEqual(sheet.cell(row, headers["Slot"]).value, "1")
+        history = sheet.cell(row, headers["Storage history"]).value
+        self.assertIn("stored: excel-transfer-box / 1", history)
+        self.assertIn("transferred to Partner laboratory", history)
+        cci_row = next(
+            number
+            for number in range(3, sheet.max_row + 1)
+            if sheet.cell(number, headers["Grid ID"]).value == in_cci_grid.grid_number
+        )
+        self.assertEqual(sheet.cell(cci_row, headers["Storage status"]).value, "At CCI")
+        self.assertEqual(sheet.cell(cci_row, headers["Dewar"]).value, "Dewar 1")
+        self.assertEqual(sheet.cell(cci_row, headers["Cane"]).value, "Cane 1")
+        self.assertEqual(sheet.cell(cci_row, headers["Puck"]).value, "Green")
+        self.assertEqual(sheet.cell(cci_row, headers["Gridbox"]).value, in_cci_box.name)
+        book.close()
+
+    def test_unplaced_grid_has_unknown_storage_status(self):
+        content = self.workbook()
+        book = load_workbook(BytesIO(content))
+        sheet = book["Grids"]
+        headers = {cell.value: cell.column for cell in sheet[2]}
+        self.assertEqual(sheet.cell(3, headers["Storage status"]).value, "Unknown — needs review")
+        self.assertIsNone(sheet.cell(3, headers["Gridbox"]).value)
         book.close()
 
     def test_save_failure_rolls_back_new_owners_sessions_grids_and_audit(self):

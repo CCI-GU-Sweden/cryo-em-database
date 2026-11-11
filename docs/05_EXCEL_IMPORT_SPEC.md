@@ -98,7 +98,7 @@ If source data contain *both* unclipped and clipped locations, create historical
 3. Staff resolve scientific mapping decisions before confirmation (or use an explicitly reviewed provisional legacy grouping).
 4. Transactional import inserts records, events, locations, and import provenance. Conflicts cause a clear report and no accidental overwrite.
 5. Rerun of same source produces no duplicated grids or duplicate storage events; ideally use file checksum + row identity and/or per-record import keys.
-6. Export can recreate a flat grid view, but historical event details may require an additional `GridEvents` export sheet/table.
+6. Export can recreate a flat grid view. The current format includes a readable storage-event summary, but does not transfer the underlying physical event records.
 
 ## 7. Example import expectations
 
@@ -134,13 +134,30 @@ compatibility with the old combined columns.
   status alone is insufficient. Export follows registry viewing access rather
   than import permission. It uses the same row-visibility boundary, search and
   property filters as the registry, includes all matching active rows across all
-  pages and all preparation fields, and excludes archived grids.
+  pages and all preparation fields, and excludes archived grids. The sessions
+  view also exports active grids across all pages for sessions matching its
+  session, owner and date filters; this action is available to CCI staff who can
+  browse sessions. The Owners view exports active grids across all pages for
+  owners matching its name, code or affiliation search; this action is available
+  to CCI staff who can browse owners.
 - **Grids:** merged group headings in row 1 (Info, Sample conditions, Grid
-  treatment, Freezing conditions, Experiment reference, Additional notes), unique
+  treatment, Freezing conditions, Experiment reference, Storage location,
+  Additional notes), unique
   atomic column headings in row 2, data from row 3. Numeric measurements are Excel
   numbers displayed with two fractional places; IDs/text remain literal text.
   A repeating teal/purple/amber palette links each group heading, column headings
   and pale data-cell backgrounds.
+- **Storage location** sits immediately before Additional notes. Its columns are
+  Clipped, Storage status, Dewar, Cane, Puck, Gridbox type, Gridbox and Slot.
+  Storage status is `At CCI`, `Transferred to [destination]`, or
+  `Unknown — needs review` when no current box is recorded. Dewar through Slot
+  describe the current location; unavailable hierarchy values are blank.
+- **Storage history** is the final column in Additional notes. It is a
+  semicolon-separated, chronological summary of recorded grid storage events,
+  including transfer destinations, with timestamps displayed to the minute.
+  These location and history values are informational export fields. Import does
+  not create or change physical locations or replay events; event records remain
+  local to the database.
 - **Owners:** row-1 headings; explicit owner code/name/affiliation/notes/active
   status. Missing owners are listed by name/code in preview and created only on
   confirmation. Existing code/profile conflicts reject the import. No login
@@ -169,8 +186,10 @@ compatibility with the old combined columns.
   IDs are reserved by existing uniqueness/allocation rules. Repeat import is safe.
 - Limits: .xlsx, 5 MB compressed, 50 MB expanded, 5,000 data rows per worksheet.
   Formula/error cells are rejected; formula-like text is exported as literal text.
-- This format transfers selected current records, not accounts, grants, deleted
-  archives, physical events, audit history or a full database backup. New database
+- This format transfers selected current preparation records, not accounts,
+  grants, deleted archives, physical event records, audit history or a full
+  database backup. The storage columns are a readable snapshot and summary only.
+  New database
   internal row numbers/session display numbers may differ after transfer.
 
 

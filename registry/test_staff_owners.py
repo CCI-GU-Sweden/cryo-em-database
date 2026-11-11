@@ -1,5 +1,6 @@
 """Staff registration creates owners without accounts or redundant access grants."""
 
+from io import BytesIO
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -9,6 +10,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from .excel import read_workbook
 from .models import AuditEvent, OwnerAccessGrant, SampleOwner
 from .services import (
     create_preparation_session,
@@ -89,6 +91,37 @@ class StaffOwnerRegistrationTests(TestCase):
         self.assertEqual(choices, {self.existing_owner.pk, colleague_owner.pk})
         self.client.force_login(self.outsider)
         self.assertEqual(self.client.get(reverse("registry:owner_list")).status_code, 403)
+
+    def test_owner_search_page_exports_grids_for_matching_owners(self):
+        colleague_owner = create_sample_owner(actor=self.other_staff, name="Colleague Export Owner")
+        matching_session = create_preparation_session(
+            actor=self.other_staff,
+            owner=colleague_owner,
+            prepared_at=timezone.now(),
+            grid_count=2,
+            preparation={},
+            request_token=uuid4(),
+        )
+        create_preparation_session(
+            actor=self.staff,
+            owner=self.existing_owner,
+            prepared_at=timezone.now(),
+            grid_count=1,
+            preparation={},
+            request_token=uuid4(),
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("registry:owner_list"))
+        self.assertContains(response, "Export grids for matching owners")
+        exported = self.client.get(reverse("registry:owner_excel_export"), {"q": "Colleague"})
+        self.assertEqual(exported.status_code, 200)
+        records = read_workbook(BytesIO(exported.content))["grids"]
+        self.assertEqual(
+            {record["grid_number"] for record in records},
+            set(matching_session.grids.values_list("grid_number", flat=True)),
+        )
+        self.client.force_login(self.outsider)
+        self.assertEqual(self.client.get(reverse("registry:owner_excel_export")).status_code, 403)
 
     def test_staff_can_register_and_edit_each_others_grids_without_grants(self):
         self.client.force_login(self.staff)

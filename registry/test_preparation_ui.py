@@ -245,6 +245,35 @@ class PreparationInterfaceTests(TestCase):
             "Choose columns",
         )
 
+    def test_registry_filter_groups_start_collapsed_and_open_when_they_have_errors(self):
+        url = reverse("registry:grid_list")
+        response = self.client.get(url)
+        self.assertContains(
+            response,
+            '<details class="preparation-group" data-preparation-group id="preparation-filters">',
+        )
+        self.assertContains(
+            response,
+            '<details class="preparation-group" data-preparation-group id="storage-filters">',
+        )
+        self.assertContains(response, "data-expand-groups")
+        self.assertContains(response, "data-collapse-groups")
+
+        response = self.client.get(
+            url,
+            {
+                "filters-TOTAL_FORMS": "1",
+                "filters-INITIAL_FORMS": "0",
+                "filters-0-property": "sample_description",
+            },
+        )
+        self.assertTrue(response.context["preparation_filter_errors"])
+        self.assertContains(
+            response,
+            '<details class="preparation-group" data-preparation-group '
+            'id="preparation-filters" open>',
+        )
+
     def test_filter_parameters_survive_pagination(self):
         Grid.objects.bulk_create(
             [

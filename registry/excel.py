@@ -14,6 +14,8 @@ from xml.etree.ElementTree import ParseError
 from zipfile import BadZipFile, ZipFile
 
 from django.core.exceptions import ValidationError
+from django.db.models import Prefetch
+from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Font, PatternFill
@@ -22,8 +24,10 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
 from .forms import PreparationForm
+from .grid_storage import slot_label
 from .permissions import visible_grids
 from .preparation import PREPARATION_FIELDS, PREPARATION_GROUPS
+from .storage_models import GridEvent
 
 FORMAT_MARKER = "CCI Grid Registry workbook v1"
 MAX_ROWS = 5000
@@ -47,6 +51,19 @@ _labels.update({name: _preparation_form[name].label for name in PREPARATION_FIEL
 _labels["notes"] = "Grid notes"
 _labels["glow_device"] = "Glow discharge device"
 _labels["freezing_device"] = "Freezing device"
+_labels.update(
+    {
+        "is_clipped": "Clipped",
+        "storage_status": "Storage status",
+        "dewar": "Dewar",
+        "cane": "Cane",
+        "puck": "Puck",
+        "gridbox_type": "Gridbox type",
+        "gridbox": "Gridbox",
+        "grid_slot": "Slot",
+        "storage_history": "Storage history",
+    }
+)
 GRID_GROUPS = [
     (
         "Info",
@@ -63,7 +80,20 @@ GRID_GROUPS = [
     ("Grid treatment", PREPARATION_GROUPS[1][1] + PREPARATION_GROUPS[2][1]),
     ("Freezing conditions", PREPARATION_GROUPS[3][1]),
     ("Experiment reference", ["experiment_reference", "project_reference"]),
-    ("Additional notes", ["notes", "session_notes"]),
+    (
+        "Storage location",
+        [
+            "is_clipped",
+            "storage_status",
+            "dewar",
+            "cane",
+            "puck",
+            "gridbox_type",
+            "gridbox",
+            "grid_slot",
+        ],
+    ),
+    ("Additional notes", ["notes", "session_notes", "storage_history"]),
 ]
 GRID_COLUMNS = [(name, _labels[name]) for _, names in GRID_GROUPS for name in names]
 # A short repeating palette keeps related columns together without assigning
@@ -139,13 +169,74 @@ def _write_sheet(book, title, columns, rows):
         sheet.column_dimensions["B"].hidden = True
 
 
+def _storage_values(grid):
+    """Render current physical location and a readable, non-importable event summary."""
+    slot = getattr(grid, "gridslot", None)
+    box = slot.box if slot else None
+    if not box:
+        status = "Unknown — needs review"
+        dewar = cane = puck = box_type = box_name = slot_name = ""
+    else:
+        status = f"Transferred to {box.transfer_destination}" if box.transferred_at else "At CCI"
+        puck_obj = box.puck
+        dewar = puck_obj.cane.dewar.name if puck_obj else ""
+        cane = puck_obj.cane.name if puck_obj else ""
+        puck = str(puck_obj) if puck_obj else ""
+        box_type = box.box_type.name
+        box_name = box.name
+        slot_name = slot_label(slot)
+
+    history = []
+    for event in grid.physical_events.all():
+        timestamp = timezone.localtime(event.occurred_at).strftime("%Y-%m-%d %H:%M")
+        operation = event.operation.replace("_", " ")
+        destination = event.details.get("destination", "")
+        if event.operation == "stored" and event.to_slot_id:
+            destination = f"{event.to_slot.box.name} / {slot_label(event.to_slot)}"
+        elif event.operation == "moved" and event.to_slot_id:
+            destination = f"{event.to_slot.box.name} / {slot_label(event.to_slot)}"
+        if event.operation == "box_transfer" and destination:
+            operation = f"transferred to {destination}"
+        elif event.operation == "box_move":
+            from_puck = event.details.get("from_puck") or "stock"
+            to_puck = event.details.get("to_puck") or "stock"
+            operation = f"box moved from {from_puck} to {to_puck}"
+        elif destination:
+            operation = f"{operation}: {destination}"
+        history.append(f"{timestamp} {operation}")
+
+    return {
+        "is_clipped": "Yes" if grid.is_clipped else "No",
+        "storage_status": status,
+        "dewar": dewar,
+        "cane": cane,
+        "puck": puck,
+        "gridbox_type": box_type,
+        "gridbox": box_name,
+        "grid_slot": slot_name,
+        "storage_history": "; ".join(history),
+    }
+
+
 def export_workbook(*, actor, grids):
     # Intersect even direct service calls with the browsing permission boundary.
     # A caller-supplied queryset must never expand what this user can export.
     allowed = visible_grids(actor)
     grids = list(
-        grids.filter(pk__in=allowed.values("pk")).select_related(
-            "session__owner", "session__prepared_by"
+        grids.filter(pk__in=allowed.values("pk"))
+        .select_related(
+            "session__owner",
+            "session__prepared_by",
+            "gridslot__box__box_type",
+            "gridslot__box__puck__cane__dewar",
+        )
+        .prefetch_related(
+            Prefetch(
+                "physical_events",
+                queryset=GridEvent.objects.select_related(
+                    "to_slot__box__box_type", "from_slot__box__box_type"
+                ).order_by("occurred_at", "pk"),
+            ),
         )[: MAX_ROWS + 1]
     )
     if len(grids) > MAX_ROWS:
@@ -166,6 +257,7 @@ def export_workbook(*, actor, grids):
             project_reference=session.project_reference,
             session_notes=session.notes,
         )
+        row.update(_storage_values(grid))
         rows.append(row)
         owners[owner.pk] = {name: getattr(owner, name) for name, _ in OWNER_COLUMNS}
         sessions[key] = {
@@ -192,7 +284,11 @@ def export_workbook(*, actor, grids):
         "Blank dates/measurements remain unknown; 0 is zero.",
         "Import previews new/existing records and conflicts. It never overwrites existing records.",
         "Unknown operator logins remain unknown; import never assigns them to the uploader.",
-        "Deleted records, physical events, access grants and audit history are not exported.",
+        (
+            "Storage columns show current location and a readable event summary; "
+            "they are informational and are ignored on import. Manage locations in the app."
+        ),
+        "Deleted records, access grants and audit history are not exported.",
         "Copied-from relationships are not part of this transfer format.",
         "This transfers current records. It is not a database backup or the legacy layout.",
         "Keep laboratory workbooks private; do not add them to Git.",

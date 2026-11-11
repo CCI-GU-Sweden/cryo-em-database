@@ -4,8 +4,11 @@
 <h1>Sample owners</h1>
 <p>All CCI staff can see every sample owner and register new owners.</p>
 <p><a href="{% url 'registry:new_owner' %}">Register a sample owner</a></p>
-<form method="get"><label for="owner-search">Search name, code or affiliation</label>
-<input id="owner-search" name="q" value="{{ query }}"><button type="submit">Search</button></form>
+<form method="get" action="{% url 'registry:owner_list' %}"><label for="owner-search">Search name, code or affiliation</label>
+<input id="owner-search" name="q" value="{{ query }}">
+<button type="submit">Search</button>
+<button type="submit" formaction="{% url 'registry:owner_excel_export' %}">Export grids for matching owners</button></form>
+<p>The export includes active grids for every matching owner, across all pages.</p>
 <div class="table-scroll"><table>
 <thead><tr><th>Name</th><th>Code</th><th>Affiliation</th><th>Status</th><th>Preparation</th></tr></thead>
 <tbody>{% for owner in page %}<tr>

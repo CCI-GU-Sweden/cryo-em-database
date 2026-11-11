@@ -2,8 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, Value
-from django.db.models.functions import Concat
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
@@ -18,10 +17,10 @@ from .forms import (
     OwnerNameForm,
     OwnerRegistrationForm,
     PreparationForm,
-    SessionBrowseForm,
 )
 from .models import AuditEvent, DeletedGrid, Grid, PreparationSession
-from .permissions import can_edit_grid, current_staff, require_grid_editor, visible_owners
+from .owner_queries import search_owners
+from .permissions import can_edit_grid, current_staff, require_grid_editor
 from .preparation import PREPARATION_GROUPS
 from .services import (
     archive_grid,
@@ -29,6 +28,7 @@ from .services import (
     create_sample_owner,
     suggest_owner_code,
 )
+from .session_queries import search_sessions
 from .suggestions import preparation_suggestions
 from .tables import COLUMNS
 
@@ -42,6 +42,12 @@ def add_service_error(form, error):
 @login_required
 def grid_list(request):
     grids, query, filters = search_registry(request.GET, actor=request.user)
+    preparation_filter_errors = bool(filters.non_form_errors()) or any(
+        bool(errors) for errors in filters.errors
+    )
+    storage_filter_errors = bool(filters.storage_filters.non_form_errors()) or any(
+        bool(errors) for errors in filters.storage_filters.errors
+    )
     parameters = request.GET.copy()
     parameters.pop("page", None)
     page = Paginator(grids.order_by("-pk"), 50).get_page(request.GET.get("page"))
@@ -53,6 +59,8 @@ def grid_list(request):
             "query": query,
             "columns": COLUMNS,
             "filters": filters,
+            "preparation_filter_errors": preparation_filter_errors,
+            "storage_filter_errors": storage_filter_errors,
             "filter_query": parameters.urlencode(),
             "filter_kinds": {column["key"]: column["kind"] for column in COLUMNS},
         },
@@ -98,12 +106,7 @@ def new_session(request):
 
 @login_required
 def owner_list(request):
-    owners = visible_owners(request.user)
-    query = request.GET.get("q", "").strip()
-    if query:
-        owners = owners.filter(
-            Q(name__icontains=query) | Q(code__icontains=query) | Q(affiliation__icontains=query)
-        )
+    query, owners = search_owners(request.GET, actor=request.user)
     page = Paginator(owners, 50).get_page(request.GET.get("page"))
     return render(
         request,
@@ -154,36 +157,7 @@ def new_owner(request):
 @login_required
 def session_list(request):
     current_staff(request.user)
-    form = SessionBrowseForm(request.GET, actor=request.user)
-    sessions = PreparationSession.objects.select_related("owner", "prepared_by").annotate(
-        grid_count=Count("grids", filter=Q(grids__deletion__isnull=True)),
-        deleted_count=Count("grids", filter=Q(grids__deletion__isnull=False)),
-        operator_name=Concat("prepared_by__first_name", Value(" "), "prepared_by__last_name"),
-    )
-    if form.is_valid():
-        data = form.cleaned_data
-        query = data["q"]
-        if query:
-            matches = (
-                Q(owner__name__icontains=query)
-                | Q(owner__code__icontains=query)
-                | Q(prepared_by__username__icontains=query)
-                | Q(operator_name__icontains=query)
-                | Q(experiment_reference__icontains=query)
-                | Q(project_reference__icontains=query)
-            )
-            number = query.lower().removeprefix("session ").strip()
-            if number.isascii() and number.isdigit() and len(number) <= 18:
-                matches |= Q(pk=int(number))
-            sessions = sessions.filter(matches)
-        if data["owner"]:
-            sessions = sessions.filter(owner=data["owner"])
-        if data["from_date"]:
-            sessions = sessions.filter(prepared_at__date__gte=data["from_date"])
-        if data["to_date"]:
-            sessions = sessions.filter(prepared_at__date__lte=data["to_date"])
-    else:
-        sessions = sessions.none()
+    form, sessions = search_sessions(request.GET, actor=request.user)
     parameters = request.GET.copy()
     parameters.pop("page", None)
     page = Paginator(sessions.order_by("-pk"), 50).get_page(request.GET.get("page"))
@@ -220,7 +194,10 @@ def session_detail(request, pk):
         {
             "session": session,
             "grids": session.grids.active().select_related(
-                "session__owner", "session__prepared_by"
+                "session__owner",
+                "session__prepared_by",
+                "gridslot__box__puck",
+                "gridslot__box__box_type",
             ),
             "deleted_count": session.grids.archived().count(),
             "columns": COLUMNS,
