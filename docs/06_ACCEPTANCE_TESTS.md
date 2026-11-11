@@ -15,7 +15,7 @@ authentication and shutdown with spaces/apostrophe in its path.
 |---|---|
 | Preparation, IDs and edits | Automated model/service/HTTP/concurrency/migration tests; independent grid values and audit history covered |
 | Shared CCI editing | Cross-operator edits audited; inactive/non-CCI rejection and archive protections tested |
-| Current Excel format | Filtered all-page export, hand-entry labels, missing owners, conflicts, atomic/repeated imports, colour groups and noon/Stockholm defaults tested |
+| Current Excel format | Filtered all-page, session-filtered and owner-search grid exports, hand-entry labels, missing owners, conflicts, atomic/repeated imports, colour groups, noon/Stockholm defaults, and current storage/location-history snapshot tested |
 | Import/export permissions | Explicit CCI flag for import, including admins; export shares registry visibility and checks direct calls |
 | Session Enter key | Targeted JavaScript event checks passed; normal suggestions/newlines/button activation retained |
 | Native Windows | Colleague confirmed app startup and repeated stop; Ctrl+C also stopped PostgreSQL on that setup. Full check/login/data-retention/path-space acceptance remains pending |
@@ -358,3 +358,16 @@ lifecycle scenarios are deferred to the next slice.
 - Staff can register a unique name/colour using their own password without a
   username prompt. Reject incorrect passwords, duplicate names ignoring case,
   inactive/non-CCI accounts and CSRF failures. New pucks have 12 positions.
+
+## Grouped preparation and storage filters
+
+- Sample/preparation and storage filters are separate collapsible sections,
+  closed by default. Expand all/Collapse all controls work, and a section with
+  server-side validation errors opens after submission.
+- Preparation and storage have separate property lists and Add filter controls;
+  every selected filter combines with AND, including across pagination/export.
+- Storage selectors cover puck, box, type, slot and clipping state, with C/U
+  indices for mixed-box slots. Browser-dependent choices never replace server
+  validation or authorize additional rows.
+- Invalid inventory choices or malformed filter formsets fail closed and reject
+  export. Existing preparation text and range filters continue to work.

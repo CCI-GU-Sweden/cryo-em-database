@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from datetime import timezone as datetime_timezone
+from io import BytesIO
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
@@ -9,6 +10,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from .excel import read_workbook
 from .models import AuditEvent, PreparationSession, SampleOwner
 from .services import create_preparation_session
 
@@ -94,6 +96,31 @@ class SessionBrowserTests(TestCase):
         self.assertEqual(self.ids(response), set())
         self.assertContains(response, "The start date must not be after the end date.")
         self.assertEqual(self.ids(self.client.get(url, {"owner": "not-an-owner"})), set())
+
+    def test_sessions_page_exports_grids_from_matching_sessions(self):
+        url = reverse("registry:session_excel_export")
+        response = self.client.get(url, {"owner": self.owner.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("cci-session-grids-", response["Content-Disposition"])
+        records = read_workbook(BytesIO(response.content))["grids"]
+        self.assertEqual(
+            {record["grid_number"] for record in records},
+            set(self.first.grids.values_list("grid_number", flat=True)),
+        )
+
+    def test_sessions_export_rejects_invalid_filters_and_non_cci_users(self):
+        url = reverse("registry:session_excel_export")
+        response = self.client.get(url, {"from_date": "2026-11-06", "to_date": "2026-11-01"})
+        self.assertEqual(response.status_code, 400)
+
+        outsider = User.objects.create_user(username="session-export-outsider", is_staff=True)
+        self.client.force_login(outsider)
+        self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_sessions_list_shows_filtered_grid_export_action(self):
+        response = self.client.get(reverse("registry:session_list"))
+        self.assertContains(response, reverse("registry:session_excel_export"))
+        self.assertContains(response, "Export grids for matching sessions")
 
     def test_session_and_grid_detail_use_the_label_and_keep_full_timestamp(self):
         before = self.first.prepared_at

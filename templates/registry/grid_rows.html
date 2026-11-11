@@ -14,6 +14,7 @@
 <tbody>{% for grid in grids %}<tr>
 {% for column in columns %}<td data-column="{{ column.key }}" {% if not column.visible %}hidden{% endif %}>
 {% if column.key == 'grid_number' %}<a href="{% url 'registry:grid_detail' grid.pk %}">{{ grid.grid_number }}</a>
+{% elif column.key == 'storage' %}{% storage_links grid %}
 {% else %}{{ grid|column_value:column.key }}{% endif %}
 </td>{% endfor %}
 <td><a href="{% url 'registry:grid_detail' grid.pk %}">View / edit</a></td>

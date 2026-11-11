@@ -14,6 +14,82 @@ from .storage_models import GridBoxType, Puck
 
 
 class GridStorageTests(TestCase):
+    def test_separate_preparation_and_storage_filters_combine_and_export(self):
+        grid = self.session.grids.first()
+        self.place(grid, self.box.slots.filter(side="unclipped").first())
+        self.client.force_login(self.actor)
+        params = {
+            "filters-TOTAL_FORMS": "1",
+            "filters-INITIAL_FORMS": "0",
+            "filters-0-property": "grid_number",
+            "filters-0-contains": grid.grid_number,
+            "storage-TOTAL_FORMS": "2",
+            "storage-INITIAL_FORMS": "0",
+            "storage-0-property": "puck",
+            "storage-0-puck": self.box.puck_id,
+            "storage-1-property": "box",
+            "storage-1-box": self.box.pk,
+        }
+        response = self.client.get(reverse("registry:grid_list"), params)
+        self.assertContains(response, "Sample and preparation filters")
+        self.assertContains(response, "Storage filters")
+        self.assertEqual(list(response.context["page"].object_list), [grid])
+        self.assertEqual(self.client.get(reverse("registry:excel_export"), params).status_code, 200)
+        params["storage-1-box"] = "999999"
+        response = self.client.get(reverse("registry:grid_list"), params)
+        self.assertEqual(response.context["page"].paginator.count, 0)
+        self.assertContains(response, "Select a valid choice")
+        self.assertEqual(self.client.get(reverse("registry:excel_export"), params).status_code, 400)
+
+    def test_storage_slot_and_clipping_filters(self):
+        grid = self.session.grids.first()
+        slot = self.box.slots.filter(side="clipped").first()
+        self.place(grid, slot, True)
+        self.client.force_login(self.actor)
+        params = {
+            "storage-TOTAL_FORMS": "2",
+            "storage-INITIAL_FORMS": "0",
+            "storage-0-property": "slot",
+            "storage-0-slot": slot.pk,
+            "storage-1-property": "clipped",
+            "storage-1-clipped": "yes",
+        }
+        response = self.client.get(reverse("registry:grid_list"), params)
+        self.assertEqual(response.context["page"].paginator.count, 1)
+        params["storage-1-clipped"] = "no"
+        self.assertEqual(
+            self.client.get(reverse("registry:grid_list"), params).context["page"].paginator.count,
+            0,
+        )
+
+    def test_registry_storage_links_to_puck_and_box_and_handles_unknown_and_transfer(self):
+        from django.utils.html import escape
+
+        a, b = self.session.grids.all()
+        self.box.name = "<synthetic box>"
+        self.box.save(update_fields=["name"])
+        self.place(a, self.box.slots.filter(side="unclipped").first())
+        self.client.force_login(self.actor)
+        url = reverse("registry:grid_list")
+        response = self.client.get(url)
+        self.assertContains(response, reverse("registry:puck_detail", args=[self.box.puck_id]))
+        self.assertContains(response, reverse("registry:box_detail", args=[self.box.pk]))
+        self.assertContains(response, escape(self.box.name), html=False)
+        self.assertContains(response, "Unknown — needs review")
+        response = self.client.get(reverse("registry:session_detail", args=[self.session.pk]))
+        self.assertContains(response, reverse("registry:box_detail", args=[self.box.pk]))
+        change_box(
+            actor=self.actor,
+            box_id=self.box.pk,
+            expected_version=self.box.version,
+            action="transfer",
+            transfer_destination="Partner lab",
+        )
+        response = self.client.get(url)
+        self.assertContains(response, "Transferred to Partner lab")
+        self.assertContains(response, reverse("registry:box_detail", args=[self.box.pk]))
+        self.assertNotContains(response, reverse("registry:puck_detail", args=[self.box.puck_id]))
+
     def test_loaded_boxes_and_pucks_cannot_be_returned_to_stock(self):
         from .storage import record_puck_location
 
