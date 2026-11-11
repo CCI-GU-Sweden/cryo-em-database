@@ -14,6 +14,29 @@ from .storage_models import BoxEvent, GridBox, GridBoxType, Puck
 
 
 class StorageTests(TestCase):
+    def test_empty_puck_moves_keep_boxes_attached_and_preserve_explicit_location(self):
+        box = self.create("Empty box in puck", self.puck)
+        self.client.force_login(self.actor)
+        self.puck.refresh_from_db()
+        url = reverse("registry:puck_detail", args=[self.puck.pk])
+        response = self.client.post(url, {"in_dewar": "yes", "expected_version": self.puck.version})
+        self.assertEqual(response.status_code, 302)
+        self.puck.refresh_from_db()
+        self.assertTrue(self.puck.in_dewar)
+        self.create("Unrelated stock box")
+        self.puck.refresh_from_db()
+        self.assertTrue(self.puck.in_dewar)
+        self.assertEqual(
+            self.client.post(
+                url, {"in_dewar": "no", "expected_version": self.puck.version}
+            ).status_code,
+            302,
+        )
+        self.puck.refresh_from_db()
+        box.refresh_from_db()
+        self.assertFalse(self.puck.in_dewar)
+        self.assertEqual(box.puck_id, self.puck.pk)
+
     def test_puck_detail_lists_only_its_boxes_and_requires_staff(self):
         box = self.create("Box in selected puck", self.puck)
         self.create("Box in stock")

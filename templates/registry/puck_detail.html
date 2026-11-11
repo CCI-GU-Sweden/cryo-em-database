@@ -6,4 +6,8 @@
 {% for box in boxes %}<tr><td><a href="{% url 'registry:box_detail' box.pk %}">{{ box.name }}</a></td><td>{{ box.box_type }}</td><td>{{ box.occupied_slots }}/{{ box.total_slots }}</td></tr>
 {% empty %}<tr><td colspan="3">No gridboxes stored in this puck.</td></tr>{% endfor %}
 </tbody></table>
+<h2>Move puck</h2>
+<p>Empty the boxes in this puck before moving it to stock. Empty boxes stay attached to the puck.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>Record puck location</button></form>
+<h2>Puck history</h2><ul>{% for event in puck.events.all %}<li>{{ event.recorded_at|date:"Y-m-d H:i" }} · {{ event.actor }} · {{ event.in_dewar|yesno:'In dewar,In stock,Unknown' }}</li>{% endfor %}</ul>
 {% endblock %}

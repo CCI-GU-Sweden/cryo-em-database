@@ -4,7 +4,7 @@
 <script src="{% static 'carbon_units.js' %}" defer></script>
 {% if collapsible %}
 <div class="group-controls" data-group-controls hidden><button type="button" data-expand-groups>Expand all</button> <button type="button" data-collapse-groups>Collapse all</button></div>
-<script src="{% static 'preparation_groups.js' %}" defer></script>
+<script src="{% static 'preparation_groups.js' %}?v=2" defer></script>
 {% endif %}
 <p>Type to search previous values, or enter a new value. Suggestions never fill other fields automatically.</p>
 {% for title, fields in form.preparation_groups %}
@@ -26,5 +26,14 @@
 <p>{{ form.is_clipped.help_text }}</p>
 </fieldset>
 {% if collapsible %}</details>{% endif %}
+{% endif %}
+{% if title == 'Freezing and blotting' and inline_storage %}
+<details class="preparation-group" data-preparation-group id="storage-actions" open>
+<summary>Location and storage actions</summary>
+<div data-inline-storage data-url="{% url 'registry:grid_storage' grid.pk %}?inline=1">
+<p role="status" data-storage-status>Loading storage actions…</p>
+<div data-storage-panel></div>
+<noscript><a href="{% url 'registry:grid_storage' grid.pk %}">Open location and storage actions</a></noscript>
+</div></details>
 {% endif %}
 {% endfor %}

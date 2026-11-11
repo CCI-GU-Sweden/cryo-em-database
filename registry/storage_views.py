@@ -179,8 +179,20 @@ class PuckRegistrationForm(forms.Form):
 
 @login_required
 def puck_detail(request, pk):
+    from .storage import record_puck_location
+
     current_staff(request.user)
     puck = get_object_or_404(pucks(), pk=pk)
+    form = PuckMovementForm(
+        request.POST if request.method == "POST" else None,
+        initial={"expected_version": puck.version, "in_dewar": "yes" if puck.in_dewar else "no"},
+    )
+    if form.is_bound and form.is_valid():
+        try:
+            record_puck_location(actor=request.user, puck_id=puck.pk, **form.cleaned_data)
+            return redirect("registry:puck_detail", pk=pk)
+        except ValidationError as error:
+            form.add_error(None, error)
     boxes = (
         GridBox.objects.filter(puck=puck)
         .select_related("box_type")
@@ -189,4 +201,15 @@ def puck_detail(request, pk):
             occupied_slots=Count("slots", filter=Q(slots__grid__isnull=False)),
         )
     )
-    return render(request, "registry/puck_detail.html", {"puck": puck, "boxes": boxes})
+    return render(
+        request, "registry/puck_detail.html", {"puck": puck, "boxes": boxes, "form": form}
+    )
+
+
+class PuckMovementForm(forms.Form):
+    in_dewar = forms.TypedChoiceField(
+        label="Puck location",
+        choices=[("yes", "In dewar"), ("no", "In stock")],
+        coerce=lambda value: value == "yes",
+    )
+    expected_version = forms.IntegerField(widget=forms.HiddenInput)

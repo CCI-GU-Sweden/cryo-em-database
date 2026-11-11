@@ -97,6 +97,8 @@ def correct_last_box_action(*, actor, box_id, expected_version, event_id, passwo
     previous = box.puck
     # The original state was active. Keep the original entry immutable and add
     # a correction; this is a data correction, not a physical return from a lab.
+    if event.from_puck_id is None and box.slots.filter(grid__isnull=False).exists():
+        raise ValidationError("Cannot restore a box containing grids to stock. Empty it first.")
     box.puck = destination(event.from_puck_id)
     box.discarded = False
     box.transferred_at = None
@@ -161,6 +163,8 @@ def change_box(
         box.transfer_destination = transfer_destination
         box.puck = None
     elif action == "move":
+        if not puck_id and box.slots.filter(grid__isnull=False).exists():
+            raise ValidationError("This box contains grids. Empty it before returning it to stock.")
         if box.puck_id == (int(puck_id) if puck_id else None):
             return box
         box.puck = destination(puck_id)
@@ -218,7 +222,12 @@ def record_box_event(**values):
             },
         )
         Grid.objects.filter(pk=grid.pk).update(version=grid.version + 1)
-    sync_puck_locations(actor=event.actor)
+    sync_puck_locations(
+        actor=event.actor,
+        emptied_puck_ids=(
+            [event.from_puck_id] if event.box.slots.filter(grid__isnull=False).exists() else []
+        ),
+    )
     return event
 
 
@@ -233,6 +242,11 @@ def record_puck_location(*, actor, puck_id, expected_version, in_dewar):
         raise ValidationError("This puck changed. Reload before updating it.")
     if in_dewar is not None and type(in_dewar) is not bool:
         raise ValidationError("Choose a valid dewar status.")
+    if (
+        in_dewar is not True
+        and GridSlot.objects.filter(box__puck=puck, grid__isnull=False).exists()
+    ):
+        raise ValidationError("Empty the boxes in this puck before moving it to stock.")
     before = puck.in_dewar
     if before is in_dewar:
         return puck
@@ -244,11 +258,13 @@ def record_puck_location(*, actor, puck_id, expected_version, in_dewar):
     return puck
 
 
-def sync_puck_locations(*, actor):
-    # Current pilot convention: any grid implies the puck is in the dewar;
-    # an empty puck is in stock, even if it contains empty boxes.
+def sync_puck_locations(*, actor, emptied_puck_ids=()):
+    # Grid occupancy implies in-dewar. Infer stock for the source when its last
+    # grids leave, but preserve manually recorded locations of unrelated pucks.
     for puck in Puck.objects.all():
         occupied = GridSlot.objects.filter(box__puck=puck, grid__isnull=False).exists()
+        if not occupied and puck.pk not in emptied_puck_ids:
+            continue
         record_puck_location(
             actor=actor, puck_id=puck.pk, expected_version=puck.version, in_dewar=occupied
         )

@@ -1,17 +1,6 @@
 {% extends 'base.html' %}{% load static %}{% block content %}
 <h1>Store / move {{ grid.grid_number }}</h1>
 <p><a href="{% url 'registry:session_detail' grid.session_id %}">Back to session</a></p>
-<p>Current location: {{ location }}</p>
-<form method="get" id="box-selection"><label><input type="checkbox" name="clipped" value="1" {% if clipped %}checked{% endif %} {% if grid.is_clipped %}disabled{% endif %}>Clipped before this placement</label>
-{% if grid.is_clipped %}<input type="hidden" name="clipped" value="1">{% endif %}
-<label for="box-search">Gridbox</label>
-<input id="box-search" name="box_name" list="available-boxes" autocomplete="off" placeholder="Choose a box or type to filter" value="{% if box %}{{ box.name }}{% else %}{{ query }}{% endif %}">
-<datalist id="available-boxes">{% for option in boxes %}<option value="{{ option.name }}">{{ option.box_type }} · {% if option.puck %}{{ option.puck }} puck{% else %}In stock{% endif %}</option>{% endfor %}</datalist>
-<button>Select box</button></form>
-{% if selection_error %}<p role="alert">{{ selection_error }}</p>{% endif %}
-{% if box %}<h2>{{ box.name }}</h2><p>{{ box.box_type }}</p><img src="{% static box.box_type.svg %}" alt="{{ box.box_type }} layout" class="gridbox-layout">
-<form method="post">{% csrf_token %}<input type="hidden" name="intent" value="place"><input type="hidden" name="box" value="{{ box.pk }}"><input type="hidden" name="clipped" value="{{ clipped|yesno:'1,0' }}">{{ form.as_p }}<button>Confirm placement</button></form>{% endif %}
-<details {% if new_form.is_bound %}open{% endif %}><summary>Register new gridbox</summary><form method="post">{% csrf_token %}<input type="hidden" name="intent" value="new_box"><input type="hidden" name="clipped" value="{{ clipped|yesno:'1,0' }}">{{ new_form.as_p }}<button>Register and select box</button></form></details>
-<h2>Physical history</h2><ul>{% for event in grid.physical_events.all %}<li>{{ event.occurred_at|date:"Y-m-d H:i" }} · {{ event.actor }} · {{ event.operation }} · {{ event.details.from }} → {{ event.details.to }}{% if event.box_event %}{{ event.box_event.box.name }} · {{ event.box_event.destination }}{% endif %}</li>{% empty %}<li>No storage recorded — needs review.</li>{% endfor %}</ul>
+{% include 'registry/grid_storage_panel.html' %}
 <script src="{% static 'grid_storage.js' %}" defer></script>
 {% endblock %}

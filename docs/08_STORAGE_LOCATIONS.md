@@ -434,3 +434,33 @@ administration access and show shared inventory regardless of creator.
 Event history and transfer status display dates and times to the minute for
 readability. Stored timestamps retain full precision, and action-time inputs
 preserve seconds to avoid rounding a new action before a recent physical event.
+
+## Inline grid storage UI trial (inline-grid-storage branch)
+
+Grid detail includes Location and storage actions as an initially expanded group
+between Clipping and Grid notes. Its box picker, slot placement, physical history
+and new-box form load and submit within that section using the existing storage
+services. The standalone storage page remains available as a fallback.
+
+Preparation controls and storage actions belong to separate HTML forms; storage
+refreshes must not replace entered preparation values. Require saving preparation
+changes before using storage actions. Successful placement refreshes the displayed
+clipping state and preparation form version. A changed server version from any
+other request requires refreshing the page instead of silently adopting a new
+version and overwriting someone else's work. The shared expand/collapse controls
+also cover the storage group.
+
+Returning a physical box to stock is permitted only when its grid slots are
+empty. Reject the command with an explanatory warning before changing box or
+puck state. Likewise, reject recording a puck outside the dewar while any box
+in that puck contains grids. An empty puck may retain its empty boxes; marking
+its whereabouts must not silently detach boxes. External transfer is a separate
+action with destination and history and may include grids.
+
+The individual puck page includes a Move puck form for In dewar / In stock,
+with staff authorization, stale-version checks and recorded location history.
+Moving a puck does not detach its boxes. Reject stock while any contained box
+has grids. Empty pucks initially default to stock, but staff may explicitly put
+an empty puck in the dewar; unrelated inventory activity must preserve that
+recorded location. When the last grids actually leave a puck, the pilot inference
+can return it to stock. The occupied-puck rule always takes precedence.

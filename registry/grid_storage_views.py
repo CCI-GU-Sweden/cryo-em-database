@@ -35,6 +35,7 @@ class PlacementForm(forms.Form):
 def grid_storage(request, pk):
     grid = get_object_or_404(Grid.objects.select_related("session"), pk=pk)
     require_grid_editor(request.user, grid)
+    inline = request.GET.get("inline") == "1"
     data = request.POST if request.method == "POST" else request.GET
     clipped = grid.is_clipped or data.get("clipped") == "1"
     side = "clipped" if clipped else "unclipped"
@@ -67,7 +68,10 @@ def grid_storage(request, pk):
                 "Choose a registered CCI box with a free compatible slot, "
                 "or register a new box below."
             )
-    new_form = BoxForm(request.POST if data.get("intent") == "new_box" else None)
+    new_form = BoxForm(
+        request.POST if data.get("intent") == "new_box" else None,
+        auto_id="new_box_%s" if inline else "id_%s",
+    )
     new_form.fields["puck"].queryset = (
         pucks().annotate(box_count=Count("gridbox")).filter(box_count__lt=12)
     )
@@ -82,12 +86,16 @@ def grid_storage(request, pk):
                 box_type_id=new_form.cleaned_data["box_type"].pk,
                 puck_id=getattr(new_form.cleaned_data["puck"], "pk", None),
             )
-            return redirect(f"{request.path}?box={box.pk}&clipped={int(clipped)}")
+            return redirect(
+                f"{request.path}?box={box.pk}&clipped={int(clipped)}"
+                + ("&inline=1" if inline else "")
+            )
         except ValidationError as error:
             new_form.add_error(None, error)
     form = PlacementForm(
         request.POST if request.method == "POST" and data.get("intent") == "place" else None,
         initial={"expected_version": grid.version},
+        auto_id="storage_%s" if inline else "id_%s",
     )
     slots = (
         GridSlot.objects.filter(box=box, side=side).filter(grid=None)
@@ -109,14 +117,17 @@ def grid_storage(request, pk):
                 occurred_at=form.cleaned_data["occurred_at"],
                 puck_id=getattr(form.cleaned_data.get("puck"), "pk", None),
             )
+            if inline:
+                return redirect(f"{request.path}?inline=1&placed=1")
             return redirect("registry:session_detail", pk=grid.session_id)
         except ValidationError as error:
             form.add_error(None, error)
     return render(
         request,
-        "registry/grid_storage.html",
+        "registry/grid_storage_panel.html" if inline else "registry/grid_storage.html",
         {
             "grid": grid,
+            "placed": request.GET.get("placed") == "1",
             "location": location(grid),
             "clipped": clipped,
             "boxes": choices,
