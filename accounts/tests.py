@@ -8,11 +8,19 @@ User = get_user_model()
 
 
 class AuthenticationTests(TestCase):
+    def test_dashboard_roles_control_access_and_revocation(self):
+        for role, expected in [("", 403), ("researcher", 403), ("staff", 200), ("admin", 200)]:
+            with self.subTest(role=role):
+                self.member.role = role
+                self.member.save(update_fields=["role"])
+                self.client.force_login(self.member)
+                self.assertEqual(self.client.get("/").status_code, expected)
+
     @classmethod
     def setUpTestData(cls):
         # Fictional credentials exist only in Django's temporary test database.
         cls.member = User.objects.create_user(
-            username="demo-member", password="test-only-password", is_cci_staff=True
+            username="demo-member", password="test-only-password", role="staff"
         )
         cls.outsider = User.objects.create_user(
             username="demo-outsider", password="test-only-password"

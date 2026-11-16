@@ -52,7 +52,7 @@ authentication and shutdown with spaces/apostrophe in its path.
 Sections A–F are the **full v0.1 acceptance checklist**, not a claim that every
 feature is implemented or manually signed off. Current-format transfer tests are
 separate from the unimplemented original legacy importer in section D. Detailed
-slice checks below record the implemented behavior; the [roadmap](04_DEVELOPMENT_ROADMAP.md)
+slice checks below record the implemented behavior; the [roadmap](../plan.md)
 tracks remaining work. Do not mark Windows or the six-staff pilot complete without
 actual feedback from those runs.
 

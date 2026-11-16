@@ -49,7 +49,7 @@ class StorageTests(TestCase):
         self.assertContains(response, "0/8")
         self.assertContains(response, reverse("registry:box_detail", args=[box.pk]))
         self.assertContains(self.client.get(reverse("registry:puck_inventory")), url)
-        self.actor.is_cci_staff = False
+        self.actor.role = ""
         self.actor.save()
         self.assertEqual(self.client.get(url).status_code, 403)
 
@@ -59,28 +59,28 @@ class StorageTests(TestCase):
         self.actor.set_password("test-puck-password")
         self.actor.save()
         with self.assertRaises(ValidationError):
-            register_puck(actor=self.actor, name="Orange", password="incorrect")
-        puck = register_puck(actor=self.actor, name=" Orange ", password="test-puck-password")
+            register_puck(actor=self.actor, name="Orange", approval="incorrect")
+        puck = register_puck(actor=self.actor, name=" Orange ", approval="approve")
         self.assertEqual(puck.color, "orange")
         self.assertFalse(puck.in_dewar)
         with self.assertRaises(ValidationError):
-            register_puck(actor=self.actor, name="ORANGE", password="test-puck-password")
+            register_puck(actor=self.actor, name="ORANGE", approval="approve")
         self.client.force_login(self.actor)
         url = reverse("registry:puck_inventory")
         self.assertContains(self.client.get(url), "0/12")
         self.assertEqual(
-            self.client.post(url, {"name": "Pink", "password": "test-puck-password"}).status_code,
+            self.client.post(url, {"name": "Pink", "approval": "approve"}).status_code,
             302,
         )
-        self.actor.is_cci_staff = False
+        self.actor.role = ""
         self.actor.save()
         with self.assertRaises(PermissionDenied):
-            register_puck(actor=self.actor, name="Denied", password="test-puck-password")
+            register_puck(actor=self.actor, name="Denied", approval="approve")
         self.assertEqual(self.client.get(url).status_code, 403)
 
     @classmethod
     def setUpTestData(cls):
-        cls.actor = get_user_model().objects.create_user(username="inventory", is_cci_staff=True)
+        cls.actor = get_user_model().objects.create_user(username="inventory", role="staff")
         cls.kind = GridBoxType.objects.get(code="mixed8")
         cls.puck = Puck.objects.first()
 
@@ -154,7 +154,7 @@ class StorageTests(TestCase):
         self.change(box, puck=self.puck)
         with self.assertRaises(ValidationError):
             self.change(box, "discard")
-        self.actor.is_cci_staff = False
+        self.actor.role = ""
         self.actor.save()
         with self.assertRaises(PermissionDenied):
             self.create("Denied")
@@ -238,15 +238,15 @@ class StorageTests(TestCase):
             reason="Entered by mistake",
         )
         with self.assertRaises(ValidationError):
-            correct_last_box_action(**args, password="incorrect")
-        box = correct_last_box_action(**args, password="test-correction-password")
+            correct_last_box_action(**args, approval="incorrect")
+        box = correct_last_box_action(**args, approval="approve")
         self.assertIsNone(box.transferred_at)
         self.assertEqual(box.puck_id, self.puck.pk)
         event.refresh_from_db()
         self.assertEqual(event.destination, "Partner lab")
         self.assertEqual(box.events.first().correction_of_id, event.pk)
         with self.assertRaises(ValidationError):
-            correct_last_box_action(**args, password="test-correction-password")
+            correct_last_box_action(**args, approval="approve")
 
     def test_correction_rejects_full_previous_puck(self):
         self.actor.set_password("test-correction-password")
@@ -261,7 +261,7 @@ class StorageTests(TestCase):
                 box_id=box.pk,
                 expected_version=box.version,
                 event_id=event.pk,
-                password="test-correction-password",
+                approval="approve",
                 reason="Mistake",
             )
         box.refresh_from_db()
@@ -282,7 +282,7 @@ class StorageTests(TestCase):
             "intent": "correct",
             "expected_version": box.version,
             "event_id": event.pk,
-            "password": "test-correction-password",
+            "approval": "approve",
             "reason": "Accidental discard",
         }
         from django.test import Client
@@ -303,7 +303,7 @@ class InventoryConcurrencyTests(TransactionTestCase):
 
         from .storage_models import Cane, Dewar
 
-        actor = get_user_model().objects.create_user(username="capacity", is_cci_staff=True)
+        actor = get_user_model().objects.create_user(username="capacity", role="staff")
         dewar, _ = Dewar.objects.get_or_create(name="Dewar 1")
         cane, _ = Cane.objects.get_or_create(dewar=dewar, name="Cane 1")
         puck, _ = Puck.objects.get_or_create(cane=cane, color="black")
@@ -343,7 +343,7 @@ class InventoryConcurrencyTests(TransactionTestCase):
         from .grid_storage import place_grid
         from .storage_models import Cane, Dewar
 
-        actor = get_user_model().objects.create_user(username="slot-race", is_cci_staff=True)
+        actor = get_user_model().objects.create_user(username="slot-race", role="staff")
         dewar, _ = Dewar.objects.get_or_create(name="Dewar 1")
         cane, _ = Cane.objects.get_or_create(dewar=dewar, name="Cane 1")
         puck, _ = Puck.objects.get_or_create(cane=cane, color="green")

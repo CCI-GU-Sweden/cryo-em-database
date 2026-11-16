@@ -1,16 +1,15 @@
 """Authorization rules used by HTTP views and direct service calls alike."""
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
-
-from accounts.models import User
 
 from .models import DeletedGrid, Grid, SampleOwner
 
 
 def current_staff(actor):
     # Reload privileges so stale user objects cannot retain a revoked account.
-    user = User.objects.filter(pk=getattr(actor, "pk", None), is_active=True).first()
-    if user is None or not (user.is_superuser or user.is_cci_staff):
+    user = get_user_model().objects.filter(pk=getattr(actor, "pk", None), is_active=True).first()
+    if user is None or user.role not in ("staff", "admin"):
         raise PermissionDenied("You need an active CCI staff account.")
     return user
 
@@ -26,11 +25,8 @@ def visible_grids(actor):
 
 
 def require_grid_importer(actor):
-    """Import is a write capability, explicitly requiring CCI membership."""
-    actor = current_staff(actor)
-    if not actor.is_cci_staff:
-        raise PermissionDenied("Only accounts marked CCI staff member can import Excel records.")
-    return actor
+    """Import is a write capability available to active Staff and Admin users."""
+    return current_staff(actor)
 
 
 def visible_owners(actor):

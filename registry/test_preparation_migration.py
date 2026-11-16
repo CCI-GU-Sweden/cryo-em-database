@@ -2,6 +2,7 @@
 
 import json
 
+from django.contrib.auth import get_user_model
 from django.db import DatabaseError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
@@ -19,7 +20,7 @@ class PrototypePreparationMigrationTests(TransactionTestCase):
             lambda: MigrationExecutor(connection).migrate(executor.loader.graph.leaf_nodes())
         )
         old = executor.loader.project_state(self.old_target).apps
-        user = old.get_model("accounts", "User").objects.create(username="migration-operator")
+        user = get_user_model().objects.create(username="migration-operator")
         owner = old.get_model("registry", "SampleOwner").objects.create(
             name="Migration Owner", code="miow"
         )

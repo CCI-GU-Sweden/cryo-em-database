@@ -24,12 +24,12 @@ class RegistryUserAdmin(UserAdmin):
         # Deactivate accounts instead: later grid events must retain their actor.
         return False
 
-    fieldsets = UserAdmin.fieldsets + (("Registry access", {"fields": ("is_cci_staff",)}),)
-    add_fieldsets = UserAdmin.add_fieldsets + (("Registry access", {"fields": ("is_cci_staff",)}),)
+    fieldsets = UserAdmin.fieldsets + (("Registry access", {"fields": ("role",)}),)
+    add_fieldsets = UserAdmin.add_fieldsets + (("Registry access", {"fields": ("role",)}),)
     list_display = (
         *(
             "administration_site_access" if field == "is_staff" else field
             for field in UserAdmin.list_display
         ),
-        "is_cci_staff",
+        "role",
     )

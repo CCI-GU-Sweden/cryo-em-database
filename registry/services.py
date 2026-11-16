@@ -333,7 +333,7 @@ def create_sample_owner(*, actor, name, affiliation="", notes="", preferred_code
 def save_administration_record(*, actor, instance, preferred_code=""):
     """Admin forms validate input first; this boundary enforces access and auditing."""
     actor = current_staff(actor)
-    if not actor.is_superuser:
+    if actor.role != "admin":
         raise PermissionDenied("Only a facility administrator can manage owners and grants.")
     if not isinstance(instance, (SampleOwner, OwnerAccessGrant)):
         raise ValidationError("Unsupported administration record.")
@@ -363,21 +363,17 @@ def save_administration_record(*, actor, instance, preferred_code=""):
     return instance
 
 
-@sensitive_variables("password")
+@sensitive_variables("approval")
 @transaction.atomic
-def archive_grid(*, actor, grid_id, password, expected_version):
-    """Reauthenticate the acting staff member before moving one record to archive.
+def archive_grid(*, actor, grid_id, approval, expected_version):
+    """Confirm the authorized staff action before moving one record to archive.
 
     This corrects a database registration mistake; it is not a physical discard
     event. Lock the grid to serialize deletion with edits and repeat submissions.
     """
     actor = current_staff(actor)
-    if not actor.has_usable_password():
-        raise ValidationError(
-            {"password": "This account has no local password. Contact an administrator."}
-        )
-    if not isinstance(password, str) or not actor.check_password(password):
-        raise ValidationError({"password": "Your password is incorrect. The grid was not deleted."})
+    if not isinstance(approval, str) or approval.strip() != "approve":
+        raise ValidationError({"approval": "Type approve to confirm."})
     from .storage import lock_inventory
 
     lock_inventory()

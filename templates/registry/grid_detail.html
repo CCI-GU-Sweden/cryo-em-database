@@ -21,7 +21,7 @@
 {% include "registry/audit_history.html" %}
 <section class="danger-zone">
 <h2>Remove a mistaken registration</h2>
-<p>Move this record to Deleted grids. You will need to re-enter your password.</p>
+<p>Move this record to Deleted grids. You will be asked to type approve.</p>
 <form method="get" action="{% url 'registry:grid_delete' grid.pk %}">
 <button type="submit" class="danger-button">Delete</button>
 </form>

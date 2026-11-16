@@ -3,6 +3,10 @@
 **Last reviewed:** 2026-11-16\
 **Status:** Current preparation schema plus agreed future storage/lifecycle design
 
+The next identity/role migration and typed approval changes are defined in
+[plan.md](../plan.md). Existing CCI membership flags and password confirmations
+below describe the current baseline; the plan records their agreed replacement.
+
 `registry/models.py` and its migrations define the implemented schema; the
 [generated Grid field reference](#generated-grid-field-reference) below checks
 its exact types. GridEvent is implemented for clipping, grid placement/movement

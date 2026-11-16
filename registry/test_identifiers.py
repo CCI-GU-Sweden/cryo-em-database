@@ -20,7 +20,7 @@ User = get_user_model()
 class GridIdentifierTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.actor = User.objects.create_user(username="synthetic-operator", is_cci_staff=True)
+        cls.actor = User.objects.create_user(username="synthetic-operator", role="staff")
         cls.owner = SampleOwner.objects.create(name="Alpha Owner", code="alow")
         cls.other_owner = SampleOwner.objects.create(name="Beta Owner", code="beow")
 
@@ -126,7 +126,7 @@ class GridIdentifierTests(TestCase):
 
 class ConcurrentIdentifierRetries(TransactionTestCase):
     def test_duplicate_simultaneous_requests_allocate_only_one_batch(self):
-        actor = User.objects.create_user(username="retry-operator", is_cci_staff=True)
+        actor = User.objects.create_user(username="retry-operator", role="staff")
         owner = SampleOwner.objects.create(name="Retry Owner", code="reow")
         token, timestamp = uuid4(), timezone.now()
         barrier = Barrier(2)
@@ -157,7 +157,7 @@ class ConcurrentIdentifierRetries(TransactionTestCase):
     def test_reused_token_across_owners_reports_validation_error_without_partial_records(self):
         from unittest.mock import patch
 
-        actor = User.objects.create_user(username="cross-owner-operator", is_cci_staff=True)
+        actor = User.objects.create_user(username="cross-owner-operator", role="staff")
         owners = [
             SampleOwner.objects.create(name="First Owner", code="fiow"),
             SampleOwner.objects.create(name="Second Owner", code="seow"),

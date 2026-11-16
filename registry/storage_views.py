@@ -45,11 +45,7 @@ class BoxActionForm(forms.Form):
 
 
 class BoxCorrectionForm(forms.Form):
-    password = forms.CharField(
-        label="Your password",
-        strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
-    )
+    approval = forms.CharField(label="Type approve to confirm", max_length=30)
     reason = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}))
     expected_version = forms.IntegerField(widget=forms.HiddenInput)
     event_id = forms.IntegerField(widget=forms.HiddenInput)
@@ -98,7 +94,7 @@ def inventory(request):
 
 
 @login_required
-@sensitive_post_parameters("password")
+@sensitive_post_parameters("approval")
 def box_detail(request, pk):
     current_staff(request.user)
     box = get_object_or_404(GridBox.objects.select_related("box_type", "puck"), pk=pk)
@@ -145,7 +141,7 @@ def box_detail(request, pk):
 
 
 @login_required
-@sensitive_post_parameters("password")
+@sensitive_post_parameters("approval")
 def puck_inventory(request):
     from .storage import register_puck
 
@@ -170,11 +166,7 @@ def puck_inventory(request):
 
 class PuckRegistrationForm(forms.Form):
     name = forms.CharField(max_length=40, label="Puck name / colour")
-    password = forms.CharField(
-        label="Your password",
-        strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
-    )
+    approval = forms.CharField(label="Type approve to confirm", max_length=30)
 
 
 @login_required

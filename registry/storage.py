@@ -59,16 +59,12 @@ def register_box(*, actor, name, box_type_id, puck_id=None):
     return box
 
 
-@sensitive_variables("password")
+@sensitive_variables("approval")
 @transaction.atomic
-def correct_last_box_action(*, actor, box_id, expected_version, event_id, password, reason):
+def correct_last_box_action(*, actor, box_id, expected_version, event_id, approval, reason):
     actor = current_staff(actor)
-    if (
-        not actor.has_usable_password()
-        or not isinstance(password, str)
-        or not actor.check_password(password)
-    ):
-        raise ValidationError({"password": "Your password is incorrect. No action was corrected."})
+    if not isinstance(approval, str) or approval.strip() != "approve":
+        raise ValidationError({"approval": "Type approve to confirm."})
     reason = reason.strip()
     if not reason:
         raise ValidationError({"reason": "Enter a reason for this correction."})
@@ -281,18 +277,14 @@ def sync_puck_locations(*, actor, emptied_puck_ids=()):
         )
 
 
-@sensitive_variables("password")
+@sensitive_variables("approval")
 @transaction.atomic
-def register_puck(*, actor, name, password):
+def register_puck(*, actor, name, approval):
     from .storage_models import Cane, PuckEvent
 
     actor = current_staff(actor)
-    if (
-        not actor.has_usable_password()
-        or not isinstance(password, str)
-        or not actor.check_password(password)
-    ):
-        raise ValidationError({"password": "Your password is incorrect. No puck was registered."})
+    if not isinstance(approval, str) or approval.strip() != "approve":
+        raise ValidationError({"approval": "Type approve to confirm."})
     color = "_".join(name.strip().casefold().replace("_", " ").split())
     if not color:
         raise ValidationError({"name": "Enter a puck name / colour."})

@@ -19,9 +19,7 @@ from .suggestions import preparation_suggestions
 class PreparationConventionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.actor = get_user_model().objects.create_user(
-            username="wording-operator", is_cci_staff=True
-        )
+        cls.actor = get_user_model().objects.create_user(username="wording-operator", role="staff")
         cls.owner = SampleOwner.objects.create(name="Synthetic Wording Owner", code="sywo")
 
     def create(self, **preparation):

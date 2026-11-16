@@ -10,7 +10,7 @@ from .services import save_administration_record, suggest_owner_code
 class FacilityAdministration(admin.ModelAdmin):
     # Django's staff flag alone does not give facility-wide authority.
     def has_module_permission(self, request):
-        return request.user.is_active and request.user.is_superuser
+        return request.user.is_active and request.user.role == "admin"
 
     def has_view_permission(self, request, obj=None):
         return self.has_module_permission(request)

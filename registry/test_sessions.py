@@ -21,9 +21,9 @@ class SessionBrowserTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.operator = User.objects.create_user(
-            username="synthetic-jens", first_name="Jens", last_name="Synthetic", is_cci_staff=True
+            username="synthetic-jens", first_name="Jens", last_name="Synthetic", role="staff"
         )
-        cls.colleague = User.objects.create_user(username="synthetic-colleague", is_cci_staff=True)
+        cls.colleague = User.objects.create_user(username="synthetic-colleague", role="staff")
         cls.owner = SampleOwner.objects.create(name="Alpha synthetic owner", code="rasi")
         cls.other_owner = SampleOwner.objects.create(name="Beta synthetic owner", code="beow")
         cls.first = create_preparation_session(

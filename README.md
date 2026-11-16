@@ -4,10 +4,12 @@
 **Last reviewed:** 2026-11-04\
 **Status:** Local prototype with preparation registration, browsing, audited editing, deletion archive and Excel transfer
 
-This repository contains the local prototype and working specifications for an internal application to register cryo-electron microscopy (cryo-EM) grids at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; physical storage/lifecycle tracking and restricted external access remain later work.
+This repository contains the grid registry and working specifications for an internal application at the Centre for Cellular Imaging (CCI). Preparation, storage and screening/disposition workflows are implemented for CCI staff. Dashboard integration and researcher access are not yet implemented.
 
 For delivered features, remaining work and the next proposed slice, see the
-[current implementation status](docs/04_DEVELOPMENT_ROADMAP.md#current-implementation--2026-11-04).
+[dashboard integration roadmap](plan.md). Stage 1 will align shared roles and
+replace sensitive-action password confirmation with typed `approve`; the local
+instructions below describe the current implementation until that change lands.
 
 ## Local development environment
 
@@ -247,7 +249,7 @@ conda list --prefix ./.conda --explicit --md5 > environment-linux-64.lock
 1. [`docs/01_PRODUCT_BRIEF.md`](docs/01_PRODUCT_BRIEF.md) — problem, operational workflow, goals, scope, and design principles.
 2. [`docs/02_SCHEMA_V0_1.md`](docs/02_SCHEMA_V0_1.md) — agreed entities, field-level structure, invariants, lifecycle, and relationships.
 3. [`docs/03_ARCHITECTURE_AND_SECURITY.md`](docs/03_ARCHITECTURE_AND_SECURITY.md) — candidate Django implementation, forms and bulk editing, identity, authorization, and audit requirements.
-4. [`docs/04_DEVELOPMENT_ROADMAP.md`](docs/04_DEVELOPMENT_ROADMAP.md) — vertical slices, milestones, dependencies, and delivery criteria.
+4. [`plan.md`](plan.md) — dashboard integration stages, shared roles and standalone development requirements.
 5. [`docs/05_EXCEL_IMPORT_SPEC.md`](docs/05_EXCEL_IMPORT_SPEC.md) — exact workbook column map, data-quality issues, and import behavior.
 6. [`docs/06_ACCEPTANCE_TESTS.md`](docs/06_ACCEPTANCE_TESTS.md) — scenarios and tests Codex should implement.
 7. [`docs/07_OPEN_DECISIONS.md`](docs/07_OPEN_DECISIONS.md) — bounded unresolved details; do not silently invent a scientific convention.

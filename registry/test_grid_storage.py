@@ -35,13 +35,13 @@ class GridStorageTests(TestCase):
             "intent": "correct_status",
             "expected_version": grid.version,
             "event_id": event.pk,
-            "password": "wrong",
+            "approval": "wrong",
             "reason": "mistake",
         }
-        self.assertContains(self.client.post(url, data), "Your password is incorrect")
+        self.assertContains(self.client.post(url, data), "Type approve to confirm")
         grid.refresh_from_db()
         self.assertEqual(grid.status, Grid.Status.DISCARDED)
-        response = self.client.post(url, {**data, "password": "test-storage"})
+        response = self.client.post(url, {**data, "approval": "approve"})
         self.assertRedirects(response, url)
         grid.refresh_from_db()
         self.assertEqual(grid.status, Grid.Status.IN_STORAGE)
@@ -66,9 +66,9 @@ class GridStorageTests(TestCase):
             event_id=event.pk,
             reason="Mistake",
         )
-        with self.assertRaisesMessage(ValidationError, "password is incorrect"):
-            correct_grid_outcome(**kwargs, password="wrong")
-        corrected = correct_grid_outcome(**kwargs, password="test-storage")
+        with self.assertRaisesMessage(ValidationError, "Type approve to confirm"):
+            correct_grid_outcome(**kwargs, approval="wrong")
+        corrected = correct_grid_outcome(**kwargs, approval="approve")
         slot.refresh_from_db()
         self.assertEqual(slot.grid_id, grid.pk)
         self.assertEqual(corrected.status, Grid.Status.IN_STORAGE)
@@ -78,7 +78,7 @@ class GridStorageTests(TestCase):
             event.pk,
         )
         with self.assertRaises(ValidationError):
-            correct_grid_outcome(**kwargs, password="test-storage")
+            correct_grid_outcome(**kwargs, approval="approve")
 
     def test_correction_refuses_slot_reused_by_another_grid(self):
         grid, other = self.session.grids.all()
@@ -99,7 +99,7 @@ class GridStorageTests(TestCase):
                 grid_id=grid.pk,
                 expected_version=grid.version,
                 event_id=event.pk,
-                password="test-storage",
+                approval="approve",
                 reason="Mistake",
             )
         grid.refresh_from_db()
@@ -498,7 +498,7 @@ class GridStorageTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.actor = get_user_model().objects.create_user(
-            username="placer", is_cci_staff=True, password="test-storage"
+            username="placer", role="staff", password="test-storage"
         )
         cls.owner = SampleOwner.objects.create(name="Storage owner", code="stow")
         cls.session = create_preparation_session(
@@ -564,7 +564,7 @@ class GridStorageTests(TestCase):
             box_id=box.pk,
             expected_version=box.version,
             event_id=box.events.first().pk,
-            password="test-storage",
+            approval="approve",
             reason="Mistake",
         )
         self.assertNotIn("Transferred", location(a))

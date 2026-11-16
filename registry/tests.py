@@ -36,8 +36,8 @@ class RegistrationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.admin = User.objects.create_superuser(username="demo-admin")
-        cls.editor = User.objects.create_user(username="demo-editor", is_cci_staff=True)
-        cls.reader = User.objects.create_user(username="demo-reader", is_cci_staff=True)
+        cls.editor = User.objects.create_user(username="demo-editor", role="staff")
+        cls.reader = User.objects.create_user(username="demo-reader", role="staff")
         cls.owner = SampleOwner.objects.create(name="Synthetic Owner", code="syow")
         cls.other_owner = SampleOwner.objects.create(name="Other Owner", code="other")
         OwnerAccessGrant.objects.create(user=cls.editor, owner=cls.owner, role="editor")

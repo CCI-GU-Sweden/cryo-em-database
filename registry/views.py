@@ -54,11 +54,7 @@ class GridOutcomeForm(forms.Form):
 
 
 class GridStatusCorrectionForm(forms.Form):
-    password = forms.CharField(
-        label="Your password",
-        strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
-    )
+    approval = forms.CharField(label="Type approve to confirm", max_length=30)
     reason = forms.CharField(
         label="Reason for correction", max_length=2000, widget=forms.Textarea(attrs={"rows": 2})
     )
@@ -240,7 +236,7 @@ def session_detail(request, pk):
 
 
 @login_required
-@sensitive_post_parameters("password")
+@sensitive_post_parameters("approval")
 def grid_detail(request, pk):
     current_staff(request.user)
     grid = get_object_or_404(Grid.objects.active().select_related("session__owner"), pk=pk)
@@ -347,7 +343,7 @@ def grid_detail(request, pk):
 
 @login_required
 @require_http_methods(["GET", "POST"])
-@sensitive_post_parameters("password")
+@sensitive_post_parameters("approval")
 def grid_delete(request, pk):
     current_staff(request.user)
     grid = get_object_or_404(Grid.objects.select_related("session__owner"), pk=pk)
@@ -359,7 +355,7 @@ def grid_delete(request, pk):
             archive_grid(
                 actor=request.user,
                 grid_id=grid.pk,
-                password=form.cleaned_data["password"],
+                approval=form.cleaned_data["approval"],
                 expected_version=form.cleaned_data["expected_version"],
             )
         except ValidationError as error:

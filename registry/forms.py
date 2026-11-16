@@ -186,11 +186,7 @@ class SessionBrowseForm(forms.Form):
 
 
 class DeleteGridForm(forms.Form):
-    password = forms.CharField(
-        label="Your password",
-        strip=False,
-        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
-    )
+    approval = forms.CharField(label="Type approve to confirm", max_length=30)
     expected_version = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
 
 

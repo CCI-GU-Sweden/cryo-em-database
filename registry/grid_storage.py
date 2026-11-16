@@ -261,20 +261,16 @@ def record_grid_outcome(*, actor, grid_id, outcome, reason, expected_version):
     return grid
 
 
-@sensitive_variables("password")
+@sensitive_variables("approval")
 @transaction.atomic
-def correct_grid_outcome(*, actor, grid_id, expected_version, event_id, password, reason):
+def correct_grid_outcome(*, actor, grid_id, expected_version, event_id, approval, reason):
     from .services import record_audit
 
     lock_inventory()
     grid = Grid.objects.select_for_update().get(pk=grid_id)
     actor = require_grid_editor(actor, grid)
-    if (
-        not actor.has_usable_password()
-        or not isinstance(password, str)
-        or not actor.check_password(password)
-    ):
-        raise ValidationError("Your password is incorrect. No status was corrected.")
+    if not isinstance(approval, str) or approval.strip() != "approve":
+        raise ValidationError("Type approve to confirm.")
     reason = reason.strip()
     if not reason:
         raise ValidationError("Enter a reason for this correction.")

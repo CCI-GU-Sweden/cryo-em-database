@@ -26,10 +26,10 @@ class GridDeletionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.operator = User.objects.create_user(
-            username="archive-operator", password=cls.operator_password, is_cci_staff=True
+            username="archive-operator", password=cls.operator_password, role="staff"
         )
         cls.reviewer = User.objects.create_user(
-            username="archive-reviewer", password=cls.reviewer_password, is_cci_staff=True
+            username="archive-reviewer", password=cls.reviewer_password, role="staff"
         )
         cls.outsider = User.objects.create_user(username="archive-outsider", is_staff=True)
         cls.owner = SampleOwner.objects.create(name="Synthetic Archive Owner", code="syar")
@@ -48,7 +48,7 @@ class GridDeletionTests(TestCase):
         arguments = dict(
             actor=self.reviewer,
             grid_id=self.grid.pk,
-            password=self.reviewer_password,
+            approval="approve",
             expected_version=self.grid.version,
         )
         arguments.update(overrides)
@@ -56,7 +56,7 @@ class GridDeletionTests(TestCase):
 
     def confirmation_data(self, **overrides):
         data = {
-            "password": self.reviewer_password,
+            "approval": "approve",
             "expected_version": self.grid.version,
         }
         data.update(overrides)
@@ -84,15 +84,15 @@ class GridDeletionTests(TestCase):
     def test_wrong_and_unusable_passwords_do_not_delete(self):
         before = AuditEvent.objects.count()
         for overrides in [
-            {"password": "wrong-password"},
-            {"password": self.operator_password},
-            {"password": ""},
+            {"approval": "wrong-password"},
+            {"approval": self.operator_password},
+            {"approval": ""},
         ]:
             with self.subTest(overrides=overrides), self.assertRaises(ValidationError):
                 self.archive(**overrides)
-        no_password = User.objects.create_user(username="no-local-password", is_cci_staff=True)
-        with self.assertRaisesMessage(ValidationError, "no local password"):
-            self.archive(actor=no_password)
+        no_password = User.objects.create_user(username="no-local-password", role="staff")
+        with self.assertRaises(ValidationError):
+            self.archive(actor=no_password, approval="invalid")
         self.assertEqual(AuditEvent.objects.count(), before)
         self.assertFalse(DeletedGrid.objects.exists())
         self.assertTrue(Grid.objects.active().filter(pk=self.grid.pk).exists())
@@ -137,7 +137,7 @@ class GridDeletionTests(TestCase):
         self.assertEqual(DeletedGrid.objects.count(), 1)
         self.assertEqual(AuditEvent.objects.filter(operation="archive").count(), 1)
         with self.assertRaises(ValidationError):
-            self.archive(password="wrong-password")
+            self.archive(approval="wrong-password")
 
     def test_archived_record_cannot_be_edited_or_unarchived_by_bulk_updates(self):
         self.archive()
@@ -161,13 +161,12 @@ class GridDeletionTests(TestCase):
         url = reverse("registry:grid_delete", args=[self.grid.pk])
         self.assertContains(self.client.get(detail), 'class="danger-button">Delete</button>')
         confirmation = self.client.get(url)
-        self.assertContains(confirmation, 'type="password"')
+        self.assertContains(confirmation, 'name="approval"')
         self.assertContains(confirmation, self.grid.grid_number)
         self.assertNotContains(confirmation, 'name="confirmation"')
         self.assertFalse(DeletedGrid.objects.exists())
-        response = self.client.post(url, self.confirmation_data(password="test-secret-not-echoed"))
-        self.assertContains(response, "Your password is incorrect")
-        self.assertNotContains(response, "test-secret-not-echoed")
+        response = self.client.post(url, self.confirmation_data(approval="test-secret-not-echoed"))
+        self.assertContains(response, "Type approve to confirm")
         self.assertFalse(DeletedGrid.objects.exists())
         self.assertRedirects(
             self.client.post(url, self.confirmation_data()), reverse("registry:grid_list")
@@ -243,7 +242,7 @@ class GridDeletionTests(TestCase):
         client.force_login(self.reviewer)
         self.assertEqual(client.post(url, self.confirmation_data()).status_code, 403)
         self.client.force_login(self.reviewer)
-        response = self.client.post(url, {"password": self.reviewer_password})
+        response = self.client.post(url, {"approval": "approve"})
         self.assertEqual(response.status_code, 200)
         self.assertFalse(DeletedGrid.objects.exists())
         self.assertEqual(self.client.delete(url).status_code, 405)
@@ -253,7 +252,7 @@ class ConcurrentGridDeletionTests(TransactionTestCase):
     def test_simultaneous_confirmation_creates_one_archive_entry_and_audit_event(self):
         password = "test-only-concurrent-password"
         user = User.objects.create_user(
-            username="concurrent-archiver", password=password, is_cci_staff=True
+            username="concurrent-archiver", password=password, role="staff"
         )
         owner = SampleOwner.objects.create(name="Concurrent archive owner", code="caow")
         grid = create_preparation_session(
@@ -273,7 +272,7 @@ class ConcurrentGridDeletionTests(TransactionTestCase):
                 return archive_grid(
                     actor=user,
                     grid_id=grid.pk,
-                    password=password,
+                    approval="approve",
                     expected_version=grid.version,
                 ).pk
             finally:

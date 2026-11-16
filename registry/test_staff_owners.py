@@ -25,10 +25,8 @@ User = get_user_model()
 class StaffOwnerRegistrationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.staff = User.objects.create_user(username="synthetic-operator", is_cci_staff=True)
-        cls.other_staff = User.objects.create_user(
-            username="synthetic-colleague", is_cci_staff=True
-        )
+        cls.staff = User.objects.create_user(username="synthetic-operator", role="staff")
+        cls.other_staff = User.objects.create_user(username="synthetic-colleague", role="staff")
         cls.outsider = User.objects.create_user(username="synthetic-outsider", is_staff=True)
         cls.existing_owner = SampleOwner.objects.create(name="Existing Owner", code="exow")
 

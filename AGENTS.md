@@ -8,6 +8,10 @@ Current-format Excel import, preview and templates require the explicit CCI staf
 
 ## Authoritative documents
 
+- Read `plan.md` for the agreed dashboard integration roadmap. Stage 1 aligns
+  standalone roles with dashboard Pending/Researcher/Staff/Admin and replaces
+  sensitive-action password re-entry with typed `approve`. These are planned
+  changes until implemented; older CCI-flag/password notes describe the baseline.
 - Read `docs/01_PRODUCT_BRIEF.md` for user workflow and MVP scope.
 - Read `docs/02_SCHEMA_V0_1.md` for invariants and field structure.
 - Read `docs/05_EXCEL_IMPORT_SPEC.md` before writing migrations or importer.
