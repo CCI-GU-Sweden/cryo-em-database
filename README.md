@@ -363,7 +363,8 @@ Individual parameters occupy separate columns; numeric measurements use two
 fractional places. Supporting Owners and Sessions sheets preserve owner details,
 explicit session membership and original session-default snapshots.
 
-Any active CCI staff member can choose **Import Excel workbook**, upload a current
+Excel import is currently hidden from the site and reserved for future review.
+The existing importer allows an active CCI staff member to upload a current
 export, review the preview, then confirm within 20 minutes. Missing owners are
 listed by name/code and created on confirmation. Import never creates accounts or
 access grants. Known preparation operators are preserved; unknown logins stay
@@ -388,7 +389,8 @@ Copied-from relationships are excluded from the workbook. A filtered subset does
 not need to include a source grid, and importing does not change existing links.
 
 
-For hand entry, use **Import Excel workbook → Download a blank import template**.
+The existing import page supplies a blank template for hand entry when the
+workflow is made available again.
 Fill in Grids and Owners. The **Session** column accepts simple labels such as
 `session-1` and `session-2`; rows with one label must describe the same preparation
 and owner. Labels belong to the workbook and do not need to match existing session
@@ -410,7 +412,7 @@ use C1–C4 and U1–U4. If a box is in stock, choose a puck with space; placeme
 records both actions together. **Register new gridbox** creates a box inline and
 returns to the same grid. Missing storage displays **Unknown — needs review**.
 
-Individual grid preparation groups can be expanded/collapsed and start open.
+Individual grid preparation groups can be expanded/collapsed and start closed.
 Clipping status can be changed after Freezing and blotting; an incompatible
 recorded slot is released with a warning and retained history. Box transfers and
 corrections are reflected in contained grids' history and current location.
@@ -419,4 +421,6 @@ corrections are reflected in contained grids' history and current location.
 of 12 and links to the boxes inside each puck. Staff can register a new unique
 puck name/colour using their own password. For the pilot, pucks with grids are
 assumed to be in the dewar and pucks without grids are assumed to be in stock.
-Imaging/removal, disposal, off-site returns and bulk placement remain future work.
+Grid detail records screening outcomes and disposal, with password-confirmed
+correction of the latest status action. Off-site returns and bulk placement
+remain future work.

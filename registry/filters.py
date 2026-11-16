@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.forms import BaseFormSet, formset_factory
 
 from .grid_storage import slot_label
+from .models import Grid
 from .permissions import visible_grids
 from .storage_models import GridBox, GridBoxType, GridSlot, Puck
 from .tables import COLUMN_BY_KEY, COLUMNS
@@ -14,7 +15,11 @@ class GridPropertyFilter(forms.Form):
     property = forms.ChoiceField(
         required=False,
         choices=[("", "Choose a property")]
-        + [(column["key"], column["label"]) for column in COLUMNS if column["key"] != "storage"],
+        + [
+            (column["key"], column["label"])
+            for column in COLUMNS
+            if column["key"] not in {"storage", "status"}
+        ],
     )
     contains = forms.CharField(required=False, max_length=200)
     minimum = forms.DecimalField(required=False, max_digits=30, decimal_places=10)
@@ -136,8 +141,21 @@ GridFilterSet = formset_factory(
 def search_registry(parameters, *, actor):
     """Use the same selection for the on-screen registry and its Excel export."""
     query = parameters.get("q", "").strip()
-    grids = visible_grids(actor).select_related(
-        "session__owner", "session__prepared_by", "gridslot__box__puck", "gridslot__box__box_type"
+    grids = (
+        visible_grids(actor)
+        .select_related(
+            "session__owner",
+            "session__prepared_by",
+            "gridslot__box__puck",
+            "gridslot__box__box_type",
+        )
+        .exclude(
+            status__in=[
+                Grid.Status.DISCARDED,
+                Grid.Status.SCREENED_DISCARDED,
+                Grid.Status.TRANSFERRED,
+            ]
+        )
     )
     if query:
         grids = grids.filter(

@@ -219,9 +219,20 @@ def record_box_event(**values):
                 "destination": event.destination,
                 "from_puck": str(event.from_puck) if event.from_puck else "",
                 "to_puck": str(event.to_puck) if event.to_puck else "",
+                "previous_status": grid.status,
             },
         )
-        Grid.objects.filter(pk=grid.pk).update(version=grid.version + 1)
+        status = grid.status
+        if event.operation == "transfer":
+            status = Grid.Status.TRANSFERRED
+        elif event.operation == "correction" and event.correction_of.operation == "transfer":
+            original = grid.physical_events.filter(box_event=event.correction_of).first()
+            status = (
+                original.details.get("previous_status", Grid.Status.IN_STORAGE)
+                if original
+                else Grid.Status.IN_STORAGE
+            )
+        Grid.objects.filter(pk=grid.pk).update(version=grid.version + 1, status=status)
     sync_puck_locations(
         actor=event.actor,
         emptied_puck_ids=(

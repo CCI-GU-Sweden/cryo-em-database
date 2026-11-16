@@ -3,7 +3,7 @@
 {% block title %}Grids · CCI Grid Registry{% endblock %}
 {% block content %}
 <h1>Grid registry</h1>
-<p><a href="{% url 'registry:new_session' %}">New preparation session</a> · <a href="{% url 'registry:deleted_grid_list' %}">Deleted grids</a></p>
+<p><a href="{% url 'registry:new_session' %}">New preparation session</a> · <a href="{% url 'registry:transferred_grid_list' %}">Transferred grids</a> · <a href="{% url 'registry:discarded_grid_list' %}">Discarded grids</a> · <a href="{% url 'registry:deleted_grid_list' %}">Deleted grids</a></p>
 <form method="get" id="registry-filters">
 <label for="search">Search grid ID, sample, owner or experiment</label>
 <input id="search" name="q" value="{{ query }}">
@@ -31,8 +31,7 @@
 <button type="submit">Apply search and filters</button>
 <a href="{% url 'registry:grid_list' %}">Clear filters</a>
 </form>
-<p><a href="{% url 'registry:excel_export' %}?{{ filter_query }}">Export filtered grids to Excel</a>
-{% if user.is_cci_staff %} · <a href="{% url 'registry:excel_import' %}">Import Excel workbook</a>{% endif %}</p>
+<p><a href="{% url 'registry:excel_export' %}?{{ filter_query }}">Export filtered grids to Excel</a></p>
 <p>Export includes every matching grid across all pages and all preparation fields.</p>
 {{ filter_kinds|json_script:"filter-kinds" }}
 <script src="{% static 'grid_filters.js' %}?v=2" defer></script>

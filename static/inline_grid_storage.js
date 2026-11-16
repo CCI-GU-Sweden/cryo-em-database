@@ -14,6 +14,23 @@ if (inlineStorage) {
   let busy = false;
   let stale = false;
 
+  document.getElementById('grid-outcome-form')?.addEventListener('submit', event => {
+    if (snapshot() !== saved && !window.confirm('You have unsaved preparation changes. Continue and discard those changes?')) event.preventDefault();
+  });
+  document.getElementById('grid-correction-form')?.addEventListener('submit', event => {
+    if (snapshot() !== saved && !window.confirm('You have unsaved preparation changes. Continue and discard those changes?')) event.preventDefault();
+  });
+  const outcomeForm = document.getElementById('grid-outcome-form');
+  if (outcomeForm) {
+    const outcome = outcomeForm.elements.namedItem('outcome');
+    const reason = outcomeForm.elements.namedItem('reason');
+    const defaultReason = 'Imaged but not recovered';
+    outcome.addEventListener('change', () => {
+      if (outcome.value === 'screened_discarded' && !reason.value.trim()) reason.value = defaultReason;
+      else if (outcome.value !== 'screened_discarded' && reason.value === defaultReason) reason.value = '';
+    });
+  }
+
   async function load(url, options = {}, placing = false) {
     if (busy) return;
     busy = true;
@@ -28,6 +45,10 @@ if (inlineStorage) {
       if (!content) throw new Error('Please refresh the page and sign in again if needed.');
       if (placing && content.dataset.placed === '1') {
         version.value = content.dataset.version;
+        const outcomeVersion = document.querySelector('#grid-outcome-form [name="expected_version"]');
+        if (outcomeVersion) outcomeVersion.value = content.dataset.version;
+        const gridStatus = document.querySelector('[data-grid-status]');
+        if (gridStatus && gridStatus.textContent === 'Unknown — needs review') gridStatus.textContent = 'In storage';
         clipped.checked = content.dataset.clipped === '1';
         document.querySelector('[data-grid-clipping-label]').textContent = clipped.checked ? 'Clipped' : 'Unclipped';
         saved = snapshot();

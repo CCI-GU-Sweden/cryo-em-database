@@ -1,3 +1,4 @@
+from io import BytesIO
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
@@ -6,14 +7,165 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .grid_storage import location, place_grid
-from .models import SampleOwner
+from .excel import read_workbook
+from .grid_storage import correct_grid_outcome, location, place_grid, record_grid_outcome
+from .models import Grid, SampleOwner
 from .services import create_preparation_session
 from .storage import change_box, correct_last_box_action, register_box
 from .storage_models import GridBoxType, Puck
 
 
 class GridStorageTests(TestCase):
+    def test_status_correction_form_requires_password_and_reason(self):
+        grid = self.place(
+            self.session.grids.first(), self.box.slots.filter(side="unclipped").first()
+        )
+        grid = record_grid_outcome(
+            actor=self.actor,
+            grid_id=grid.pk,
+            outcome=Grid.Status.DISCARDED,
+            reason="",
+            expected_version=grid.version,
+        )
+        event = grid.physical_events.order_by("-pk").first()
+        self.client.force_login(self.actor)
+        url = reverse("registry:grid_detail", args=[grid.pk])
+        self.assertContains(self.client.get(url), "Correct last status change")
+        data = {
+            "intent": "correct_status",
+            "expected_version": grid.version,
+            "event_id": event.pk,
+            "password": "wrong",
+            "reason": "mistake",
+        }
+        self.assertContains(self.client.post(url, data), "Your password is incorrect")
+        grid.refresh_from_db()
+        self.assertEqual(grid.status, Grid.Status.DISCARDED)
+        response = self.client.post(url, {**data, "password": "test-storage"})
+        self.assertRedirects(response, url)
+        grid.refresh_from_db()
+        self.assertEqual(grid.status, Grid.Status.IN_STORAGE)
+
+    def test_correct_discard_requires_password_restores_slot_and_preserves_events(self):
+        grid = self.place(
+            self.session.grids.first(), self.box.slots.filter(side="unclipped").first()
+        )
+        slot = grid.gridslot
+        grid = record_grid_outcome(
+            actor=self.actor,
+            grid_id=grid.pk,
+            outcome=Grid.Status.SCREENED_DISCARDED,
+            reason="lost",
+            expected_version=grid.version,
+        )
+        event = grid.physical_events.order_by("-pk").first()
+        kwargs = dict(
+            actor=self.actor,
+            grid_id=grid.pk,
+            expected_version=grid.version,
+            event_id=event.pk,
+            reason="Mistake",
+        )
+        with self.assertRaisesMessage(ValidationError, "password is incorrect"):
+            correct_grid_outcome(**kwargs, password="wrong")
+        corrected = correct_grid_outcome(**kwargs, password="test-storage")
+        slot.refresh_from_db()
+        self.assertEqual(slot.grid_id, grid.pk)
+        self.assertEqual(corrected.status, Grid.Status.IN_STORAGE)
+        self.assertEqual(grid.physical_events.filter(operation="discarded").count(), 1)
+        self.assertEqual(
+            grid.physical_events.get(operation="status_correction").details["corrected_event_id"],
+            event.pk,
+        )
+        with self.assertRaises(ValidationError):
+            correct_grid_outcome(**kwargs, password="test-storage")
+
+    def test_correction_refuses_slot_reused_by_another_grid(self):
+        grid, other = self.session.grids.all()
+        slot = self.box.slots.filter(side="unclipped").first()
+        grid = self.place(grid, slot)
+        grid = record_grid_outcome(
+            actor=self.actor,
+            grid_id=grid.pk,
+            outcome=Grid.Status.DISCARDED,
+            reason="",
+            expected_version=grid.version,
+        )
+        event = grid.physical_events.order_by("-pk").first()
+        self.place(other, slot)
+        with self.assertRaisesMessage(ValidationError, "slot is occupied"):
+            correct_grid_outcome(
+                actor=self.actor,
+                grid_id=grid.pk,
+                expected_version=grid.version,
+                event_id=event.pk,
+                password="test-storage",
+                reason="Mistake",
+            )
+        grid.refresh_from_db()
+        self.assertEqual(grid.status, Grid.Status.DISCARDED)
+
+    def test_screen_recover_then_discard_releases_slot_and_preserves_history(self):
+        grid = self.session.grids.first()
+        slot = self.box.slots.filter(side="unclipped").first()
+        grid = self.place(grid, slot)
+        grid = record_grid_outcome(
+            actor=self.actor,
+            grid_id=grid.pk,
+            outcome=Grid.Status.SCREENED_RECOVERED,
+            reason="",
+            expected_version=grid.version,
+        )
+        slot.refresh_from_db()
+        self.assertEqual(slot.grid_id, grid.pk)
+        self.assertEqual(grid.status, Grid.Status.SCREENED_RECOVERED)
+        grid = record_grid_outcome(
+            actor=self.actor,
+            grid_id=grid.pk,
+            outcome=Grid.Status.DISCARDED,
+            reason="broken",
+            expected_version=grid.version,
+        )
+        slot.refresh_from_db()
+        self.assertIsNone(slot.grid_id)
+        self.assertEqual(grid.status, Grid.Status.SCREENED_DISCARDED)
+        self.assertEqual(grid.physical_events.filter(operation="screened").count(), 1)
+        self.assertEqual(
+            grid.physical_events.get(operation="discarded").details["reason"], "broken"
+        )
+        self.assertEqual(location(grid), "Discarded at CCI")
+        self.client.force_login(self.actor)
+        self.assertNotContains(self.client.get(reverse("registry:grid_list")), grid.grid_number)
+        discarded = self.client.get(
+            reverse("registry:discarded_grid_list"), {"q": grid.grid_number}
+        )
+        self.assertContains(discarded, grid.grid_number)
+        self.assertContains(discarded, "Discarded at CCI")
+        response = self.client.get(reverse("registry:owner_excel_export"), {"q": self.owner.code})
+        rows = read_workbook(BytesIO(response.content))["grids"]
+        exported = next(row for row in rows if row["grid_number"] == grid.grid_number)
+        self.assertEqual(exported["storage_status"], "Discarded at CCI")
+        self.assertEqual(exported["grid_status"], "Screened and discarded")
+        with self.assertRaises(ValidationError):
+            self.place(grid, slot)
+
+    def test_status_controls_require_recorded_slot_for_screening(self):
+        grid = self.session.grids.first()
+        self.client.force_login(self.actor)
+        response = self.client.get(reverse("registry:grid_detail", args=[grid.pk]))
+        self.assertContains(response, "Grid status")
+        response = self.client.post(
+            reverse("registry:grid_detail", args=[grid.pk]),
+            {
+                "intent": "outcome",
+                "outcome": Grid.Status.SCREENED_RECOVERED,
+                "expected_version": grid.version,
+            },
+        )
+        self.assertContains(response, "Record the grid&#x27;s box and slot before screening.")
+        grid.refresh_from_db()
+        self.assertEqual(grid.status, Grid.Status.UNKNOWN)
+
     def test_separate_preparation_and_storage_filters_combine_and_export(self):
         grid = self.session.grids.first()
         self.place(grid, self.box.slots.filter(side="unclipped").first())
@@ -86,6 +238,9 @@ class GridStorageTests(TestCase):
             transfer_destination="Partner lab",
         )
         response = self.client.get(url)
+        self.assertNotContains(response, a.grid_number)
+        response = self.client.get(reverse("registry:transferred_grid_list"), {"q": "Partner lab"})
+        self.assertContains(response, a.grid_number)
         self.assertContains(response, "Transferred to Partner lab")
         self.assertContains(response, reverse("registry:box_detail", args=[self.box.pk]))
         self.assertNotContains(response, reverse("registry:puck_detail", args=[self.box.puck_id]))
@@ -413,6 +568,12 @@ class GridStorageTests(TestCase):
             reason="Mistake",
         )
         self.assertNotIn("Transferred", location(a))
+        a.refresh_from_db()
+        self.assertEqual(a.status, Grid.Status.IN_STORAGE)
+        self.assertNotContains(
+            self.client.get(reverse("registry:transferred_grid_list")), a.grid_number
+        )
+        self.assertContains(self.client.get(reverse("registry:grid_list")), a.grid_number)
         self.assertEqual(a.physical_events.count(), 5)
 
     def test_ui_keeps_session_context_and_inline_registration(self):

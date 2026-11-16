@@ -9,15 +9,25 @@ register = template.Library()
 
 @register.inclusion_tag("registry/storage_links.html")
 def storage_links(grid):
-    from registry.grid_storage import slot_label
+    from registry.grid_storage import discard_location, slot_label
 
     slot = getattr(grid, "gridslot", None)
-    return {"slot": slot, "label": slot_label(slot) if slot else None}
+    return {
+        "slot": slot,
+        "label": slot_label(slot) if slot else None,
+        "discarded": discard_location(grid),
+    }
 
 
 @register.filter
 def column_value(grid, key):
     column = COLUMN_BY_KEY[key]
+    if key == "status":
+        if grid.status == grid.Status.TRANSFERRED:
+            slot = getattr(grid, "gridslot", None)
+            if slot and slot.box.transfer_destination:
+                return f"Transferred to {slot.box.transfer_destination}"
+        return grid.get_status_display()
     if key == "storage":
         from registry.grid_storage import location
 

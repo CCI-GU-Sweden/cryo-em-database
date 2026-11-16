@@ -1,7 +1,7 @@
 # Acceptance criteria and testing scenarios
 
 **Version:** v0.1\
-**Last reviewed:** 2026-11-04\
+**Last reviewed:** 2026-11-16\
 **Purpose:** Clear definition of done for model, services, UI, import, and security.
 
 ## Current validation and remaining acceptance
@@ -19,7 +19,7 @@ authentication and shutdown with spaces/apostrophe in its path.
 | Import/export permissions | Explicit CCI flag for import, including admins; export shares registry visibility and checks direct calls |
 | Session Enter key | Targeted JavaScript event checks passed; normal suggestions/newlines/button activation retained |
 | Native Windows | Colleague confirmed app startup and repeated stop; Ctrl+C also stopped PostgreSQL on that setup. Full check/login/data-retention/path-space acceptance remains pending |
-| Physical handling | Inventory, grid placement/clipping, occupancy and box transfers implemented on grid-storage branch; imaging/removal/disposal and returns remain deferred |
+| Physical handling | Inventory, placement/clipping, box transfer, screening outcomes, disposal and correction of the latest status action implemented; off-site returns remain deferred |
 | Release readiness | Shared deployment, CI automation, backup schedule and tested restore are not configured |
 
 ### Planned CCI storage acceptance (not yet implemented)
@@ -64,7 +64,7 @@ actual feedback from those runs.
 - [ ] Concurrent requests under the same owner prefix never create duplicate IDs.
 - [ ] Grids inherit a **copy** of initial session defaults; modifying one grid does not change any other grid or the immutable session snapshot.
 - [ ] Experiment reference and project reference can remain empty.
-- [ ] New grid initially has `unclipped`, `awaiting_storage`, `not_imaged`, current location null. Today these are display placeholders; event-backed state is future work.
+- [ ] New grid initially has `unclipped`, `not screened`, and no recorded location; until a box/slot is recorded its displayed status is `Unknown — needs review`.
 - [ ] A user can modify individual preparation conditions in a detail form or authorized bulk table action; audit records preserve before/after values.
 - [ ] Unknown measurements remain null, not zero. Multiple blots explicitly defaults to 0; imported date-only values explicitly default to noon and blank dates remain unknown.
 - [ ] The UI groups glow discharge parameters but stores them separately and filters numerically; numeric sorting controls remain future UI work.
@@ -77,11 +77,13 @@ actual feedback from those runs.
 - [ ] Cannot assign two available grids to the same uniquely identified physical slot, including under concurrent requests.
 - [ ] Clipping records clip status and actor/time; optionally changing storage location is **atomic** with the clipping operation.
 - [ ] An unclipped grid can be stored; a clipped grid can be stored; each uses appropriate location hierarchy without requiring nonexistent levels.
-- [ ] Removed-for-imaging grid becomes unavailable in the `Stored at CCI` inventory, but retains its history.
-- [ ] Imaging records an event and `imaged` state; it does **not** automatically discard the grid.
-- [ ] Separate discard event marks grid permanently unavailable; a grid can also be discarded without imaging.
-- [ ] Shipping records an external destination and sets `off_site` status; it does not imply imaging/discard.
-- [ ] Shipped and discarded grids remain searchable but are excluded from the default available-inventory filter.
+- [ ] Screening can be recorded only for a grid with a recorded box and slot; recording the screening outcome preserves that same location and does not make the slot available to another grid.
+- [ ] `Screened and recovered` records the completed screening and keeps the grid at its original box and slot; staff do not select the location again.
+- [ ] `Screened and discarded` records both screening and discard; `Discarded` records discard without screening. Both are terminal; an optional free-text discard reason is retained when supplied.
+- [ ] Transferring a box containing grids through Location and storage actions makes each contained grid show `Transferred to [destination]` and removes it from the CCI inventory state.
+- [ ] A grid with no recorded box/slot remains `Unknown — needs review`, not `In storage`.
+- [ ] Screened/recovered, screened/discarded, discarded and transferred grids remain searchable; discarded and transferred grids are excluded from default available inventory.
+- [ ] Export includes a readable lifecycle status; its final Excel formatting remains subject to UX review and must not rely on strikethrough alone.
 - [ ] Invalid event transitions are rejected with useful errors; derived state cannot be directly edited via HTTP or table cells.
 - [ ] Event timestamps are distinguished from audit recording times; legacy unknown dates remain unknown.
 
@@ -127,8 +129,8 @@ Ask a less technical staff member (without developer coaching) to:
 3. [ ] Adjust blotting time for only 2 of those 8 grids.
 4. [ ] Enter unique storage locations for the new grids.
 5. [ ] Clip one grid and move it to a new location.
-6. [ ] Record another grid as imaged and then discarded.
-7. [ ] Ship a grid to an external site and find it later in search.
+6. [ ] Record a grid as screened and recovered to its original box/slot, then another as screened and discarded, and one discarded without screening with an optional reason.
+7. [ ] Transfer a box containing a grid to another lab and find that grid later in search with the transfer destination.
 8. [ ] Export a filtered set of grids.
 
 Capture usability notes and errors; prioritize removing friction before adding AI or other large features.

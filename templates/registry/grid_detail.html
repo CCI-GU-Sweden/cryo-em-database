@@ -13,7 +13,7 @@
   {% include "registry/preparation_fields.html" with collapsible=True inline_storage=True %}
   <button type="submit" form="grid-preparation-form">Save this grid</button>
 </div>
-<script src="{% static 'inline_grid_storage.js' %}" defer></script>
+<script src="{% static 'inline_grid_storage.js' %}?v=2" defer></script>
 {% else %}
 <p>This grid is read-only.</p>
 {% include "registry/preparation_readonly.html" %}

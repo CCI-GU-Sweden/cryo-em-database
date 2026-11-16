@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% load registry_display %}
+{% block title %}Discarded grids · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Discarded grids</h1>
+<p>These grids have been physically discarded. Their records and history are retained.</p>
+<p><a href="{% url 'registry:grid_list' %}">Back to grid registry</a></p>
+<form method="get">{{ form.as_p }}<button type="submit">Search discarded grids</button>
+<a href="{% url 'registry:discarded_grid_list' %}">Clear filters</a></form>
+<div class="table-scroll"><table>
+<thead><tr><th>Grid ID</th><th>Owner</th><th>Session</th><th>Status</th><th>Location</th><th>Discarded by</th><th>Discarded at</th><th>Reason</th></tr></thead>
+<tbody>{% for grid in page %}<tr>
+<td><a href="{% url 'registry:grid_detail' grid.pk %}">{{ grid.grid_number }}</a></td>
+<td>{{ grid.session.owner.name }}</td><td>{{ grid.session.display_name }}</td>
+<td>{{ grid.get_status_display }}</td><td>{% storage_links grid %}</td>
+<td>{{ grid.discard_event.actor|default:"Unknown" }}</td><td>{{ grid.discard_event.occurred_at|date:"Y-m-d H:i T"|default:"Unknown" }}</td><td>{{ grid.discard_event.details.reason|default:"—" }}</td>
+</tr>{% empty %}<tr><td colspan="8">No discarded grids found.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p>Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} discarded grids</p>
+{% if page.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+{% if page.has_next %}<a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+{% endblock %}

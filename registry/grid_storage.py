@@ -3,6 +3,7 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
+from django.views.decorators.debug import sensitive_variables
 
 from .models import Grid
 from .permissions import require_grid_editor
@@ -16,7 +17,28 @@ def slot_label(slot):
     return str(slot.position)
 
 
+def discard_location(grid):
+    """Use the recorded discard event, which survives later reuse of its box."""
+    if grid.status not in (Grid.Status.DISCARDED, Grid.Status.SCREENED_DISCARDED):
+        return None
+    events = grid.physical_events.all()
+    event = max(
+        (event for event in events if event.operation == "discarded"),
+        key=lambda event: event.pk,
+        default=None,
+    )
+    if not event:
+        return "Discarded — location unknown"
+    site = event.details.get("discard_location")
+    if not site and event.from_slot_id:
+        site = "CCI"  # Earlier discard actions were permitted only for CCI boxes.
+    return f"Discarded at {site}" if site else "Discarded — location unknown"
+
+
 def location(grid):
+    discarded = discard_location(grid)
+    if discarded:
+        return discarded
     slot = GridSlot.objects.select_related("box__puck", "box__box_type").filter(grid=grid).first()
     if not slot:
         return "Unknown — needs review"
@@ -36,6 +58,8 @@ def place_grid(*, actor, grid_id, slot_id, clipped, expected_version, occurred_a
     actor = require_grid_editor(actor, grid)
     if type(expected_version) is not int or grid.version != expected_version:
         raise ValidationError("This grid changed. Reload before storing it.")
+    if grid.status in (Grid.Status.DISCARDED, Grid.Status.SCREENED_DISCARDED):
+        raise ValidationError("A discarded grid cannot be stored.")
     if type(clipped) is not bool:
         raise ValidationError("Choose the clipping state.")
     if grid.is_clipped and not clipped:
@@ -91,8 +115,10 @@ def place_grid(*, actor, grid_id, slot_id, clipped, expected_version, occurred_a
     slot.grid = grid
     slot.save(update_fields=["grid"])
     grid.is_clipped = clipped
+    if grid.status == Grid.Status.UNKNOWN:
+        grid.status = Grid.Status.IN_STORAGE
     grid.version += 1
-    grid.save(update_fields=["is_clipped", "version", "updated_at"])
+    grid.save(update_fields=["is_clipped", "status", "version", "updated_at"])
     GridEvent.objects.create(
         grid=grid,
         actor=actor,
@@ -121,6 +147,8 @@ def save_preparation_and_clipping(*, actor, grid_id, preparation, clipped, expec
         raise ValidationError(
             "This grid has left CCI. Correct a mistaken transfer before editing clipping."
         )
+    if changed and grid.status in (Grid.Status.DISCARDED, Grid.Status.SCREENED_DISCARDED):
+        raise ValidationError("A discarded grid cannot change clipping state.")
     grid = update_grid_preparation(
         actor=actor, grid_id=grid_id, preparation=preparation, expected_version=expected_version
     )
@@ -136,8 +164,10 @@ def save_preparation_and_clipping(*, actor, grid_id, preparation, clipped, expec
             current.save(update_fields=["grid"])
             released = True
     grid.is_clipped = clipped
+    if released and grid.status == Grid.Status.IN_STORAGE:
+        grid.status = Grid.Status.UNKNOWN
     grid.version += 1
-    grid.save(update_fields=["is_clipped", "version", "updated_at"])
+    grid.save(update_fields=["is_clipped", "status", "version", "updated_at"])
     GridEvent.objects.create(
         grid=grid,
         actor=actor,
@@ -161,3 +191,172 @@ def save_preparation_and_clipping(*, actor, grid_id, preparation, clipped, expec
     )
     sync_puck_locations(actor=actor, emptied_puck_ids=[current.box.puck_id] if released else [])
     return grid, released
+
+
+@transaction.atomic
+def record_grid_outcome(*, actor, grid_id, outcome, reason, expected_version):
+    """Record a completed screening or discard as physical history."""
+    lock_inventory()
+    grid = Grid.objects.select_for_update().get(pk=grid_id)
+    actor = require_grid_editor(actor, grid)
+    if type(expected_version) is not int or grid.version != expected_version:
+        raise ValidationError("This grid changed. Reload before recording the outcome.")
+    if grid.status in (Grid.Status.DISCARDED, Grid.Status.SCREENED_DISCARDED):
+        raise ValidationError("This grid has already been discarded.")
+    slot = GridSlot.objects.select_related("box__puck", "box__box_type").filter(grid=grid).first()
+    if slot and slot.box.transferred_at:
+        raise ValidationError("This grid has left CCI with its box.")
+    allowed = {
+        Grid.Status.SCREENED_RECOVERED,
+        Grid.Status.SCREENED_DISCARDED,
+        Grid.Status.DISCARDED,
+    }
+    if outcome not in allowed:
+        raise ValidationError("Choose a valid grid outcome.")
+    if outcome in (Grid.Status.SCREENED_RECOVERED, Grid.Status.SCREENED_DISCARDED) and not slot:
+        raise ValidationError("Record the grid's box and slot before screening.")
+    now = timezone.now()
+    latest = grid.physical_events.order_by("-occurred_at").first()
+    if latest and now < latest.occurred_at:
+        raise ValidationError("The latest physical event is in the future. Review its time first.")
+    already_screened = grid.status == Grid.Status.SCREENED_RECOVERED
+    if outcome == Grid.Status.DISCARDED and already_screened:
+        outcome = Grid.Status.SCREENED_DISCARDED
+    if reason.strip() and outcome == Grid.Status.SCREENED_RECOVERED:
+        raise ValidationError("A discard reason can only be entered when discarding the grid.")
+    if (
+        outcome in (Grid.Status.SCREENED_RECOVERED, Grid.Status.SCREENED_DISCARDED)
+        and not already_screened
+    ):
+        GridEvent.objects.create(
+            grid=grid,
+            actor=actor,
+            operation="screened",
+            occurred_at=now,
+            from_slot=slot,
+            to_slot=slot,
+            details={"previous_status": grid.status},
+        )
+    if outcome != Grid.Status.SCREENED_RECOVERED:
+        GridEvent.objects.create(
+            grid=grid,
+            actor=actor,
+            operation="discarded",
+            occurred_at=now,
+            from_slot=slot,
+            details={
+                "reason": reason.strip(),
+                "discard_location": "CCI",
+                "previous_status": grid.status,
+            },
+        )
+        if slot:
+            slot.grid = None
+            slot.save(update_fields=["grid"])
+    grid.status = outcome
+    grid.version += 1
+    grid.save(update_fields=["status", "version", "updated_at"])
+    if slot and outcome != Grid.Status.SCREENED_RECOVERED:
+        sync_puck_locations(actor=actor, emptied_puck_ids=[slot.box.puck_id])
+    return grid
+
+
+@sensitive_variables("password")
+@transaction.atomic
+def correct_grid_outcome(*, actor, grid_id, expected_version, event_id, password, reason):
+    from .services import record_audit
+
+    lock_inventory()
+    grid = Grid.objects.select_for_update().get(pk=grid_id)
+    actor = require_grid_editor(actor, grid)
+    if (
+        not actor.has_usable_password()
+        or not isinstance(password, str)
+        or not actor.check_password(password)
+    ):
+        raise ValidationError("Your password is incorrect. No status was corrected.")
+    reason = reason.strip()
+    if not reason:
+        raise ValidationError("Enter a reason for this correction.")
+    latest = grid.physical_events.order_by("-pk").first()
+    if grid.version != expected_version or not latest or latest.pk != event_id:
+        raise ValidationError("This grid changed. Reload before correcting its status.")
+    if latest.operation not in {"screened", "discarded"}:
+        raise ValidationError("Only the latest screening or discard action can be corrected.")
+    if grid.status not in {
+        Grid.Status.SCREENED_RECOVERED,
+        Grid.Status.DISCARDED,
+        Grid.Status.SCREENED_DISCARDED,
+    }:
+        raise ValidationError("This status cannot be corrected here.")
+    slot = None
+    if latest.from_slot_id:
+        slot = (
+            GridSlot.objects.select_for_update(of=("self",))
+            .select_related("box__box_type", "box__puck")
+            .get(pk=latest.from_slot_id)
+        )
+        if slot.box.events.filter(recorded_at__gt=latest.recorded_at).exists():
+            raise ValidationError(
+                "The gridbox changed after this action. Review its history first."
+            )
+        if slot.box.discarded or slot.box.transferred_at or not slot.box.puck_id:
+            raise ValidationError(
+                "The original gridbox must be in a CCI puck before restoring the grid."
+            )
+        spec = slot.box.box_type.layout.get(slot.side)
+        if not spec or spec.get("clipped") != grid.is_clipped:
+            raise ValidationError("The original slot is no longer compatible with this grid.")
+        if slot.grid_id not in (None, grid.pk):
+            raise ValidationError(
+                "The original slot is occupied. Resolve the slot before correcting this status."
+            )
+    previous = latest.details.get("previous_status")
+    if previous is None:
+        earlier_screening = grid.physical_events.filter(
+            operation="screened", occurred_at__lt=latest.occurred_at
+        ).exists()
+        previous = (
+            Grid.Status.SCREENED_RECOVERED
+            if earlier_screening
+            else (Grid.Status.IN_STORAGE if slot else Grid.Status.UNKNOWN)
+        )
+    if previous not in {
+        Grid.Status.UNKNOWN,
+        Grid.Status.IN_STORAGE,
+        Grid.Status.SCREENED_RECOVERED,
+    }:
+        raise ValidationError("The previous status cannot be restored automatically.")
+    if slot and slot.grid_id is None:
+        slot.grid = grid
+        slot.save(update_fields=["grid"])
+    old_status = grid.status
+    grid.status = previous
+    grid.version += 1
+    grid.save(update_fields=["status", "version", "updated_at"])
+    GridEvent.objects.create(
+        grid=grid,
+        actor=actor,
+        operation="status_correction",
+        occurred_at=timezone.now(),
+        to_slot=slot,
+        details={
+            "corrected_event_id": latest.pk,
+            "reason": reason,
+            "before_status": old_status,
+            "after_status": previous,
+        },
+    )
+    record_audit(
+        actor,
+        grid,
+        "correct_status",
+        {
+            "event_id": latest.pk,
+            "reason": reason,
+            "before_status": old_status,
+            "after_status": previous,
+        },
+    )
+    sync_puck_locations(actor=actor)
+    return grid

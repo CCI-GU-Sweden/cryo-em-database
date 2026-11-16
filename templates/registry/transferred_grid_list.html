@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load registry_display %}
+{% block title %}Transferred grids · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Transferred grids</h1>
+<p>These grids have left CCI in a transferred gridbox. Their records and history are retained.</p>
+<p><a href="{% url 'registry:grid_list' %}">Back to grid registry</a></p>
+<form method="get">{{ form.as_p }}<button type="submit">Search transferred grids</button>
+<a href="{% url 'registry:transferred_grid_list' %}">Clear filters</a></form>
+<div class="table-scroll"><table>
+<thead><tr><th>Grid ID</th><th>Owner</th><th>Session</th><th>Destination and box</th><th>Transferred at</th></tr></thead>
+<tbody>{% for grid in page %}<tr>
+<td><a href="{% url 'registry:grid_detail' grid.pk %}">{{ grid.grid_number }}</a></td>
+<td>{{ grid.session.owner.name }}</td><td>{{ grid.session.display_name }}</td>
+<td>{% storage_links grid %}</td><td>{{ grid.gridslot.box.transferred_at|date:"Y-m-d H:i T"|default:"Unknown" }}</td>
+</tr>{% empty %}<tr><td colspan="5">No transferred grids found.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p>Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} transferred grids</p>
+{% if page.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+{% if page.has_next %}<a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+{% endblock %}
