@@ -2,7 +2,7 @@
 
 **Document:** `08_STORAGE_LOCATIONS.md`\
 **Schema context:** CCI Cryo-EM Grid Registry v0.1\
-**Date:** 2026-11-10\
+**Date:** 2026-11-16\
 **Status:** Agreed requirements for the initial implementation
 
 ## 1. Purpose
@@ -437,7 +437,7 @@ preserve seconds to avoid rounding a new action before a recent physical event.
 
 ## Inline grid storage UI trial (inline-grid-storage branch)
 
-Grid detail includes Location and storage actions as an initially expanded group
+Grid detail includes Location and storage actions as an initially collapsed group
 between Clipping and Grid notes. Its box picker, slot placement, physical history
 and new-box form load and submit within that section using the existing storage
 services. The standalone storage page remains available as a fallback.
@@ -474,5 +474,48 @@ status. Inventory choices use stable database IDs; mixed-box slot labels use
 C/U indices. Puck and type selections narrow box choices, and selected boxes
 narrow slot choices in the browser. Server validation and filtering remain
 independent of those browser controls, including requests for filtered Excel
-exports. Invalid choices produce errors and no results. Dedicated Needs review
-screening and new storage columns in exported workbooks remain separate work.
+exports. Both sections are collapsible and start closed; Expand all/Collapse all
+controls apply to both, while a section with validation errors opens automatically.
+Invalid choices produce errors and no results. Dedicated Needs review filtering
+remains separate work. Storage columns and storage history are now included in
+Excel exports; see [the current Excel transfer spec](05_EXCEL_IMPORT_SPEC.md).
+
+## Grid screening, recovery and disposition plan (issue #18; 2026-11-16)
+
+The grid detail page records these outcomes using authorized services and immutable
+physical events. Keep a grid's
+screening/disposition outcome separate from its clipping state and current box
+location. Derive its user-facing status from physical events and the recorded
+location:
+
+- **In storage** is the default only when a current CCI box and slot are recorded.
+  No recorded box/slot remains **Unknown — needs review**.
+- **Screened and recovered** records screening and recovery to the grid's same
+  box and slot. Screening begins only for a grid already recorded in a slot; the
+  app keeps that slot associated through the screening workflow. Staff do not
+  select a slot again or release it for another grid as part of this action.
+- **Screened and discarded** records screening followed by discard. **Discarded**
+  without screening records a direct discard. Both are terminal outcomes; an
+  optional free-text reason may be recorded (for example, broken, copy of a known
+  failed sample, or bad concentration). A discard recorded through the current
+  CCI workflow stores CCI as the discard location and displays `Discarded at CCI`.
+  Earlier discard events without a location show CCI only when their recorded
+  source slot establishes that they were handled by this CCI workflow; otherwise
+  show `Discarded — location unknown`. Recording disposal at another laboratory
+  remains future work. Discarded grids are excluded from the normal grid registry
+  and its filtered export and are listed in a separate Discarded grids view with
+  links to their detail, status, location, actor, time and reason.
+- **Transferred to [destination]** is derived from the existing Location and
+  storage actions box-transfer workflow when the box contains this grid. The
+  destination is recorded by that action, and the grid leaves CCI inventory. The
+  grid registry has a separate Transferred grids view with destination, box and
+  transfer time; transferred grids are excluded from its normal filtered export.
+  Transfer is distinct from discard.
+
+Screening alone does not imply discard. Returns after transfer or discard and
+repeated screening rules remain future work. Excel export includes a readable
+Grid status column. Staff may correct the latest screening or discard using their own
+password and a required reason. The correction preserves the original events and
+adds correction and audit records. Restoring a slot requires it to be unoccupied,
+compatible, in an active box in a CCI puck, and the box must not have changed
+since the action. Repeated screening remains separate work.

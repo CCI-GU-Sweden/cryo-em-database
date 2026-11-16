@@ -1,7 +1,7 @@
 # Open decisions and assumptions log
 
 **Version:** v0.1\
-**Last reviewed:** 2026-11-04
+**Last reviewed:** 2026-11-16
 
 This is a **decision register**, not a requirement to answer everything before writing code. Resolve blocker items before dependent features; record agreed outcomes with dates and update associated docs.
 
@@ -19,7 +19,7 @@ This is a **decision register**, not a requirement to answer everything before w
 | D10 | UX pilot | Preferred storage and clipping workflows: separate actions or one compound step? | Grids are normally stored immediately and may be clipped first; show missing storage for review. A combined workflow may record distinct physical events; exact interaction remains open. | Reduce clicks without losing history |
 | D11 | Future legacy import policy | Should legacy `Copy of CCI-00001` notes become verified `copied_from_grid` references? | Preserve notes; no auto-conversion. Copied-from links are excluded from the current UI/Excel format | Avoid inferring scientific ancestry incorrectly |
 | D12 | Data model | Should sample owners be people only or also research groups? | Name/affiliation/code generic enough for both | Owner life cycle and future sharing |
-| D13 | Event rules | Can imaged grids be returned to storage at CCI? Can shipped grids return? | Review exceptions before implementing state transitions; do not infer disposal from imaging/shipping | Real-world lifecycle flexibility |
+| D13 | Partly confirmed 2026-11-16 | What are the screening, recovery and disposition outcomes? Can transferred/discarded grids return? | Screening starts from a recorded slot and recovery keeps that slot. Mistaken latest screening/discard actions can be corrected with password and reason; actual returns after transfer/discard and repeated screenings remain open. Do not infer disposal from screening or transfer. | Real-world lifecycle flexibility |
 | D14 | UX | Preferred bulk editing: direct inline table edit vs select-grids update wizard? | Individual edit forms are implemented; choose a bulk workflow after staff review | Ease of use and auditability |
 | D15 | Partly confirmed 2026-11-10 | Box placement, transfer, discard and corrections | Preserve identity/history; reject discard while occupied; record external destination/time and remove transferred boxes from active CCI inventory. Corrections and off-site returns remain open. | Reusable boxes, capacity and safe inventory handling |
 
@@ -37,6 +37,7 @@ This is a **decision register**, not a requirement to answer everything before w
 | Owner visibility and session creation (2026-11-04) | All CCI staff see every owner and can create sessions for any active owner without grants. Updated during Excel work: all active CCI staff may edit all active grids; operator identity is attribution only. |
 | Staff owner registration (2026-11-04) | Active CCI staff can create sample owners through the registry without administration-site access. Updated during Excel work: no automatic grants are created because all active CCI staff share editing rights. Existing-owner/grant administration remains admin-only. |
 | Current Excel transfer and shared editing (2026-11-04) | Any active CCI staff member may import/export and edit every active grid. Export follows registry filters across pages with grouped atomic columns and supporting Owners/Sessions sheets. Preview missing owners, conflicts and unknown operators; create missing owners on confirmation; preserve original known operator attribution; audit the importer. Hand entry uses plain file-local Session labels, with automatic internal keys and unknown defaults; exports hide portable keys in supporting metadata. Group colours cycle across related columns. No accounts/grants or overwrites. This supersedes earlier operator/Editor restrictions. |
+| Grid screening and disposition outcomes (2026-11-16; issue #18) | The grid detail status actions record screening and discard as physical events. Status values are `In storage`, `Screened and recovered`, `Screened and discarded`, `Discarded`, `Transferred`, `Deleted`, and `Unknown — needs review`. Screening starts from a recorded slot and recovery keeps that slot; discard can include an optional reason. The box transfer action supplies the destination. Excel export includes a readable Grid status column. |
 | Individual grid deletion archive (2026-11-04) | All active CCI staff may archive a specific mistaken registration after reviewing the displayed grid and re-entering their own password; no typed ID is required. Use the same PostgreSQL database with a separate read-only Deleted grids area; preserve IDs/history and exclude records from normal views. Permanent purge tooling is deferred. |
 | Session ownership | One sample owner per actual preparation session |
 | Defaults | Preserve session snapshot and copy parameters into each new grid |
@@ -46,7 +47,7 @@ This is a **decision register**, not a requirement to answer everything before w
 | Visibility | All CCI staff see all grids; future external users restricted |
 | Registration | Enter shared fields once, specify number of grids, then edit generated individuals |
 | Storage | Full movement history, including unclipped and clipped states |
-| Imaging and shipment | Imaging usually leads to discard but no automatic inference; shipment means leaving CCI custody |
+| Imaging and shipment | Screening does not imply discard. Box transfer means the contained grids leave CCI custody; see the issue #18 lifecycle plan above. |
 | Input styles | Web forms and spreadsheet-like table |
 | Existing IDs | Keep historical CCI IDs, allow future owner-prefix IDs |
 | Authentication | Replaceable; local accounts acceptable for initial deployment |

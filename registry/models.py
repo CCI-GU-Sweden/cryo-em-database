@@ -98,8 +98,18 @@ class GridQuerySet(models.QuerySet):
 
 
 class Grid(models.Model):
+    class Status(models.TextChoices):
+        UNKNOWN = "unknown", "Unknown — needs review"
+        IN_STORAGE = "in_storage", "In storage"
+        SCREENED_RECOVERED = "screened_recovered", "Screened and recovered"
+        SCREENED_DISCARDED = "screened_discarded", "Screened and discarded"
+        DISCARDED = "discarded", "Discarded"
+        TRANSFERRED = "transferred", "Transferred"
+        DELETED = "deleted", "Deleted"
+
     objects = GridQuerySet.as_manager()
     is_clipped = models.BooleanField(default=False)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.UNKNOWN)
 
     grid_number = models.CharField(max_length=80, unique=True)
     session = models.ForeignKey(PreparationSession, on_delete=models.PROTECT, related_name="grids")

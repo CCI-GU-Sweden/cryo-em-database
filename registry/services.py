@@ -395,7 +395,8 @@ def archive_grid(*, actor, grid_id, password, expected_version):
         )
     # Update before adding the marker: the database freezes archived grid rows.
     grid.version += 1
-    grid.save(update_fields=["version", "updated_at"])
+    grid.status = Grid.Status.DELETED
+    grid.save(update_fields=["status", "version", "updated_at"])
     deleted = DeletedGrid.objects.create(grid=grid, deleted_by=actor)
     record_audit(
         actor,

@@ -55,6 +55,7 @@ for name in PREPARATION_FIELDS:
             "kind": kind,
         }
     )
+COLUMNS.append({"key": "status", "label": "Status", "lookup": "status", "kind": "text"})
 COLUMNS.append({"key": "storage", "label": "Storage", "lookup": None, "kind": "text"})
 DEFAULT_COLUMNS = {
     "grid_number",

@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -31,6 +32,38 @@ from .services import (
 from .session_queries import search_sessions
 from .suggestions import preparation_suggestions
 from .tables import COLUMNS
+
+
+class GridOutcomeForm(forms.Form):
+    outcome = forms.ChoiceField(
+        label="Action",
+        choices=[
+            ("", "Choose an action"),
+            (Grid.Status.SCREENED_RECOVERED, "Screened and recovered"),
+            (Grid.Status.SCREENED_DISCARDED, "Screened and discarded"),
+            (Grid.Status.DISCARDED, "Discarded without screening"),
+        ],
+    )
+    reason = forms.CharField(
+        label="Discard reason (optional)",
+        required=False,
+        max_length=2000,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+    expected_version = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
+
+
+class GridStatusCorrectionForm(forms.Form):
+    password = forms.CharField(
+        label="Your password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+    )
+    reason = forms.CharField(
+        label="Reason for correction", max_length=2000, widget=forms.Textarea(attrs={"rows": 2})
+    )
+    expected_version = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
+    event_id = forms.IntegerField(widget=forms.HiddenInput, min_value=1)
 
 
 def add_service_error(form, error):
@@ -207,16 +240,69 @@ def session_detail(request, pk):
 
 
 @login_required
+@sensitive_post_parameters("password")
 def grid_detail(request, pk):
     current_staff(request.user)
     grid = get_object_or_404(Grid.objects.active().select_related("session__owner"), pk=pk)
     can_edit = can_edit_grid(request.user, grid)
     if request.method == "POST":
         require_grid_editor(request.user, grid)
-    form = EditGridForm(
-        request.POST or None, instance=grid, initial={"expected_version": grid.version}
+    outcome_post = request.method == "POST" and request.POST.get("intent") == "outcome"
+    correction_post = request.method == "POST" and request.POST.get("intent") == "correct_status"
+    latest_event = grid.physical_events.order_by("-pk").first()
+    can_correct_status = bool(
+        latest_event
+        and latest_event.operation in {"screened", "discarded"}
+        and grid.status
+        in {Grid.Status.SCREENED_RECOVERED, Grid.Status.DISCARDED, Grid.Status.SCREENED_DISCARDED}
     )
-    if request.method == "POST" and form.is_valid():
+    correction_form = GridStatusCorrectionForm(
+        request.POST if correction_post else None,
+        initial={
+            "expected_version": grid.version,
+            "event_id": latest_event.pk if latest_event else None,
+        },
+    )
+    if correction_post and correction_form.is_valid():
+        from .grid_storage import correct_grid_outcome
+
+        try:
+            correct_grid_outcome(
+                actor=request.user, grid_id=grid.pk, **correction_form.cleaned_data
+            )
+        except ValidationError as error:
+            add_service_error(correction_form, error)
+        else:
+            messages.success(
+                request, "Grid status corrected; the original action remains in history."
+            )
+            return redirect("registry:grid_detail", pk=grid.pk)
+    outcome_form = GridOutcomeForm(
+        request.POST if outcome_post else None, initial={"expected_version": grid.version}
+    )
+    if grid.status == Grid.Status.SCREENED_RECOVERED:
+        outcome_form.fields["outcome"].choices = [
+            ("", "Choose an action"),
+            (Grid.Status.DISCARDED, "Discard grid"),
+        ]
+    if outcome_post and outcome_form.is_valid():
+        from .grid_storage import record_grid_outcome
+
+        try:
+            record_grid_outcome(actor=request.user, grid_id=grid.pk, **outcome_form.cleaned_data)
+        except ValidationError as error:
+            add_service_error(outcome_form, error)
+        else:
+            messages.success(request, "Grid status recorded.")
+            return redirect("registry:grid_detail", pk=grid.pk)
+    form = EditGridForm(
+        request.POST
+        if request.method == "POST" and not outcome_post and not correction_post
+        else None,
+        instance=grid,
+        initial={"expected_version": grid.version},
+    )
+    if request.method == "POST" and not outcome_post and not correction_post and form.is_valid():
         try:
             from .grid_storage import save_preparation_and_clipping
 
@@ -249,6 +335,9 @@ def grid_detail(request, pk):
         {
             "grid": grid,
             "form": form,
+            "outcome_form": outcome_form,
+            "correction_form": correction_form,
+            "can_correct_status": can_correct_status,
             "can_edit": can_edit,
             "preparation_suggestions": preparation_suggestions() if can_edit else {},
             "audit": audit,
@@ -308,6 +397,83 @@ def deleted_grid_list(request):
         {
             "form": form,
             "page": page,
+            "filter_query": parameters.urlencode(),
+        },
+    )
+
+
+@login_required
+@require_GET
+def discarded_grid_list(request):
+    current_staff(request.user)
+    form = DeletedGridBrowseForm(request.GET)
+    form.fields["q"].label = "Search discarded grids"
+    discarded = (
+        Grid.objects.active()
+        .filter(status__in=[Grid.Status.DISCARDED, Grid.Status.SCREENED_DISCARDED])
+        .select_related("session__owner")
+        .prefetch_related("physical_events__actor")
+    )
+    if form.is_valid():
+        query = form.cleaned_data["q"]
+        if query:
+            discarded = discarded.filter(
+                Q(grid_number__icontains=query) | Q(session__owner__name__icontains=query)
+            )
+        if form.cleaned_data["session"]:
+            discarded = discarded.filter(session_id=form.cleaned_data["session"])
+    else:
+        discarded = discarded.none()
+    parameters = request.GET.copy()
+    parameters.pop("page", None)
+    page = Paginator(discarded.order_by("-pk"), 50).get_page(request.GET.get("page"))
+    for grid in page:
+        grid.discard_event = next(
+            (event for event in grid.physical_events.all() if event.operation == "discarded"), None
+        )
+    return render(
+        request,
+        "registry/discarded_grid_list.html",
+        {
+            "form": form,
+            "page": page,
+            "filter_query": parameters.urlencode(),
+        },
+    )
+
+
+@login_required
+@require_GET
+def transferred_grid_list(request):
+    current_staff(request.user)
+    form = DeletedGridBrowseForm(request.GET)
+    form.fields["q"].label = "Search transferred grids"
+    grids = (
+        Grid.objects.active()
+        .filter(status=Grid.Status.TRANSFERRED)
+        .select_related("session__owner", "gridslot__box__box_type")
+    )
+    if form.is_valid():
+        query = form.cleaned_data["q"]
+        if query:
+            grids = grids.filter(
+                Q(grid_number__icontains=query)
+                | Q(session__owner__name__icontains=query)
+                | Q(gridslot__box__name__icontains=query)
+                | Q(gridslot__box__transfer_destination__icontains=query)
+            )
+        if form.cleaned_data["session"]:
+            grids = grids.filter(session_id=form.cleaned_data["session"])
+    else:
+        grids = grids.none()
+    parameters = request.GET.copy()
+    parameters.pop("page", None)
+    return render(
+        request,
+        "registry/transferred_grid_list.html",
+        {
+            "form": form,
+            "page": Paginator(grids.order_by("-pk"), 50).get_page(request.GET.get("page")),
             "filter_query": parameters.urlencode(),
         },
     )

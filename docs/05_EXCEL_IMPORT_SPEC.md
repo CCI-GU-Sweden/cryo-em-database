@@ -130,6 +130,11 @@ still deferred. The first implemented importer accepts the application's own
 current export. It deliberately uses today's atomic fields rather than adding
 compatibility with the old combined columns.
 
+The registry currently hides the Excel import link while the import workflow is
+deferred for future review. The existing import and template endpoints remain
+available with their existing CCI staff authorization; they do not import grid
+lifecycle events or restore the exported grid status.
+
 - Import, preview and templates require active CCI membership; administrator
   status alone is insufficient. Export follows registry viewing access rather
   than import permission. It uses the same row-visibility boundary, search and
@@ -148,9 +153,13 @@ compatibility with the old combined columns.
   A repeating teal/purple/amber palette links each group heading, column headings
   and pale data-cell backgrounds.
 - **Storage location** sits immediately before Additional notes. Its columns are
-  Clipped, Storage status, Dewar, Cane, Puck, Gridbox type, Gridbox and Slot.
+  Clipped, Grid status, Storage status, Dewar, Cane, Puck, Gridbox type, Gridbox and Slot.
+  Grid status records the readable lifecycle status at export time, including
+  screening and discard outcomes. It is informational and ignored on import;
+  it does not recreate physical events or change grid status.
   Storage status is `At CCI`, `Transferred to [destination]`, or
-  `Unknown — needs review` when no current box is recorded. Dewar through Slot
+  `Unknown — needs review` when no current box is recorded, or `Discarded at CCI`
+  when the discard was recorded at CCI. Dewar through Slot
   describe the current location; unavailable hierarchy values are blank.
 - **Storage history** is the final column in Additional notes. It is a
   semicolon-separated, chronological summary of recorded grid storage events,

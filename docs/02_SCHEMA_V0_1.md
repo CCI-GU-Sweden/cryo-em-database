@@ -1,18 +1,19 @@
 # Agreed database schema — v0.1
 
-**Last reviewed:** 2026-11-04\
+**Last reviewed:** 2026-11-16\
 **Status:** Current preparation schema plus agreed future storage/lifecycle design
 
 `registry/models.py` and its migrations define the implemented schema; the
 [generated Grid field reference](#generated-grid-field-reference) below checks
-its exact types. StorageLocation, GridEvent and their state transitions are still
-designs, not deployed tables. Dated implementation notes record evolution; earlier
-snapshot versions and precision limits are superseded by the current rules.
+its exact types. GridEvent is implemented for clipping, grid placement/movement
+and box-transfer synchronization. Grid detail records screening outcomes and
+discard; off-site return workflows remain planned. Dated implementation notes
+record evolution; earlier snapshot versions and precision limits are superseded
+by the current rules.
 
 The storage-inventory branch implements Dewar, Cane, Puck, GridBoxType,
-GridBox, GridSlot and immutable BoxEvent history as an inventory foundation.
-Individual grid storage/clipping events and custody synchronization remain the
-next slice. See the implementation notes in [storage requirements](08_STORAGE_LOCATIONS.md).
+GridBox, GridSlot and immutable BoxEvent history. See
+[storage requirements](08_STORAGE_LOCATIONS.md).
 
 ## 0. Read this first: invariants
 
@@ -20,8 +21,8 @@ next slice. See the implementation notes in [storage requirements](08_STORAGE_LO
 2. Normal session registration preserves **one immutable initial defaults snapshot**, copied to **independent values for each generated grid**. Imports preserve supplied original defaults or an explicitly unknown empty snapshot. Updating one grid never updates siblings or the snapshot.
 3. **Experiment reference is optional**; optional project reference is descriptive only.
 4. **Grid number is globally unique, permanent, and never reused**, regardless of owner/code changes. Historical `CCI-00001`-style IDs coexist with new owner-prefixed IDs (`kegu-1234` is illustrative).
-5. Grids start **unclipped**, **not imaged**, and **awaiting storage**. They are normally stored immediately, sometimes after clipping. Empty storage is permitted at registration but needs review; missing information does not prove a grid is physically unstored.
-6. **Clipping state**, **availability/custody**, **imaging state**, and **current physical location** are different axes. Shipping does not imply imaging; imaging usually precedes disposal but never automatically proves it.
+5. Grids start **unclipped** and **not screened**. They are normally stored immediately, sometimes after clipping. If no box/slot or later outcome is recorded, show `Unknown — needs review`, not `In storage`.
+6. **Clipping state**, **screening/disposition status**, **CCI custody**, and **current physical location** are distinct. Screening does not imply discard. A box transfer moves its contained grids outside CCI custody without implying discard.
 7. Physical lifecycle actions are captured in **append-only GridEvent records**. Database corrections/metadata edits are captured separately in **AuditEvent**.
 8. All active CCI staff and facility superusers can view and edit all active grids. Archived grids are read-only; inactive accounts and non-CCI non-administrators cannot edit. Import separately requires the CCI flag even for superusers; export follows viewing access. Enforce this server-side.
 9. Do not guess unknown scientific values, humidity scale or missing dates during import. The approved date-only rule explicitly uses noon in Europe/Stockholm and reports it; blank dates remain unknown.
@@ -141,14 +142,16 @@ or cleared. Existing grids and imports with no device remain Unknown, never
 inferred from present-day equipment. New values are copied to each grid and the
 original session snapshot. Screening for values needing review is tracked in #10.
 
-### 2.4 Storage hierarchy and StorageLocation (planned)
+### 2.4 Storage hierarchy and StorageLocation (implemented foundation)
 
 The agreed CCI hierarchy is **Dewar → Cane → Puck → Gridbox → Gridslot**;
 [storage requirements](08_STORAGE_LOCATIONS.md) describe the four initial
-gridbox layouts and user workflow. These are design requirements, not yet deployed
-models. The older generic nullable location sketch is superseded for CCI storage.
+gridbox layouts and user workflow. The hierarchy and inventory models are
+implemented; grid lifecycle actions beyond placement, clipping and box-transfer
+synchronization remain planned. The older generic nullable location sketch is
+superseded for CCI storage.
 
-| Level | Planned representation and constraints |
+| Level | Representation and constraints |
 |---|---|
 | Dewar | Distinct configurable entity. The initial UI enforces `Dewar 1`. |
 | Cane | Distinct entity under a dewar. The initial UI enforces `Cane 1`. |
@@ -166,11 +169,12 @@ slot can hold another grid without losing previous occupant history. Track stock
 placement in a puck, and discard separately from whether slots contain grids: an
 empty box still counts while physically in a puck, whereas a box in stock does
 not. A two-sided box counts once. The inventory representation and rules for
-box movement, discard and corrections remain to be agreed; `is_active` alone
-is insufficient. Gridbox-name normalization also remains open. A grid can have no
-current slot, including when newly prepared, removed, shipped or discarded.
-Preserve location and event history; do not infer a current slot from old workbook
-values without the separate import rules.
+box movement, discard and corrections are implemented for boxes; `is_active`
+alone is insufficient. Gridbox-name normalization also remains open. A grid can
+have no current slot when newly prepared or discarded. A transfer with the box
+preserves the grid's slot association as its last known location while moving it
+outside CCI inventory. Preserve location and event history; do not infer a current
+slot from old workbook values without the separate import rules.
 
 ### 2.5 GridEvent (append-only physical history)
 
@@ -178,13 +182,13 @@ values without the separate import rules.
 |---|---|---|
 | `id` | UUID or bigint PK | Event identity |
 | `grid_id` | FK Grid | Required |
-| `event_type` | enum/string | `stored`, `moved`, `clipped`, `removed_for_imaging`, `imaged`, `returned_to_storage`, `shipped`, `discarded` |
+| `event_type` | enum/string | Implemented: `stored`, `moved`, `clipped`, `box_transfer`; planned: `screened`, `recovered`, `discarded` |
 | `occurred_at` | timezone-aware datetime? | Required for new events; **nullable for legacy unknown event time** |
 | `recorded_at` | timestamp | Automatic timestamp when entered/imported |
 | `performed_by_id` | FK AppUser? | Required for new events where recorded by staff; nullable for historical imports |
 | `from_location_id` | FK StorageLocation? | Where appropriate |
 | `to_location_id` | FK StorageLocation? | Where appropriate |
-| `destination` | text? | External recipient/site when shipped |
+| `destination` | text? | External recipient/site when the containing box is transferred |
 | `details` | validated JSON object? | Minimal event-specific metadata, e.g. instrument reference; avoid dumping core fields into arbitrary JSON |
 | `notes` | text? | Optional |
 | `source_import_reference` | string? | Links legacy import evidence when applicable |
@@ -194,11 +198,18 @@ values without the separate import rules.
 - `stored`: assign grid to first confirmed storage position.
 - `moved`: change storage position with recorded `from` and `to`.
 - `clipped`: change clipping state; may include physical move to a clipped-compatible location in the same atomic action.
-- `removed_for_imaging`: grid leaves a storage position for imaging; optionally retains its last-known location separately in history.
-- `imaged`: records imaging, without assuming disposal. Multiple imaging events may be possible unless later operational rules forbid them.
-- `returned_to_storage`: record that a removed grid is back in a valid location.
-- `shipped`: removes grid from CCI custody; records destination and date where known. Does not mean disposed or imaged.
-- `discarded`: marks grid no longer available. Discard can happen without imaging.
+- Screening records that a stored grid was screened; it does not by itself imply
+  disposal. For the agreed first workflow, the grid must already have a recorded
+  box and slot. Keep that same box/slot association while recording the outcome;
+  do not release the slot or ask staff to select it again for recovery.
+- `recovered`: records return after screening to the same recorded box and slot.
+  The app keeps the slot associated throughout the workflow; it does not expose
+  an intermediate free slot to another grid.
+- `discarded`: marks a grid no longer available. It can follow screening or occur
+  directly without screening. The discard reason is optional free text.
+- A box transfer with grids uses the existing box-transfer action and synchronized
+  grid history. The grid's displayed status includes the recorded destination; no
+  separate per-grid transfer action is planned for this workflow.
 
 **Append-only** means records are not overwritten/deleted as routine operations. Any exceptional correction should be separately audited, and a later release can add explicit event reversal/correction mechanics if necessary.
 
@@ -246,34 +257,56 @@ Audit events are not the physical lifecycle: correcting a concentration or owner
 
 ## 3. Status model / valid transitions
 
-The application should compute or transactionally maintain **independent state axes**:
+The initial database slice adds `Grid.status` with a default of Unknown. Its data
+migration assigns Deleted to archived grids, Transferred to grids in transferred
+boxes, and In storage to other grids with a recorded slot; all others stay Unknown.
+Placement, box transfer and transfer correction, and registration deletion keep
+the status synchronized. Grid detail records screening/recovery and discard as
+physical events; discard releases the slot. Excel lifecycle presentation remains
+separate work.
 
-| Axis | Values | Source |
-|---|---|---|
-| `clip_state` | `unclipped`, `clipped` | Starts unclipped; changes at `clipped` event, which may be recorded before first storage |
-| `availability` | `awaiting_storage`, `in_storage`, `removed_for_imaging`, `off_site`, `discarded` | Derived from latest applicable events |
-| `imaging_state` | `not_imaged`, `imaged` | Imaging events; does not imply disposal |
-| `current_location` | StorageLocation or null | Derived from storage/retrieval/shipping/disposal events |
+Keep physical location and lifecycle outcome distinct. The user-facing status is
+derived from recorded events and current storage, not edited as a free-text field.
+The agreed status values are:
+
+| Display status | Meaning |
+|---|---|
+| `In storage` | Default when the grid has a recorded current CCI box and slot, and no later screening, discard or transfer outcome supersedes it. |
+| `Screened and recovered` | Screening was recorded and the grid remains associated with its same box and slot. |
+| `Screened and discarded` | Screening was recorded, then the grid was discarded. Terminal outcome. |
+| `Discarded` | The grid was discarded without screening. Terminal outcome. An optional free-text reason may be recorded. |
+| `Transferred to [destination]` | The grid's containing box was transferred using Location and storage actions. Outside CCI inventory; not the same as discard. |
+| `Unknown — needs review` | No current box/slot or later lifecycle outcome is recorded. Do not assume this grid is in storage. |
+
+Clipping state and current physical location remain separately represented. The
+screening/disposition status is a readable projection of those facts and the
+append-only physical history. In particular, `In storage` is not the default for
+a grid with no recorded location.
 
 Example legal paths (not exhaustive):
 
 ```text
-New grid (unclipped, awaiting_storage, not_imaged)
-  -> stored -> in_storage
-  -> moved -> in_storage
-  -> clipped [optionally relocates, preserving history]
-  -> removed_for_imaging -> imaged -> discarded
-  -> shipped -> off_site
-
-Stored -> discarded                         # failed grid without imaging
-Stored -> shipped                           # sent for off-site imaging
-Removed_for_imaging -> returned_to_storage  # uncommon but must remain possible
-Off_site -> returned_to_storage             # potential future support; not core v0.1 flow
+New grid (unclipped; no location recorded)
+  -> Unknown — needs review
+  -> stored in a CCI box/slot -> In storage
+  -> screened and recovered -> Screened and recovered (same box/slot)
+  -> screened then discarded -> Screened and discarded
+  -> discarded without screening -> Discarded
+  -> containing box transferred -> Transferred to [destination]
 ```
 
-Never assume that grid image acquisition at another site or all disposal actions are known. Decide exceptional transition rules through tests, not ad-hoc user edits.
+Screening requires an existing recorded box/slot. The app retains that association
+through the screening action and records recovery to the same position; no
+temporary slot-release/reservation workflow is needed. A transfer status comes
+from the existing box transfer event and destination. Returning transferred or
+discarded grids and repeated screenings remain open for later design; never infer
+them from notes or location alone. The latest mistaken screening or discard can
+be corrected with the acting staff member's password and a required reason.
 
-**Potential cached projection fields:** `Grid.current_location_id`, `Grid.current_availability`, `Grid.current_clip_state`, `Grid.is_imaged`, `Grid.last_event_at`. These are **read-only projections**, changed only with event writes inside one DB transaction. Alternatively derive them in queries if initial volume remains small.
+Excel exports include a readable Grid status column in the Storage location group.
+Import does not restore that status or its physical events.
+
+**Potential cached projection fields:** `Grid.current_location_id`, `Grid.current_status`, `Grid.current_clip_state`, `Grid.last_event_at`. These are **read-only projections**, changed only with event writes inside one DB transaction. Alternatively derive them in queries if initial volume remains small.
 
 ## 4. Constraints and service-layer rules
 
@@ -283,7 +316,7 @@ Never assume that grid image acquisition at another site or all disposal actions
 - Validation: no negative durations/volumes/concentrations, `0 <= humidity_percent <= 100` when known; nullable for unknowns; explicit units.
 - Storage: prevent simultaneous slot occupancy; prevent moving stored grids to invalid/occupied destinations; don't allow a discarded grid to be treated as available through a generic edit.
 - Clipping: cannot clip an already clipped grid unless explicitly correcting history; avoid impossible sequences.
-- `shipped`/`discarded`: exclude from default available inventory but do not delete.
+- Transferred/discarded grids: exclude from default CCI available inventory but do not delete their identity or history.
 - For new physical events require acting authenticated user and event time; historical imports can use unknown actor and date.
 - Import: do not manufacture owner codes, session dates, or physical chronology without a declared rule or staff review.
 - Admin/policy changes are audited; never log credentials or private session secrets.
@@ -452,6 +485,7 @@ service descriptions above for cross-field, authorization and immutability rules
 |---|---|---|---|---|---|
 | `id` | `bigint` | No | No | Generated ID | >= -9223372036854775808, <= 9223372036854775807 |
 | `is_clipped` | `boolean` | No | No | False | — |
+| `status` | `varchar(24)` | No | No | unknown | — |
 | `grid_number` | `varchar(80)` | No | No | — | — |
 | `session_id` | `bigint` | No | No | — | — |
 | `copied_from_grid_id` | `bigint` | Yes | No | — | — |

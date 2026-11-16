@@ -24,7 +24,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
 from .forms import PreparationForm
-from .grid_storage import slot_label
+from .grid_storage import discard_location, slot_label
 from .permissions import visible_grids
 from .preparation import PREPARATION_FIELDS, PREPARATION_GROUPS
 from .storage_models import GridEvent
@@ -54,6 +54,7 @@ _labels["freezing_device"] = "Freezing device"
 _labels.update(
     {
         "is_clipped": "Clipped",
+        "grid_status": "Grid status",
         "storage_status": "Storage status",
         "dewar": "Dewar",
         "cane": "Cane",
@@ -84,6 +85,7 @@ GRID_GROUPS = [
         "Storage location",
         [
             "is_clipped",
+            "grid_status",
             "storage_status",
             "dewar",
             "cane",
@@ -174,7 +176,7 @@ def _storage_values(grid):
     slot = getattr(grid, "gridslot", None)
     box = slot.box if slot else None
     if not box:
-        status = "Unknown — needs review"
+        status = discard_location(grid) or "Unknown — needs review"
         dewar = cane = puck = box_type = box_name = slot_name = ""
     else:
         status = f"Transferred to {box.transfer_destination}" if box.transferred_at else "At CCI"
@@ -207,6 +209,7 @@ def _storage_values(grid):
 
     return {
         "is_clipped": "Yes" if grid.is_clipped else "No",
+        "grid_status": grid.get_status_display(),
         "storage_status": status,
         "dewar": dewar,
         "cane": cane,

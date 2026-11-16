@@ -331,6 +331,7 @@ class ExcelTests(TestCase):
             if sheet.cell(number, headers["Grid ID"]).value == in_cci_grid.grid_number
         )
         self.assertEqual(sheet.cell(cci_row, headers["Storage status"]).value, "At CCI")
+        self.assertEqual(sheet.cell(cci_row, headers["Grid status"]).value, "In storage")
         self.assertEqual(sheet.cell(cci_row, headers["Dewar"]).value, "Dewar 1")
         self.assertEqual(sheet.cell(cci_row, headers["Cane"]).value, "Cane 1")
         self.assertEqual(sheet.cell(cci_row, headers["Puck"]).value, "Green")
@@ -521,6 +522,10 @@ class ExcelTests(TestCase):
         self.assertEqual(client.post(url, {"action": "confirm"}).status_code, 403)
 
     def test_registry_access_allows_export_but_import_requires_cci_membership(self):
+        self.client.force_login(self.staff)
+        self.assertNotContains(
+            self.client.get(reverse("registry:grid_list")), "Import Excel workbook"
+        )
         administrator = User.objects.create_superuser(username="export-only-admin")
         content = export_workbook(actor=administrator, grids=Grid.objects.all())
         self.assertEqual(len(self.payload(content)["grids"]), 2)
