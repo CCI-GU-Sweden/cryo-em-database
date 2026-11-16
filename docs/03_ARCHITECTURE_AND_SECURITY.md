@@ -3,8 +3,8 @@
 **Integration direction (2026-11-16):** [plan.md](../plan.md) defines the next
 architecture changes: one reusable module, a standalone local host and a dashboard
 host with ORCID, shared roles and typed action approval. The older local-account,
-CCI-flag and password-confirmation descriptions below describe the implementation
-baseline and are superseded as future design by that plan. Grid storage and
+CCI-flag and password-confirmation descriptions below are historical and are
+superseded by the implemented roles and typed approval. Grid storage and
 lifecycle implementation is described in [storage requirements](08_STORAGE_LOCATIONS.md).
 
 **Version:** v0.1 working architecture\
@@ -37,7 +37,7 @@ Why this stack:
 
 **Avoid needless infrastructure initially:** no microservices, message broker, search cluster, Redis, Kubernetes, or separate API gateway required for the first pilot. Docker Compose can be an optional deployment convenience, not a functional requirement. Expose an API only if a real integration needs it.
 
-The local runtime uses Conda (`environment.yml`) and includes PostgreSQL tools so Docker is optional. See the README for initialization, login and tests. The initial user model separates `is_cci_staff` (registry membership) from Django `is_staff` (admin access).
+The local runtime uses Conda (`environment.yml`) and includes PostgreSQL tools so Docker is optional. See the README for initialization, login and tests. Registry access uses the shared role; Django `is_staff` controls administration-site access.
 
 ## 2. Current code organization
 

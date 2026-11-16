@@ -7,9 +7,8 @@
 This repository contains the grid registry and working specifications for an internal application at the Centre for Cellular Imaging (CCI). Preparation, storage and screening/disposition workflows are implemented for CCI staff. Dashboard integration and researcher access are not yet implemented.
 
 For delivered features, remaining work and the next proposed slice, see the
-[dashboard integration roadmap](plan.md). Stage 1 will align shared roles and
-replace sensitive-action password confirmation with typed `approve`; the local
-instructions below describe the current implementation until that change lands.
+[dashboard integration roadmap](plan.md). Stage 1 aligns shared roles and uses
+typed `approve` to confirm sensitive actions.
 
 ## Local development environment
 
@@ -124,7 +123,7 @@ Use synthetic names and samples while evaluating this prototype:
    Existing-owner changes and managing other people's grants remain admin-only.
 3. For another operator, open **Account administration** and create an account
    under **Accounts → Users**, enable
-   **CCI staff member**, and set their password. First and last names are optional
+   **Staff** role, and set their password. First and last names are optional
    display information. All CCI staff can browse every owner and create sessions
    for any active owner, and edit every active grid. Ordinary operators do not
    need Django's **Administration site access** flag. Administrators can edit all active owners.

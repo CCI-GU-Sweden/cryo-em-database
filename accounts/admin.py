@@ -12,7 +12,7 @@ class RegistryUserAdmin(UserAdmin):
             kwargs["label"] = "Administration site access"
             kwargs["help_text"] = (
                 "Allows access to the administration site, subject to assigned permissions. "
-                "Ordinary operators only need CCI staff member."
+                "Registry access is controlled by the role."
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 

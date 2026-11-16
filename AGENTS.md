@@ -4,14 +4,14 @@
 
 Build an internal web application for six CCI staff members (three technically proficient, three less familiar with programming). Users need a quick form and an Excel-like table. All active CCI staff can view and edit all active grids; the preparation operator records attribution, not editing rights. Archived grids are read-only. Facility superusers manage accounts, existing owners and grants. External access is out of scope for v0.1 but must not require a schema rewrite later.
 
-Current-format Excel import, preview and templates require the explicit CCI staff flag, even for superusers. Export follows existing registry viewing access and filters through the shared `visible_grids` boundary. Existing owner grants do not enable non-CCI browsing or restrict internal staff editing.
+Current-format Excel import, preview and templates are hidden in the UI and require an active Staff or Admin role when accessed directly. Export follows registry viewing access and filters through the shared `visible_grids` boundary. Existing owner grants do not enable researcher browsing or restrict staff editing.
 
 ## Authoritative documents
 
 - Read `plan.md` for the agreed dashboard integration roadmap. Stage 1 aligns
   standalone roles with dashboard Pending/Researcher/Staff/Admin and replaces
-  sensitive-action password re-entry with typed `approve`. These are planned
-  changes until implemented; older CCI-flag/password notes describe the baseline.
+  sensitive-action password re-entry with typed `approve`. Stage 1 is implemented;
+  dashboard packaging and integration remain planned.
 - Read `docs/01_PRODUCT_BRIEF.md` for user workflow and MVP scope.
 - Read `docs/02_SCHEMA_V0_1.md` for invariants and field structure.
 - Read `docs/05_EXCEL_IMPORT_SPEC.md` before writing migrations or importer.
