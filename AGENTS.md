@@ -22,7 +22,7 @@ If code and specification conflict, raise the discrepancy and propose an explici
 
 ## Coding expectations
 
-- Use the selected prototype stack: **Python 3.13, Django 5.2, PostgreSQL 17**, local Django accounts, Conda, server-rendered forms and minimal JavaScript. Add infrastructure or table libraries only for a demonstrated need.
+- Use the selected prototype stack: **Python 3.12, Django 5.2, PostgreSQL 17**, local Django accounts, Conda, server-rendered forms and minimal JavaScript. Add infrastructure or table libraries only for a demonstrated need.
 - Keep business rules in a testable service layer, separate from forms/views/API endpoints.
 - Implement **authorization server-side**, including bulk edits and object-level actions. Hiding UI controls is insufficient.
 - Use a stable internal user primary key; decouple sample ownership from login accounts and from authentication mechanisms.

@@ -1,0 +1,30 @@
+{% extends "registry/base.html" %}
+{% block title %}Preparation sessions · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Preparation sessions</h1>
+<p><a href="{% url 'registry:new_session' %}">New preparation session</a></p>
+<p>Browse sessions from all CCI staff. Names combine the session number, sample owner code and preparation date (YYMMDD).</p>
+<form method="get">
+  {{ form.non_field_errors }}
+  <div class="field-grid">
+    {% for field in form %}<div>{{ field.as_field_group }}</div>{% endfor %}
+  </div>
+  <p><button type="submit">Search sessions</button>
+    <button type="submit" formaction="{% url 'registry:session_excel_export' %}">Export grids for matching sessions</button>
+    <a href="{% url 'registry:session_list' %}">Clear filters</a></p>
+</form>
+<p>The export includes active grids from every session matching these filters, across all pages.</p>
+<div class="table-scroll"><table>
+<caption>Most recently registered sessions first</caption>
+<thead><tr><th>Session</th><th>Sample owner</th><th>Preparation date</th><th>Operator</th><th>Grids</th><th>Experiment</th><th>Project</th></tr></thead>
+<tbody>{% for session in page %}<tr>
+<td><a href="{% url 'registry:session_detail' session.pk %}">{{ session.display_name }}</a></td>
+<td>{{ session.owner.name }}</td><td>{{ session.prepared_at|date:"Y-m-d"|default:"Unknown" }}</td>
+<td>{% if session.prepared_by %}{{ session.prepared_by.get_full_name|default:session.prepared_by.username }}{% else %}Unknown{% endif %}</td>
+<td>{{ session.grid_count }}{% if session.deleted_count %}<br><a href="{% url 'registry:deleted_grid_list' %}?session={{ session.pk }}">{{ session.deleted_count }} deleted</a>{% endif %}</td><td>{{ session.experiment_reference|default:"—" }}</td><td>{{ session.project_reference|default:"—" }}</td>
+</tr>{% empty %}<tr><td colspan="7">No sessions found.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p>Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} sessions</p>
+{% if page.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+{% if page.has_next %}<a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+{% endblock %}

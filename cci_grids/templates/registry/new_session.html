@@ -1,0 +1,30 @@
+{% extends "registry/base.html" %}
+{% load static %}
+{% block title %}New preparation session · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>New preparation session</h1>
+<p>Enter shared settings once. Each generated grid gets its own copy, which you can edit afterward.</p>
+<p>Prepared by: <strong>{{ user.get_full_name|default:user.username }}</strong>. All times are local (Europe/Stockholm).</p>
+<p class="message">Grid IDs use the sample owner’s code and their creation sequence (for example rasi-0001). Leave unknown preparation fields empty. Storage will be added later.</p>
+<p><a href="{% url 'registry:new_owner' %}">Register a sample owner</a></p>
+<p>All active sample owners are listed, regardless of who registered them. <a href="{% url 'registry:owner_list' %}">Browse all owners</a></p>
+{% if not form.fields.owner.queryset.exists %}
+<p>No active sample owners have been registered yet. Register an owner to continue.</p>
+{% endif %}
+<form method="post" id="new-session-form">
+  {% csrf_token %}{{ form.request_token }}{{ form.non_field_errors }}
+  <fieldset><legend>Session</legend>
+    {{ form.owner.as_field_group }}
+    {{ form.prepared_at.as_field_group }}
+    {{ form.experiment_reference.as_field_group }}
+    {{ form.project_reference.as_field_group }}
+    {{ form.session_notes.as_field_group }}
+    {{ form.grid_count.as_field_group }}
+  </fieldset>
+  {% include "registry/preparation_fields.html" %}
+  <p>The session's original shared settings will be preserved. Creating grids saves the entire batch together.</p>
+  <p>Use Create grids when you are ready. Pressing Enter in a field does not save the session.</p>
+  <button type="submit">Create grids</button>
+</form>
+<script src="{% static 'cci_grids/new_session.js' %}" defer></script>
+{% endblock %}

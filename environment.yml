@@ -5,7 +5,7 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python=3.13
+  - python=3.12
   - django=5.2
   # psycopg is the Python driver; postgresql supplies the local database tools.
   # Installing PostgreSQL does not automatically start a database server.

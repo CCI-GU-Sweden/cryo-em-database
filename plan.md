@@ -78,6 +78,34 @@ require installation in the dashboard.
 
 ## Stage 2 — Extract the installable registry module
 
+**Python alignment decision (2026-11-17):** Target Python 3.12 in both hosts.
+The standalone Conda environment, package minimum and Ruff target follow that
+version; keep Django 5.2 and PostgreSQL 17. Updating an existing local Conda
+environment is an explicit developer action and does not reset its database.
+
+**Beta baseline decision (2026-11-17):** Existing prototype databases are
+disposable. Review old migrations and compatibility paths and remove those
+needed only for obsolete prototype states. Preserve current scientific and
+inventory invariants, immutable histories, authorization and their meaningful
+tests. A fresh baseline must seed the agreed default storage inventory. Changing
+the migration baseline requires recreating existing prototype databases; never
+silently reset one on startup or migration.
+
+The fresh baseline and removal of retired configuration/browser/snapshot
+compatibility paths are implemented and tested. The runtime packaging slice is implemented locally; dashboard wiring remains stage 3.
+
+Provide a local development reset command for repeated testing. Remove grids,
+sessions, sample owners and registered gridboxes, including their associated
+slots, physical events, archive/audit records, suggestions and identifier
+counters. Preserve gridbox types, configured pucks, cane and dewar; restore puck
+state consistently with the resulting empty inventory. Preserve user accounts by
+default, with a separate explicit option to clear them when requested.
+The command must identify its target and require explicit confirmation. The reset must target only the
+verified checkout-local PostgreSQL cluster, never a dashboard deployment or
+arbitrary configured database. First create and inspect a compressed PostgreSQL
+backup in `.local/backups/`; fail before clearing anything if backup fails. Stop
+the app to avoid writes between backup and reset. Do not expose a destructive web API.
+
 1. Package the registry with its migrations, templates, CSS/JavaScript and SVGs.
    Use a unique Python package name and namespaced template/static paths.
 2. Retain `config`, local accounts, launcher and PostgreSQL tooling as the
@@ -87,13 +115,40 @@ require installation in the dashboard.
 3. Replace direct local-user imports with the configured user model. Keep host
    integration small and explicit: permission adapters, layout and navigation.
    Import the dashboard descriptor only in dashboard mode.
-4. Preserve the registry app label/table identity and migration ordering where
-   possible. Check PostgreSQL history guards and avoid editing applied migrations
-   to support packaging. Module imports must have no setup or database side effects.
+4. Use the fresh beta baseline: one accounts schema migration, one registry schema
+   migration and one inventory/history migration. Obsolete prototype databases
+   require a fresh database, not an upgrade or fake migration. Preserve PostgreSQL
+   history guards. Module imports must have no setup or database side effects.
 
 **Done when:** a built wheel contains every runtime asset; an installed standalone
 host passes checks and starts via `dev.py`; ordinary module work has no dashboard
 dependency. The module does not alter the host user model or global settings.
+
+### Implemented slice — package and standalone host
+
+- Package the runtime app as `cci_grids`, retaining Django app label `registry`,
+  existing table names and the `registry` URL namespace. Update imports, app
+  configuration, settings and tooling together.
+- Move registry templates into the app's `templates/registry/` directory and
+  runtime assets into its `static/cci_grids/` directory. Use a module-owned base
+  template and update all static references, including seeded box-type SVG paths.
+  The local host keeps its login/home templates and accounts.
+- Add wheel metadata and explicit package data; exclude local configuration,
+  user models and PostgreSQL tooling from the installed runtime module.
+- Remove the remaining runtime import of the local account model. Keep
+  standalone-only reset and documentation tools with the development host so the
+  runtime package does not depend on `scripts` or repository documentation paths.
+- Keep `python dev.py` and `python dev.py check` working directly from a checkout.
+  Validate a built wheel's contents and rendering/static discovery from an
+  installed copy outside the checkout, as well as the normal PostgreSQL suite.
+- Refresh the local beta database path only through explicit instructions if
+  seeded SVG paths change. Do not reset user data or edit the dashboard repository
+  during this slice. Dashboard registration and layout integration are stage 3.
+
+The runtime distribution is `cci-grids` (`cci_grids` Python package), retaining
+the `registry` Django app label and URL namespace. Build/probe commands and the
+existing-beta SVG-path migration are documented in README.md. No database reset or
+dashboard changes are part of this slice.
 
 ## Stage 3 — Wire the dashboard contract
 

@@ -10,5 +10,5 @@ urlpatterns = [
     # Django's logout view requires POST, preventing accidental logout by a link.
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("admin/", admin.site.urls),
-    path("registry/", include("registry.urls")),
+    path("registry/", include("cci_grids.urls")),
 ]

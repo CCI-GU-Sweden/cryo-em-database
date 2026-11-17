@@ -25,7 +25,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "accounts",
-    "registry",
+    "cci_grids.apps.RegistryConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -79,14 +79,7 @@ TIME_ZONE = "Europe/Stockholm"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = []
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Keep honoring an earlier local configuration that explicitly disabled creation.
-# New IDs use owner-based numbering; existing DEMO/CCI identifiers are unchanged.
-GRID_REGISTRATION_ENABLED = (
-    os.environ.get(
-        "GRID_REGISTRATION_ENABLED", os.environ.get("REGISTRY_DEMO_MODE", "true")
-    ).lower()
-    == "true"
-)
+GRID_REGISTRATION_ENABLED = os.environ.get("GRID_REGISTRATION_ENABLED", "true").lower() == "true"

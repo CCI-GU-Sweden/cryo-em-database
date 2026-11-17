@@ -1,0 +1,43 @@
+{% extends "registry/base.html" %}
+{% block title %}Import Excel · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Import Excel workbook</h1>
+<p><a href="{% url 'registry:excel_template' %}">Download a blank import template</a>, or use a registry export.
+New records are created only after you review and confirm. Existing records are never overwritten.</p>
+<p>For hand entry, fill in Grids and Owners. Use a simple Session label such as
+<strong>session-1</strong> for grids prepared together, and a different label for the next session.
+Labels belong only to this workbook. Leave the supporting Sessions sheet empty;
+the application creates internal keys automatically and leaves original shared defaults unknown.</p>
+<p>Preparation dates accept <strong>YYYY-MM-DD</strong>, which defaults to
+<strong>12:00 Europe/Stockholm</strong>, or a full timestamp with a UTC offset.
+Blank dates remain unknown.</p>
+<p>New sample owners are created from the Owners worksheet. No login accounts or access grants are created.
+Unrecognised preparation operators remain unknown; the import audit records you as the importer.</p>
+{% if errors %}<ul class="errorlist">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+{% if report %}
+<h2>Import preview</h2>
+<dl>
+  <dt>New grids</dt><dd>{{ report.new_grids }}</dd>
+  <dt>Already present, unchanged</dt><dd>{{ report.existing_grids }}</dd>
+  <dt>New sessions</dt><dd>{{ report.new_sessions }}</dd>
+  <dt>Blank/identifier-only rows skipped</dt><dd>{{ report.skipped_rows }}</dd>
+</dl>
+<h3>New owners</h3>
+<ul>{% for owner in report.new_owners %}<li>{{ owner.name }} ({{ owner.code }})</li>
+{% empty %}<li>None</li>{% endfor %}</ul>
+{% if report.warnings %}<h3>Please review</h3><ul>
+{% for warning in report.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>{% endif %}
+<p>Confirmation is valid for 20 minutes. The workbook will be checked again before saving.</p>
+<form method="post">
+  {% csrf_token %}<input type="hidden" name="preview_token" value="{{ preview_token }}">
+  <button name="action" value="confirm">Confirm import</button>
+  <button name="action" value="cancel">Cancel</button>
+</form>
+{% else %}
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}{{ form.as_p }}
+  <button type="submit">Preview import</button>
+</form>
+{% endif %}
+<p><a href="{% url 'registry:grid_list' %}">Back to grid registry</a></p>
+{% endblock %}
