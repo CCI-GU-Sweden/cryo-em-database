@@ -1,496 +1,129 @@
 # CCI Cryo-EM Grid Registry
 
-**Specification baseline:** v0.1\
-**Last reviewed:** 2026-11-04\
-**Status:** Local prototype with preparation registration, browsing, audited editing, deletion archive and Excel transfer
+The Centre for Cellular Imaging (CCI) Cryo-EM Grid Registry tracks grid preparation, physical storage, screening outcomes and transfers between laboratories. Staff can search the registry and export preparation and storage data to Excel.
 
-This repository contains the grid registry and working specifications for an internal application at the Centre for Cellular Imaging (CCI). Preparation, storage and screening/disposition workflows are implemented for CCI staff. Dashboard integration and researcher access are not yet implemented.
+Run it locally with Django accounts or deploy it as a module in the CCI Django Dashboard with ORCID sign-in. Both modes use Python 3.12, Django 5.2 and PostgreSQL 17.
 
-For delivered features, remaining work and the next proposed slice, see the
-[dashboard integration roadmap](plan.md). Stage 1 aligns shared roles and uses
-typed `approve` to confirm sensitive actions.
+## Install and run locally
 
-## Local development environment
-
-The beta migration baseline creates the current schema directly. Databases made
-before this baseline must not be upgraded with `migrate` or `--fake`. The record
-reset command clears data but does not replace a database's migration history.
-For a fresh local database, stop the app, select a new database name in the private
-`.env` (for example `POSTGRES_DB=cci_beta`), then run `python dev.py`. Remove any
-shell override for POSTGRES_DB so it matches `.env`. The launcher creates and
-migrates that database and prompts for a new administrator; the former database
-and existing backups remain available. After this one-time switch, normal local
-development and record resets work as before.
-
-To clear disposable local registry records while preserving box types, locations
-and users, run `python manage.py reset_local_registry` in the configured Conda
-environment. The command verifies the checkout-local PostgreSQL cluster and asks
-you to type `reset` to confirm. Stop the web app while
-keeping local PostgreSQL running so no writes occur between the backup and reset.
-Before clearing data, the command saves a compressed PostgreSQL custom archive in
-the private `.local/backups/` directory and checks that `pg_restore` can list it;
-the reset stops if the backup fails. A recovery procedure should be tested before
-depending on it. Add `--clear-users` to
-also remove local users and login sessions; the next `python dev.py` start will
-prompt for a new administrator. This does not reset dashboard deployments.
-
-Use Conda for this prototype. The human-maintained dependency list is
-[`environment.yml`](environment.yml). From the repository root:
+From the repository root, use Conda to install the application dependencies and local PostgreSQL tools:
 
 ```bash
 conda env create --file environment.yml --prefix ./.conda
 conda activate ./.conda
-```
-
-The environment lives in the ignored `.conda/` directory. It includes Python 3.12,
-Django 5.2 LTS, psycopg 3, PostgreSQL 17, python-dotenv, openpyxl and Ruff. PostgreSQL is
-included so local development can work without Docker; installing it does not
-start a server. The commands below initialize a private loopback database.
-
-Python 3.12 is the shared target with the dashboard host. Existing Python 3.13
-checkout environments are not changed automatically. Stop the app first, then
-explicitly update the local environment with:
-
-```bash
-conda env update --file environment.yml --prefix ./.conda --prune
-```
-
-Confirm `python --version` reports 3.12, then run `python dev.py check`. The
-Conda update changes dependencies; it does not reset the local PostgreSQL data.
-
-Keep secrets in a private `.env` file, never in the environment YAML. Use synthetic
-data while the prototype model is being evaluated.
-
-### Run the local prototype
-
-With the Conda environment activated, run from the repository root:
-
-```bash
 python dev.py
 ```
 
-The launcher prepares configuration and the database, applies migrations, and
-prompts you to create an administrator if none exists. On later runs it preserves
-your settings, accounts and records, then starts the app directly.
-
-Open **http://127.0.0.1:8000/** and sign in with your administrator account.
-The home page links to preparation-session registration and the grid registry.
-`configure_local.py` generates private local secrets and keeps an existing `.env`
-unchanged. The database helper initializes `.local/postgres/` on its first run,
-then starts PostgreSQL on loopback port 5433 and creates `cci_prototype` if absent.
-Changing credentials in `.env` does not change credentials inside an existing
-cluster; keep those values consistent. Stop the application with Ctrl+C, then:
-
-```bash
-python dev.py stop
-```
-
-The helper retains the database on stop. Run
-`python scripts/local_database.py status` to check whether it is running.
-Stop/status apply only to this checkout's `.local/postgres/` directory. Stop is
-safe to repeat: if this checkout has no local database or it is already stopped,
-the command prints that state and succeeds. Permission errors and failed shutdowns
-remain errors. The helper does not manually delete data/PID files or stop another checkout.
-
-A colleague confirmed that on the tested native Windows setup, Ctrl+C stopped
-both the web app and PostgreSQL. A subsequent `python dev.py stop` correctly
-reports the already-stopped state and succeeds. This does not delete the database;
-the next launch uses the existing records. The exact console/process mechanism
-has not been investigated, so do not assume every Windows terminal behaves alike.
-For an unexplained shutdown, inspect `.local/postgres.log`; a missing PID file alone
-does not establish why the server stopped.
-
-The launcher handles native Windows Conda
-tool paths (`Library/bin` for PostgreSQL, `Scripts` for Ruff), as well as Linux/WSL
-`bin` paths. It always uses tools from the running Python environment. The setup
-is for local prototype testing with synthetic data, not shared deployment.
-
-On native Windows, activate the Conda environment before launching. If startup
-reports a missing tool, run `where python`, `where initdb`, `where pg_ctl` and
-`conda list postgresql` in that environment. PostgreSQL should resolve inside the
-same Conda environment as Python. Do not copy database executables into the
-project or Python directory, and keep the generated `.env` on subsequent runs.
-Windows path selection, password-file cleanup and startup options are covered
-by automated tests. Native Windows app startup and repeated stop were confirmed
-by a colleague; the full `python dev.py check` run and remaining native acceptance
-checks are still pending. Linux/WSL is used for local automated integration tests.
-
-For ordinary staff accounts, use `/admin/` to add a user and enable **CCI staff
-member**. That flag permits registry access; Django's separate **Administration site access**
-flag permits entry to the administration site. The initial superuser has both
-administrative and registry access. Accounts can be deactivated rather than
-deleted. All active CCI staff can edit every active grid. The preparation operator
-is attribution, not an editing restriction; each change records its actor, time
-and before/after values. Archived grids remain read-only.
-
-If Docker is preferred, use `docker compose up -d db` **instead of** the database
-helper, after running `python scripts/configure_local.py`. Use the individual Django
-commands (`migrate`, `createsuperuser`, `runserver`, `test`) with Docker; `dev.py`
-manages the Conda PostgreSQL server. The same connection settings apply.
-Docker is optional and its configuration has not been executed in this WSL setup.
-
-### Try preparation registration
-
-Use synthetic names and samples while evaluating this prototype:
-
-1. Sign in as an active CCI staff member or administrator and select **New preparation session**.
-2. Select **Register a sample owner**, enter a person or group name, then click
-   **Create unique code** beside the name field. The application checks existing codes and
-   shows a four-character lowercase code in a read-only field below the name.
-   The first two letters of the first and last name are used: `Rafael Silva`
-   becomes `rasi`. If taken, the candidates are `rsi1`–`rsi9`, `rs10`–`rs99`,
-   then `r100`–`r999`. Review affiliation/notes and save to continue with that
-   owner preselected. All CCI staff can immediately register and edit preparations;
-   owner registration creates no login account or access grant. Codes are checked under a database lock on save; the
-   displayed code is kept if still available, otherwise the next unused one is
-   assigned. Codes remain fixed after name changes. Existing owners can also be
-   managed through **Account administration → Sample owners**. The admin Add
-   screen also has **Create unique code** beside Name and a read-only code field
-   below it. Code previews do not reserve identifiers; save rechecks uniqueness.
-   Existing-owner changes and managing other people's grants remain admin-only.
-3. For another operator, open **Account administration** and create an account
-   under **Accounts → Users**, enable
-   **Staff** role, and set their password. First and last names are optional
-   display information. All CCI staff can browse every owner and create sessions
-   for any active owner, and edit every active grid. Ordinary operators do not
-   need Django's **Administration site access** flag. Administrators can edit all active owners.
-4. Open **New preparation session**, select the owner, enter preparation date/time
-   and shared conditions, and choose eight grids. The logged-in operator is
-   recorded as **Prepared by**. Session notes apply to the session; grid notes are
-   copied to each grid. Unknown measurements can stay empty.
-5. Click **Create grids**. Open two of the resulting grids and change their blot
-   times. Confirm the other six are unchanged and expand the session's original
-   settings to inspect the preserved snapshot.
-6. Use **Grids** to search by ID, sample, owner or experiment. Every CCI member can
-   view all grids and owners, and edit every active grid. All edits record who
-   changed what and when. Deactivating a user prevents all login and editing. **Owners** lists active and inactive owners, with
-   search and preparation links for active owners.
-
-This slice focuses on preparation, with no location-entry or physical-event
-controls. Grids remain unclipped, not imaged and awaiting storage. Each sample owner has an independent grid sequence starting at `0001`:
-`rasi-0001` … `rasi-9999`, then `rasi-a001` … `rasi-a999`,
-`rasi-b001` … `rasi-z999`. These reflect database generation order, not the
-preparation date. The sequence has 35,973 IDs per owner and stops explicitly when
-exhausted; batches never wrap around or partially succeed. Existing matching IDs
-are reserved automatically, and historical `CCI-…`/`DEMO-…` IDs remain unchanged.
-New generation requires a four-character lowercase owner code. A legacy owner
-with a longer code must be reviewed explicitly rather than silently renamed.
-Set `GRID_REGISTRATION_ENABLED=false` to disable new grid registration.
-The prototype limit remains 100 grids per session.
-
-Repeated submissions reuse the original session rather than duplicate grids.
-Edits preserve before/after audit history, and stale edit forms cannot overwrite a
-newer edit. Grid IDs, original session membership, snapshots and audit history
-are protected in PostgreSQL; scientific records are read-only in Django admin.
-All preparation measurements accept up to two decimal places. Displays omit unnecessary trailing zeros. Snapshots store decimal
-strings with field names defining the units. Extra precision is rejected for
-review rather than silently rounded. The two-place migration rounds existing disposable test measurements and
-updates numeric suggestions to match; earlier snapshots retain their entered values.
-
-### Preparation suggestions and registry display
-
-**Batch (Box/LOT-number)** is beside Grid type and refers to the preparation
-grid batch, not physical storage. Ambiguous legacy parenthetical references are
-not assigned to it.
-
-Preparation text, multiline and numeric fields offer **Previous values**. Click
-that button to browse, or type to search the suggestions. Use arrow keys and Enter
-to select, or keep typing an entirely new value. Saved values become reusable;
-**Multiple blots** defaults to `0` and accepts non-negative whole numbers;
-blank input becomes `0`, while negatives and fractions are rejected. Additional carbon
-is chosen from None, amorphous carbon, graphene oxide, graphene, or Unknown.
-Thickness is recorded in nm for amorphous carbon and layers for graphene.
-**Unknown** means information was not recorded or needs review; **None** means
-confirmed absence. The new-session form prefills the current glow discharge and
-freezing devices, but both can be changed or cleared. Existing records with no
-device stay Unknown; the current facility equipment is not inferred for them.
-Glow atmosphere and polarity use capitalized words, with
-case variants merged in suggestions. Suggestions only change
-the selected field, so selecting a sample never silently fills its buffer or units.
-
-To seed suggestions from a private workbook (no grids, sessions or owners imported):
-
-```bash
-python manage.py seed_preparation_suggestions private-data/Cryo-EM_grids_example.xlsx --dry-run
-python manage.py seed_preparation_suggestions private-data/Cryo-EM_grids_example.xlsx
-```
-
-Seeding is repeatable. Raw source text and cell/checksum provenance stay in the
-local database; private vocabulary is never committed as fixtures or source code.
-Uncertain source humidity is not converted to a percentage. The old humidity
-wording field has been removed. Formulas are not evaluated, and ambiguous grid-type
-references do not become box numbers automatically.
-
-In **Grids**, expand **Choose columns** to select any preparation or session
-columns, show all, or reset to defaults. The browser remembers column preferences
-separately for each account. Wide tables scroll horizontally; scientific data is
-unaffected by display choices.
-
-Use **Filter by property** to add one or more conditions: case-insensitive text
-contains, inclusive numeric ranges, inclusive preparation/recording dates, or
-boolean values where available. Multiple blot is a numeric range property.
-Conditions combine with AND and the existing search. Filters work
-on hidden columns too and remain in the URL when paging; **Clear filters** resets
-the search. Invalid ranges show errors and no records, rather than silently
-returning a broader result set. The prototype supports up to 20 filter conditions.
-
-### Verify changes
-
-Run all checks with:
-
-```bash
-python dev.py check
-```
-
-This prepares the local database if necessary, checks Django configuration and
-missing migrations, runs the tests, and checks linting and formatting. It stops
-at the first failed command. Run `python dev.py stop` afterward to ensure the local
-database is stopped; it also succeeds when the database is already stopped.
-
-Django creates and removes a separate test database. The local database role
-needs permission to create it; the prototype cluster's initial role has this.
-Tests cover login, logout, CSRF, unsafe redirects, deactivated accounts, and
-registry/admin access boundaries, atomic batch creation, independent grid
-values, unknown/zero/false handling, audit integrity, retry safety, stale edits
-and concurrent ID allocation. The custom user model is established in the
-initial migration so later authentication changes retain stable user IDs.
-
-The last full verification recorded on 2026-11-04 passed 128 tests, including
-current Excel transfer, archive protection and launcher portability. Native
-Windows full-check/remaining acceptance and the six-staff pilot still need verification;
-see [the acceptance checklist](docs/06_ACCEPTANCE_TESTS.md).
-
-For an exact recreation of the tested **Linux x86-64** environment, use
-`conda create --prefix ./.conda --file environment-linux-64.lock` instead of the
-YAML create command. Other platforms should resolve `environment.yml`. After an
-intentional dependency update, regenerate the platform snapshot:
-
-```bash
-conda list --prefix ./.conda --explicit --md5 > environment-linux-64.lock
-```
-
-## Start here
-
-1. [`docs/01_PRODUCT_BRIEF.md`](docs/01_PRODUCT_BRIEF.md) — problem, operational workflow, goals, scope, and design principles.
-2. [`docs/02_SCHEMA_V0_1.md`](docs/02_SCHEMA_V0_1.md) — agreed entities, field-level structure, invariants, lifecycle, and relationships.
-3. [`docs/03_ARCHITECTURE_AND_SECURITY.md`](docs/03_ARCHITECTURE_AND_SECURITY.md) — candidate Django implementation, forms and bulk editing, identity, authorization, and audit requirements.
-4. [`plan.md`](plan.md) — dashboard integration stages, shared roles and standalone development requirements.
-5. [`docs/05_EXCEL_IMPORT_SPEC.md`](docs/05_EXCEL_IMPORT_SPEC.md) — exact workbook column map, data-quality issues, and import behavior.
-6. [`docs/06_ACCEPTANCE_TESTS.md`](docs/06_ACCEPTANCE_TESTS.md) — scenarios and tests Codex should implement.
-7. [`docs/07_OPEN_DECISIONS.md`](docs/07_OPEN_DECISIONS.md) — bounded unresolved details; do not silently invent a scientific convention.
-8. [`AGENTS.md`](AGENTS.md) — instructions for Codex or another repository-based coding assistant.
-
-## Agreed scientific/operational model
-
-A **preparation session** is a real laboratory session, belongs to **exactly one sample owner**, and creates multiple individual **grids** with a saved snapshot of the shared preparation settings. At creation, each grid gets its own independent copy of the preparation fields. The user may subsequently modify individual grids, assign their storage locations, clip/move/image/discard them, or ship them outside CCI. The physical history is append-only. **Grid number is a permanent, globally unique natural identifier.**
-
-The initial Excel example uses `CCI-00001` etc. The new application should also support owner-based identifiers such as `kegu-1234`, without rewriting historical IDs.
-
-## Important distinction
-
-- **Implemented:** owner/session/grid registration, per-owner IDs, individual edits with audit history, registry column selection and filters, session browsing, password-confirmed archive, and current-format XLSX import/export.
-- **Confirmed policy:** all active CCI staff can edit all active grids; import requires the CCI flag, while export follows viewing access. New owner codes and ID sequences are settled. Facility time is Europe/Stockholm.
-- **Not yet implemented:** physical storage/lifecycle events, bulk/inline table editing, CSV export, the original combined-field workbook importer, archive restore/purge, shared hosting and backups.
-- **Unresolved:** storage hierarchy/occupancy rules and uncertain source conventions for humidity, parenthetical grid references and blot force. Native Windows startup/stop are confirmed; its full-check and remaining acceptance are pending. See `docs/07_OPEN_DECISIONS.md`.
-
-## Source workbook
-
-The uploaded source workbook was inspected for this handoff: **`Cryo-EM_grids_example.xlsx`**, worksheet `Sheet1`, used range `A1:AC724`, headers in row 3, eight populated grid records in rows 4–11, and prefilled identifiers below. The workbook is **not duplicated in this documentation package**. Place a privately held copy under `data/raw/` for actual import tests; never commit identifying laboratory data to a public repository.
-
-## Next proposed development slice
-
-Complete the remaining native Windows checks, including `python dev.py check`, then review
-the real storage hierarchy and occupancy rules with staff (decision D03). Once
-confirmed, the next proposed feature is initial store/move actions with immutable
-event history and atomic occupancy checks. Do not infer the location convention
-from the old workbook or implement clipping/imaging/shipping in that first slice.
-
-Preparation registration and current-format Excel transfer are already implemented;
-they should not be scaffolded again. See the roadmap for remaining pilot gates.
-
-## Working rule
-
-Keep documentation updated when an implementation decision is approved. Schema changes should get a migration, a test, and a short explanation of impact on Excel import and future knowledge-base extension.
-
-The preparation-field refinement on 2026-11-04 is an explicitly approved cleanup
-of disposable prototype data: obsolete humidity wording and Double blot columns,
-snapshot keys, suggestion entries and audit keys are removed without archival.
-Existing blot booleans are not interpreted as counts; Multiple blots starts at `0`.
-Snapshots move to version 3 and case variants are normalized. The migration briefly
-suspends snapshot/audit guards inside its transaction and restores them afterward;
-normal application edits still preserve immutable snapshots and audit history.
-
-The Django model in `cci_grids/models.py` is the authoritative field/type definition,
-not a separate YAML configuration. Migrations apply those changes to PostgreSQL.
-The current type table in `docs/02_SCHEMA_V0_1.md` is generated from that model:
-
-```bash
-python manage.py describe_grid_fields
-python manage.py describe_grid_fields --update-docs
-```
-
-`python dev.py check` verifies that the generated reference still matches the model.
-Model bounds in that table describe application validators; database constraints,
-service rules and casing behavior are documented separately in the schema.
-The registry Preparation date column shows only the local date; its full timestamp
-is retained in the session and remains visible on the session detail screen.
-
-### Browse preparation sessions
-
-Use **Sessions** in the main navigation to browse preparations from all CCI staff.
-Search by session number, owner name/code, operator login/full name, experiment or
-project; optionally filter by owner and inclusive preparation dates. Results show
-newest registrations first, include grid counts and link to session details.
-
-Session labels are derived from existing fields: **Session 1 - rasi - 261104**.
-The number is the existing internal session ID, `rasi` is the sample owner's code,
-and `261104` is the preparation date in YYMMDD format, using the facility timezone
-(Europe/Stockholm). Unknown historical dates display `undated`. The label is not a
-new database identifier; foreign keys and immutable grid IDs remain unchanged.
-Session detail retains the preparation time; browse tables show the date only.
-
-### Delete a mistaken grid registration
-
-From **Grids → View / edit**, scroll to the bottom and click the red **Delete**
-button. The confirmation page identifies the grid, owner and session. Enter
-**your own current account password**, then select **Delete grid**. No grid ID
-needs to be typed again.
-Cancel or simply viewing the page does not change records. Incorrect credentials
-or a grid changed since opening the page prevent deletion.
-
-Any active CCI staff member can perform this deliberate correction, independently
-of preparation-edit grants. The record moves to **Grids → Deleted grids**, a
-read-only archive in the same PostgreSQL database. Its scientific fields, session
-link, original ID and history remain intact; actor/time and an audit entry record
-the deletion. Main registry searches, session grids and active grid counts exclude
-it. Session pages link to any deleted records. Grid IDs are never recycled, and
-retrying the original session submission cannot recreate archived grids.
-
-This archives a database record, not a physical disposal event. Accounts without
-a usable local password cannot confirm deletion in this local-password prototype.
-Passwords are neither stored in archive/audit entries nor echoed on failed forms.
-The archive and grid data are read-only in both application services and ordinary
-database updates. Django admin provides no bulk or hard-delete shortcut.
-
-Previous-value suggestions are independent reusable vocabulary, so archiving a
-grid does not erase a value already remembered there. Full restoration and a
-permanent purge command are later work. Purging will need to preserve a minimal
-identifier reservation so a removed ID can never be reused.
-
-
-### Excel import and export
-
-On **Grids**, apply search/property filters and choose **Export filtered grids to
-Excel**. The download contains all matching active grids across every page, with
-all preparation columns regardless of the browser's column-display preferences.
-Grouped headings follow the original workbook: Info, Sample conditions, Grid
-treatment, Freezing conditions, Experiment reference and Additional notes. A
-repeating teal/purple/amber palette colours each heading and its data columns.
-Individual parameters occupy separate columns; numeric measurements use two
-fractional places. Supporting Owners and Sessions sheets preserve owner details,
-explicit session membership and original session-default snapshots.
-
-Excel import is currently hidden from the site and reserved for future review.
-The existing importer allows an active CCI staff member to upload a current
-export, review the preview, then confirm within 20 minutes. Missing owners are
-listed by name/code and created on confirmation. Import never creates accounts or
-access grants. Known preparation operators are preserved; unknown logins stay
-unknown and produce a warning. Every import records the importing staff member.
-Unchanged records are skipped; conflicting IDs, owner details or session metadata
-stop the entire import without overwriting anything. Archived IDs remain reserved.
-
-Import, preview and the blank import template require an active account marked
-**CCI staff member**, including for administrators. Anyone with registry viewing
-access can export the records they can see, subject to the same filters. Export
-also enforces that visibility boundary for direct service calls. This does not
-enable browsing for additional users; non-CCI read-only access remains deferred.
-
-This first format supports current registry exports (.xlsx, at most 5 MB/5,000
-rows). It does not parse the original legacy combined-field workbook, store
-physical locations/events, or restore complete audit history. It transfers a
-selection of records, not a database backup. Keep exports private, for example
-under the ignored `data/exports/` directory. No new dependencies or database
-migration are required for this feature.
-
-Copied-from relationships are excluded from the workbook. A filtered subset does
-not need to include a source grid, and importing does not change existing links.
-
-
-The existing import page supplies a blank template for hand entry when the
-workflow is made available again.
-Fill in Grids and Owners. The **Session** column accepts simple labels such as
-`session-1` and `session-2`; rows with one label must describe the same preparation
-and owner. Labels belong to the workbook and do not need to match existing session
-numbers. Leave the supporting Sessions sheet empty (or remove it). Internal keys
-are generated automatically; original shared defaults stay unknown instead of
-being guessed from the first grid. Exported files retain their portable keys in a
-hidden supporting column so ordinary re-imports still preserve session identity.
-
-Preparation dates accept `YYYY-MM-DD` text or an Excel date cell, defaulting to
-**12:00 Europe/Stockholm** on that date. Preview reports the default. Blank dates
-remain unknown; full timestamps must include a UTC offset. The entire application
-uses Europe/Stockholm for facility-local time; stored timestamps remain UTC-aware.
-
-### Grid placement and puck inventory
-
-From a session's **Grid locations and actions** table, choose **Store / move**.
-Select a compatible box by typing its name, then choose a free slot. Mixed boxes
-use C1–C4 and U1–U4. If a box is in stock, choose a puck with space; placement
-records both actions together. **Register new gridbox** creates a box inline and
-returns to the same grid. Missing storage displays **Unknown — needs review**.
-
-Individual grid preparation groups can be expanded/collapsed and start closed.
-Clipping status can be changed after Freezing and blotting; an incompatible
-recorded slot is released with a warning and retained history. Box transfers and
-corrections are reflected in contained grids' history and current location.
-
-**Gridboxes** shows occupied grid slots; **Pucks** shows occupied box spaces out
-of 12 and links to the boxes inside each puck. Staff can register a new unique
-puck name/colour using their own password. For the pilot, pucks with grids are
-assumed to be in the dewar and pucks without grids are assumed to be in stock.
-Grid detail records screening outcomes and disposal, with password-confirmed
-correction of the latest status action. Off-site returns and bulk placement
-remain future work.
-
-
-### Installable runtime package
-
-The `cci_grids` app is shared by the standalone host and the dashboard
-host. Its Django app label, database table names and URL namespace remain
-`registry`. Local accounts, `config`, login/home templates, `dev.py` and
-PostgreSQL tooling stay in this checkout and are excluded from the wheel.
-`reset_local_registry` and `describe_grid_fields` belong to the local accounts
-app; installed runtime modules do not expose these host maintenance commands.
-
-From the active Conda environment, build and verify the runtime distribution:
-
-```console
-python -m pip wheel --no-deps --wheel-dir dist .
-python scripts/check_runtime_package.py dist/cci_grids-0.1.0-py3-none-any.whl
-python dev.py check
-```
-
-Building uses isolated setuptools tooling (the first build needs network access).
-The wheel probe installs into a temporary directory outside the checkout and
-checks configured-user references, migrations, template loading/rendering and
-namespaced static discovery without connecting to a database. The PostgreSQL
-suite remains necessary to verify history guards and storage invariants.
-
-A host installs `cci-grids`, adds `cci_grids.apps.RegistryConfig` to
-`INSTALLED_APPS`, supplies its own `AUTH_USER_MODEL`, authentication/session and
-message middleware, template context processors and PostgreSQL database, then
-mounts `cci_grids.urls` with the existing `registry` namespace. Run migrations
-through the host once per release. Shared role fields and user display fields
-must follow the agreed dashboard contract. Dashboard registration uses the module
-descriptor, which mounts the URL prefix itself; follow the
-[dashboard integration guide](docs/09_DASHBOARD_INTEGRATION.md) for configuration,
-local startup and first-Admin bootstrap. Registry time stays Europe/Stockholm
-independently of the dashboard timezone.
-
-Runtime templates live in `cci_grids/templates/registry/`; static URLs use
-`cci_grids/`. Fresh beta migrations seed namespaced SVG paths. Migration
-`0003_namespace_box_assets` updates existing gridbox definitions from the former
-asset path when `python dev.py` runs migrations. This preserves records and users;
-no reset or database rename is required for the packaging change.
-`python dev.py` and `python dev.py check` remain checkout entry
-points and require no dashboard checkout or ORCID access.
+### First startup
+
+1. After you run `python dev.py`, the launcher generates local secrets in a private `.env`, starts PostgreSQL and applies the database migrations. You do not need to enter database credentials.
+2. When the terminal asks you to create your first local administrator, enter a username, optionally enter an email address, and type the same password twice. Press Enter at the email prompt to leave it blank. The terminal does not show characters as you type the password.
+
+   The prompts look like this, with the database setup output omitted:
+
+   ```text
+   Create your first local administrator account.
+   Username: grid-admin
+   Email address:
+   Password:
+   Password (again):
+   Superuser created successfully.
+
+   Open http://127.0.0.1:8000/ in your browser.
+   ```
+
+3. Keep the terminal running and open [127.0.0.1:8000](http://127.0.0.1:8000/). Sign in with the username and password you just chose. That account already has the **Admin** role. Create additional users in Django admin at `/admin/` and assign the **Staff** role to users who need registry access.
+
+On later starts, the launcher reuses your database and skips the administrator prompt if an active local superuser already exists.
+
+Stop the web app with Ctrl+C, then run `python dev.py stop` to stop PostgreSQL. Run `python dev.py check` for the standalone test suite and development checks.
+
+If you have a database from before the beta migration baseline, stop the app and choose a new `POSTGRES_DB` in `.env` before starting again. This creates a fresh database and preserves the old one.
+
+## Deploy through the dashboard with ORCID
+
+1. Install `cci-grids` into the dashboard's Python environment from a pinned registry commit or a built wheel. Build a wheel from this checkout with `python -m pip wheel --no-deps --wheel-dir dist .`.
+2. Register the module using the dashboard contract and set `DASHBOARD_GRIDS_ENABLED=1` in a dashboard build that supports the registry. Configure the host to use PostgreSQL and set up ORCID with a callback URL matching the deployed dashboard address.
+3. Run `python manage.py migrate` and `python manage.py collectstatic --noinput` from the configured dashboard environment, then start or restart the dashboard.
+4. Sign in through ORCID. A dashboard administrator grants **Staff** or **Admin** access. Once approved, open **Grid Registry** from the dashboard home page.
+
+See the [dashboard integration guide](docs/09_DASHBOARD_INTEGRATION.md) for the registration settings, first-admin bootstrap and local ORCID testing. Keep secrets in the host environment or private `.env` files.
+
+### Use ORCID with your own Django host
+
+The CCI Django Dashboard is the tested ORCID setup. A different Django host can install `cci-grids` as a reusable app, but it must provide its own ORCID sign-in, account provisioning and approval, and a user model with compatible **Staff** and **Admin** roles. It must also configure PostgreSQL and mount the registry URLs. The standalone launcher uses local Django accounts and has no ORCID switch. For a local ORCID trial, the documented setup runs the CCI Django Dashboard with only the registry enabled.
+
+## Use the registry
+
+1. **Start a preparation session.** Choose **New preparation session** and select an existing sample owner. If the owner is new, register them from the session form. A sample owner identifies the source of the grids and is separate from a login account.
+2. **Create grids.** Enter the shared preparation conditions and the number of grids. The registry assigns grid IDs and keeps a snapshot of the session defaults. Open individual grids to edit their preparation details.
+3. **Record storage.** In the session's grid table, choose **Store / move**, then select a compatible gridbox and a free slot. You can register a box inline. Choose a puck when placing a grid into a box that is still in stock. Grids without a recorded location are marked **Unknown — needs review**.
+4. **Record screening or disposal.** Open a grid and choose the appropriate outcome. Screening and recovery keeps the grid in its recorded slot. Discarding releases the slot and retains the history. When a sensitive action asks for confirmation, type `approve`.
+5. **Transfer to another laboratory.** Open the gridbox and choose **Transfer to another laboratory** under **Manage box**. Record the destination and transfer time. The transfer applies to every grid in the box.
+6. **Find and export records.** Use **Grids** to search and filter, or browse **Sessions**, **Owners**, **Gridboxes** and **Pucks**. Excel export includes the matching grid data and storage information. Use database backups to preserve the complete history.
+
+Active Staff and Admin users can work across the registry. The application records the operator and keeps an audit history. Deleting a mistaken registration archives it separately from physical disposal.
+
+### Grids View
+
+Open **Grids** from the main navigation. The table has one row per grid, with columns for its ID, sample owner, preparation details, storage location and other fields. Use **Previous** and **Next** below the table to browse pages. Separate views for transferred, discarded and deleted grids are linked above the table.
+
+- **Storage** shows the recorded location. Click the puck name or gridbox name to open its inventory page. The slot label tells you where the grid sits inside the box. A grid without a recorded location shows **Unknown — needs review**.
+- **Action** contains **View / edit**, which opens the detailed view for that grid. You can also click its **Grid ID**. The detail page brings together preparation details, storage actions, status actions and history.
+
+To narrow the table, search by grid ID, sample, owner or experiment. Open **Sample and preparation filters** to filter by a property such as sample description or blot time. Open **Storage filters** to narrow by puck, box, slot or clipping state. Use **Add preparation filter** or **Add storage filter** to combine criteria. All criteria must match, and the endpoints of numeric ranges are included. Click **Apply search and filters** to see the results or **Clear filters** to start over.
+
+Open **Choose columns** above the table and tick the fields you want to see. **Show all** displays every column, and **Reset to defaults** restores the initial selection. Your browser remembers the selection for your account. **Export filtered grids to Excel** includes every matching grid across all pages, regardless of which columns are visible.
+
+### Sessions View
+
+Open **Sessions** from the main navigation to browse preparation sessions, with the most recently registered sessions first. Each row shows the sample owner, preparation date, operator, grid count, and experiment and project references.
+
+Search by session number, owner, operator, experiment or project. You can also select a sample owner and set a preparation date range. Click **Search sessions** to apply the filters or **Clear filters** to reset them. **Export grids for matching sessions** downloads the active grids from every matching session across all pages.
+
+Click a session name in the **Session** column to open its detail page and see the grids prepared in that session. From there, you can open an individual grid, use **Store / move** to record its location, or follow **View archive** if the session has deleted grid records.
+
+### Owners View
+
+A **sample owner** is the person or group associated with a sample. For example, a CCI staff member can prepare grids for a visiting research group and select that group as the owner. The registry records the signed-in staff member separately as the preparation operator. Registering a sample owner creates a sample record only. The owner can have no account in the app.
+
+Open **Owners** to search by name, code or affiliation. Each row shows the owner's code, affiliation and active or inactive status. Click **Sessions** to see that owner's preparation sessions or **New session** to start one with that owner preselected. Only active owners can be selected for a new session. Administrators can update an existing record through **Manage owner**. **Export grids for matching owners** downloads active grids for all owners matching the search.
+
+To add a person or group, choose **Register a sample owner**, enter their name and click **Create unique code**. The registry gives the owner a unique four-character **code**, which becomes the prefix for their grid IDs. For example, **Alex Rivera** gives `alri` from the first two letters of the first and last words. A single-word name uses its first four letters, with `x` padding for short names. If a code is already taken, the registry tries numbered variants such as `ari1` and `ar10`. Review the code, add any affiliation or notes, and save. The registry checks uniqueness again on save and keeps the assigned code even if the owner's name changes.
+
+### Gridboxes View
+
+Open **Gridboxes** to find boxes by name or filter by state, such as **In stock**, **In a puck** or **Transferred**. Each row shows one physical box, its type, its location or state, and how many slots are occupied out of the total.
+
+A **box type** is a reusable template. It defines the layout, the number of slots and which slots accept clipped or unclipped grids. To record an individual physical box, give it a unique name and select its type under **Register a physical gridbox**. Multiple physical boxes can use the same type.
+
+Click a box name to see its layout, slot list and action history. Free slots show **Empty**. Occupied slots show a grid ID that links to the grid's detail page.
+
+At CCI, a box containing grids must be assigned to a **puck–dewar combination**. If you place a grid into a box that is in stock, the registry asks you to select a puck. The selected puck determines the dewar. Empty boxes can be kept in stock.
+
+### Pucks View
+
+Open **Pucks** to see the puck inventory. A fresh installation comes with a predefined set of pucks under **Cane 1** in **Dewar 1**. These defaults can be adapted for another facility through the storage setup. In the registry, use **Register new puck** to add a physical puck. Enter a unique name or colour, type `approve` to confirm, and click **Register puck**. New pucks start **In stock**.
+
+Each row shows the puck's name, its **Occupied box spaces** out of 12, the total number of grids in those boxes, and whether the puck is **In dewar** or **In stock**. For example, **3/12** means three gridboxes are assigned to the puck and nine box spaces are available. An empty gridbox still takes up a box space.
+
+Click a puck name to see its gridboxes, their slot occupancy and the puck's movement history. Use **Move puck** to record its location. A puck containing grids must stay in the dewar. Before moving it to stock, remove the grids from its boxes. Empty boxes can stay attached to the puck.
+
+### Single Grid View
+
+Open an individual grid by clicking its **Grid ID** or **View / edit** in the Grids table or a session's grid table. You can also click the grid ID next to an occupied slot on a gridbox's detail page. The grid page shows the sample owner and links back to the preparation session.
+
+- **Sample preparation.** Expand the relevant sections to edit the preparation details, then click **Save this grid**. Changes apply to this grid only and preserve the original session settings.
+- **Clipping.** Expand **Clipping**, update whether the grid is clipped, and click **Save this grid**. If the new clipping state is incompatible with the recorded slot, the registry releases the slot and flags the location for review.
+- **Location and storage actions.** Check the current location, then select a compatible gridbox and a free slot to store or move the grid. Click **Confirm placement** to record the move. This section also shows the grid's physical history.
+- **Grid status.** Check the current status or use **Record status** to record screening and recovery, screening and discard, or discard without screening. If a correction is available, **Correct last status change** records the correction and preserves the original entry.
+
+## Reference
+
+- [Schema and preparation fields](docs/02_SCHEMA_V1_0.md)
+- [Storage locations and inventory rules](docs/08_STORAGE_LOCATIONS.md)
+- [Excel export](docs/05_EXCEL_EXPORT.md)
+
+## License
+
+Released under the [MIT License](LICENSE).

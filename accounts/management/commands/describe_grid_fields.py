@@ -58,7 +58,7 @@ class Command(BaseCommand):
         if not (options["update_docs"] or options["check"]):
             self.stdout.write(table)
             return
-        path = Path(settings.BASE_DIR) / "docs" / "02_SCHEMA_V0_1.md"
+        path = Path(settings.BASE_DIR) / "docs" / "02_SCHEMA_V1_0.md"
         original = path.read_text()
         block = f"{START}\n{table}\n{END}"
         if START in original and END in original:
@@ -75,5 +75,5 @@ class Command(BaseCommand):
         else:
             path.write_text(updated)
             self.stdout.write(
-                "Updated the generated Grid field reference in docs/02_SCHEMA_V0_1.md."
+                "Updated the generated Grid field reference in docs/02_SCHEMA_V1_0.md."
             )

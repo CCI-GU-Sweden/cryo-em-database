@@ -323,12 +323,12 @@ class RegistrationTests(TestCase):
     def test_owner_codes_are_automatic_unique_and_stable_after_renaming(self):
         owners = [
             save_administration_record(
-                actor=self.admin, instance=SampleOwner(name="Rafael Silva", code="ignored")
+                actor=self.admin, instance=SampleOwner(name="Raven Silt", code="ignored")
             )
             for _ in range(3)
         ]
         self.assertEqual([owner.code for owner in owners], ["rasi", "rsi1", "rsi2"])
-        self.assertEqual(suggest_owner_code("RAFAEL SILVA"), "rsi3")
+        self.assertEqual(suggest_owner_code("RAVEN SILT"), "rsi3")
         owner = owners[0]
         owner.name = "Updated display name"
         owner.code = "attempted-change"
@@ -336,12 +336,12 @@ class RegistrationTests(TestCase):
         self.assertEqual(owner.code, "rasi")
         owner.active = False
         save_administration_record(actor=self.admin, instance=owner)
-        self.assertEqual(suggest_owner_code("Rafael Silva"), "rsi3")
+        self.assertEqual(suggest_owner_code("Raven Silt"), "rsi3")
 
     def test_owner_code_collision_tiers_and_case_insensitive_checks(self):
         from .services import owner_code_candidates
 
-        candidates = list(owner_code_candidates("Rafael Silva"))
+        candidates = list(owner_code_candidates("Raven Silt"))
         self.assertEqual(candidates[0], "rasi")
         self.assertEqual(candidates[1], "rsi1")
         self.assertEqual(candidates[9], "rsi9")
@@ -354,20 +354,20 @@ class RegistrationTests(TestCase):
                 for code in candidates[:10]
             ]
         )
-        self.assertEqual(suggest_owner_code("Rafael Silva"), "rs10")
+        self.assertEqual(suggest_owner_code("Raven Silt"), "rs10")
         SampleOwner.objects.bulk_create(
             [SampleOwner(name="Synthetic collision", code=code) for code in candidates[10:100]]
         )
-        self.assertEqual(suggest_owner_code("Rafael Silva"), "r100")
+        self.assertEqual(suggest_owner_code("Raven Silt"), "r100")
 
     def test_available_preview_code_is_preserved_on_save(self):
-        code = suggest_owner_code("Rafael Silva")
+        code = suggest_owner_code("Raven Silt")
         owner = save_administration_record(
-            actor=self.admin, instance=SampleOwner(name="Rafael Silva"), preferred_code=code
+            actor=self.admin, instance=SampleOwner(name="Raven Silt"), preferred_code=code
         )
         self.assertEqual(owner.code, code)
         second = save_administration_record(
-            actor=self.admin, instance=SampleOwner(name="Rafael Silva"), preferred_code=code
+            actor=self.admin, instance=SampleOwner(name="Raven Silt"), preferred_code=code
         )
         self.assertEqual(second.code, "rsi1")
 
