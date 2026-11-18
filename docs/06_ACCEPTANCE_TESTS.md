@@ -1,7 +1,7 @@
 # Acceptance criteria and testing scenarios
 
 **Version:** v0.1\
-**Last reviewed:** 2026-11-16\
+**Last reviewed:** 2026-11-18\
 **Purpose:** Clear definition of done for model, services, UI, import, and security.
 
 ## Current validation and remaining acceptance
@@ -20,8 +20,11 @@ dashboard's own **72 tests passed, 3 skipped**, in a separate test database usin
 its standard optional-module configuration. Browser-trial modules remain limited
 to the registry. Rafa confirmed real ORCID login via `127.0.0.1`, first-Admin
 bootstrap and the two dashboard counts on 2026-11-18. The dashboard checkpoint
-pins the matching registry commit. Broader browser workflows and production
-release checks remain; see [integration instructions](09_DASHBOARD_INTEGRATION.md).
+pins the matching registry commit. Rafa also confirmed owner/session/grid
+registration, storage placement, matching stored/unknown dashboard counts and
+Excel export with storage information through the integrated dashboard.
+Production release checks remain; see
+[integration instructions](09_DASHBOARD_INTEGRATION.md).
 
 Python 3.12.16 validation (2026-11-17) passed all **175 tests** on PostgreSQL,
 Django system checks, migration-drift and generated-field checks. The runtime

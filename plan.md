@@ -4,7 +4,8 @@
 
 **Status:** Stages 1 and 2 implemented and pushed. Stage 3 implemented and tested
 locally; ORCID login and dashboard stock/review counts confirmed by Rafa.
-Broader workflow acceptance and release checks remain in stage 4.
+Initial integrated browser workflows confirmed; production release checks remain
+in stage 4.
 
 **Contract reference:** `Dashboard-django/MODULE_CONTRACT.md`, version 1, reviewed at dashboard commit `855a4d4`.
 
@@ -190,8 +191,10 @@ module removes its routes/card and preserves data; unrelated modules still work.
 See [dashboard integration](docs/09_DASHBOARD_INTEGRATION.md) for startup and
 first-Admin bootstrap. Rafa confirmed ORCID login via `127.0.0.1`, first-Admin
 bootstrap and dashboard stock/review counts on 2026-11-18. The dashboard checkpoint
-pins the matching registry commit in its requirements. Broader workflow acceptance
-and release checks remain in stage 4; local testing is not a production rollout.
+pins the matching registry commit in its requirements. Rafa also confirmed owner,
+session and grid registration, storage placement, the corresponding dashboard
+counts, and Excel export with storage information through the dashboard. Production
+release checks remain in stage 4; local testing is not a production rollout.
 
 ## Stage 4 — Verify and release
 
