@@ -3,6 +3,11 @@
 **Last reviewed:** 2026-11-16\
 **Status:** Current preparation schema plus agreed future storage/lifecycle design
 
+The next identity/role migration and typed approval changes are defined in
+[plan.md](../plan.md). Local accounts use shared roles and sensitive actions
+require typed `approve`; dated historical notes may describe the retired flags
+and password confirmations.
+
 `registry/models.py` and its migrations define the implemented schema; the
 [generated Grid field reference](#generated-grid-field-reference) below checks
 its exact types. GridEvent is implemented for clipping, grid placement/movement
@@ -217,7 +222,7 @@ slot from old workbook values without the separate import rules.
 
 The implemented `accounts.User(AbstractUser)` has a stable bigint key and was set
 before the first migration. It retains Django's login/password/active fields and
-adds `is_cci_staff`. Django's `is_staff` is labelled Administration site access;
+adds the dashboard-compatible `role`. Django's `is_staff` is labelled Administration site access;
 facility-wide administration requires `is_superuser`. Keep sample ownership in
 `SampleOwner`, separate from login identities.
 

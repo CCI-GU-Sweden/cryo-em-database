@@ -1,0 +1,6 @@
+{% extends 'registry/base.html' %}{% load static %}{% block content %}
+<h1>Store / move {{ grid.grid_number }}</h1>
+<p><a href="{% url 'registry:session_detail' grid.session_id %}">Back to session</a></p>
+{% include 'registry/grid_storage_panel.html' %}
+<script src="{% static 'cci_grids/grid_storage.js' %}" defer></script>
+{% endblock %}

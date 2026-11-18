@@ -1,0 +1,16 @@
+{% extends "registry/base.html" %}
+{% block title %}Delete {{ grid.grid_number }} · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Delete {{ grid.grid_number }}</h1>
+<p>Owner: {{ grid.session.owner }} · {{ grid.session.display_name }}</p>
+<p>Sample: {{ grid.sample_description|default:"Unknown" }}</p>
+<p class="warning">This removes the grid from the registry and moves it to Deleted grids.
+Its preparation data and history remain in the archive. This does not record physical disposal.</p>
+<p>To delete <strong>{{ grid.grid_number }}</strong>, type <strong>approve</strong> below.</p>
+<form method="post">
+  {% csrf_token %}{{ form.expected_version }}{{ form.non_field_errors }}
+  {{ form.approval.as_field_group }}
+  <p><button type="submit" class="danger-button">Delete grid</button>
+  <a href="{% url 'registry:grid_detail' grid.pk %}">Cancel</a></p>
+</form>
+{% endblock %}

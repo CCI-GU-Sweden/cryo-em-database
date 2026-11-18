@@ -1,12 +1,42 @@
 # Acceptance criteria and testing scenarios
 
 **Version:** v0.1\
-**Last reviewed:** 2026-11-16\
+**Last reviewed:** 2026-11-18\
 **Purpose:** Clear definition of done for model, services, UI, import, and security.
 
 ## Current validation and remaining acceptance
 
-The last full Linux/WSL run passed **128 tests**, Django checks, migration-drift
+Stage 3 local dashboard integration (reviewed 2026-11-18): **185 standalone tests** passed,
+including owner administration and facility-time isolation. The installed wheel
+passed **19 integration checks** against the real dashboard account model on
+PostgreSQL: fresh migrations/default inventory, attribution, permissions,
+approval, owner/grant administration without Django admin, module routes/card
+disable/re-enable, packaged assets and Stockholm time with a UTC host. The CCI
+stock metric follows placement, screening/recovery, transfer/correction and
+discard events, excluding grids without recorded storage. The
+separate unknown-location count includes unlocated current grids, excluding
+transferred, discarded and deleted records. The
+dashboard's own **72 tests passed, 3 skipped**, in a separate test database using
+its standard optional-module configuration. Browser-trial modules remain limited
+to the registry. Rafa confirmed real ORCID login via `127.0.0.1`, first-Admin
+bootstrap and the two dashboard counts on 2026-11-18. The dashboard checkpoint
+pins the matching registry commit. Rafa also confirmed owner/session/grid
+registration, storage placement, matching stored/unknown dashboard counts and
+Excel export with storage information through the integrated dashboard.
+Production release checks remain; see
+[integration instructions](09_DASHBOARD_INTEGRATION.md).
+
+Python 3.12.16 validation (2026-11-17) passed all **175 tests** on PostgreSQL,
+Django system checks, migration-drift and generated-field checks. The runtime
+wheel was built under 3.12 and its installed-copy probe passed user-model,
+migration graph, template rendering and static discovery checks. This run used
+the dashboard interpreter read-only, temporary openpyxl/python-dotenv dependencies,
+and the registry environment's PostgreSQL 17 backup/restore tools supplied
+explicitly by the test harness. Neither Conda environment was changed. A clean
+Conda solve from the updated environment.yml and native Windows verification
+remain separate checks. Ruff lint and formatting passed with target `py312`.
+
+The fresh beta baseline run passed **175 tests**, Django checks, migration-drift
 checks, the generated field reference, Ruff lint and formatting. Sixteen tests cover
 launcher portability and stop/status handling, and a fresh temporary PostgreSQL cluster passed initialization,
 authentication and shutdown with spaces/apostrophe in its path.
@@ -52,7 +82,7 @@ authentication and shutdown with spaces/apostrophe in its path.
 Sections A–F are the **full v0.1 acceptance checklist**, not a claim that every
 feature is implemented or manually signed off. Current-format transfer tests are
 separate from the unimplemented original legacy importer in section D. Detailed
-slice checks below record the implemented behavior; the [roadmap](04_DEVELOPMENT_ROADMAP.md)
+slice checks below record the implemented behavior; the [roadmap](../plan.md)
 tracks remaining work. Do not mark Windows or the six-staff pilot complete without
 actual feedback from those runs.
 
@@ -220,14 +250,14 @@ lifecycle scenarios are deferred to the next slice.
 - Multiple blots defaults to 0; blank input also becomes 0. Accept non-negative
   integers and reject negative, fractional and boolean input. Reject negative
   values in the database as well.
-- Disposable test-data migration removes retired fields/keys, resets old blot
-  booleans to the requested default 0, updates snapshot version, and restores both history
-  guards. A populated migration test verifies cleanup and immutable behavior afterward.
+- The fresh beta baseline contains only current fields and installs immutable
+  history guards. Obsolete prototype-data conversion migrations and their tests
+  have been removed; current model/service/history tests remain.
 
 ## Measurement precision and registry date display (2026-11-04)
 
 - All ten Grid DecimalFields use two decimal places and reject excess-precision
-  new input. Existing disposable test values are rounded by the approved migration.
+  new input. Existing prototype databases are outside the fresh baseline.
 - Numeric suggestions are rounded/deduplicated consistently with the new inputs.
 - Preparation dates in the registry show date only; stored time and session-detail
   display keep the full timestamp. Date-range filtering remains unchanged.
@@ -373,3 +403,15 @@ lifecycle scenarios are deferred to the next slice.
   validation or authorize additional rows.
 - Invalid inventory choices or malformed filter formsets fail closed and reject
   export. Existing preparation text and range filters continue to work.
+
+
+## Runtime packaging slice
+
+- Build `cci-grids` with `python -m pip wheel --no-deps --wheel-dir dist .` and run
+  `python scripts/check_runtime_package.py dist/cci_grids-0.1.0-py3-none-any.whl`.
+  The probe checks an installation outside the checkout: only runtime packages,
+  complete migrations/templates/static assets, preserved `registry` app identity,
+  host-configured user references, and absence of local maintenance commands.
+- Run `python dev.py check` for the standalone PostgreSQL suite, migration drift,
+  generated field reference and lint/format checks. Runtime packaging does not
+  establish dashboard integration or native Windows validation.

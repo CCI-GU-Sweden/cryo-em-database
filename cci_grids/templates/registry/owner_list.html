@@ -1,0 +1,26 @@
+{% extends "registry/base.html" %}
+{% block title %}Sample owners · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Sample owners</h1>
+<p>All CCI staff can see every sample owner and register new owners.</p>
+<p><a href="{% url 'registry:new_owner' %}">Register a sample owner</a></p>
+<form method="get" action="{% url 'registry:owner_list' %}"><label for="owner-search">Search name, code or affiliation</label>
+<input id="owner-search" name="q" value="{{ query }}">
+<button type="submit">Search</button>
+<button type="submit" formaction="{% url 'registry:owner_excel_export' %}">Export grids for matching owners</button></form>
+<p>The export includes active grids for every matching owner, across all pages.</p>
+<div class="table-scroll"><table>
+<thead><tr><th>Name</th><th>Code</th><th>Affiliation</th><th>Status</th><th>Preparation</th></tr></thead>
+<tbody>{% for owner in page %}<tr>
+<td>{{ owner.name }}{% if owner.notes %}<details><summary>Notes</summary>{{ owner.notes|linebreaksbr }}</details>{% endif %}</td>
+<td>{{ owner.code }}</td><td>{{ owner.affiliation|default:"—" }}</td>
+<td>{{ owner.active|yesno:"Active,Inactive" }}</td>
+<td>{% if owner.active %}<a href="{% url 'registry:new_session' %}?owner={{ owner.pk }}">New session</a>
+{% else %}Inactive{% endif %}
+ · <a href="{% url 'registry:session_list' %}?owner={{ owner.pk }}">Sessions</a>{% if user.role == 'admin' %} · <a href="{% url 'registry:owner_edit' owner.pk %}">Manage owner</a>{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="5">No owners found.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p>Page {{ page.number }} of {{ page.paginator.num_pages }}</p>
+{% if page.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+{% if page.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+{% endblock %}

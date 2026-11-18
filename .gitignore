@@ -22,3 +22,8 @@ __pycache__/
 
 # Local database cluster and server logs
 .local/
+
+# Python distributions
+build/
+dist/
+*.egg-info/

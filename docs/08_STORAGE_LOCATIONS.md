@@ -499,9 +499,8 @@ location:
   optional free-text reason may be recorded (for example, broken, copy of a known
   failed sample, or bad concentration). A discard recorded through the current
   CCI workflow stores CCI as the discard location and displays `Discarded at CCI`.
-  Earlier discard events without a location show CCI only when their recorded
-  source slot establishes that they were handled by this CCI workflow; otherwise
-  show `Discarded — location unknown`. Recording disposal at another laboratory
+  If a discard event has no recorded location, show `Discarded — location unknown`.
+  Recording disposal at another laboratory
   remains future work. Discarded grids are excluded from the normal grid registry
   and its filtered export and are listed in a separate Discarded grids view with
   links to their detail, status, location, actor, time and reason.

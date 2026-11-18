@@ -1,0 +1,8 @@
+{% extends "registry/base.html" %}
+{% block title %}Manage sample owner · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Manage sample owner</h1>
+<p><a href="{% url 'registry:owner_list' %}">Back to sample owners</a> · <a href="{% url 'registry:owner_grants' owner.pk %}">Manage owner access grants</a></p>
+<p>The owner code stays fixed when the name changes. Inactive owners remain in historical records and cannot be selected for a new session.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save owner</button></form>
+{% endblock %}

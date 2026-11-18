@@ -1,7 +1,24 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cci-grids"
+version = "0.1.0"
+description = "CCI cryo-EM grid preparation and storage registry"
+requires-python = ">=3.12"
+dependencies = ["Django>=5.2,<5.3", "psycopg>=3.2,<4", "openpyxl>=3.1,<4"]
+
+[tool.setuptools.packages.find]
+include = ["cci_grids", "cci_grids.*"]
+
+[tool.setuptools.package-data]
+cci_grids = ["templates/registry/*.html", "static/cci_grids/*.css", "static/cci_grids/*.js", "static/cci_grids/grid-boxes/*.svg"]
+
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 100
-exclude = [".conda", "accounts/migrations", "registry/migrations"]
+exclude = [".conda", "accounts/migrations", "cci_grids/migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

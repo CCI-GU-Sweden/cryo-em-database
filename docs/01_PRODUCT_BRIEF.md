@@ -2,13 +2,13 @@
 
 **Version:** 0.1\
 **Last reviewed:** 2026-11-04\
-**Status:** Agreed v0.1 scope; preparation and current Excel transfer implemented, physical handling deferred
+**Status:** Preparation, storage and initial grid lifecycle implemented; dashboard integration planned
 
 This brief describes the full intended workflow, including future screens/actions.
-The [roadmap](04_DEVELOPMENT_ROADMAP.md#current-implementation--2026-11-04) distinguishes
-the implemented prototype from the remaining v0.1 scope. The current table supports
-browsing/filtering and links to individual editing; bulk/inline editing and physical
-state tracking are not implemented.
+The [roadmap](../plan.md) defines the next dashboard integration stages while
+preserving standalone development. The current table supports browsing/filtering
+and links to individual editing; storage, screening/disposition and immutable
+physical history are implemented. Bulk/inline editing remains future work.
 
 ## Problem
 

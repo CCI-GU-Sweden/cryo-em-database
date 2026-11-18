@@ -1,0 +1,53 @@
+{% load static %}
+{{ preparation_suggestions|json_script:"preparation-suggestions" }}
+<script src="{% static 'cci_grids/preparation_suggestions.js' %}" defer></script>
+<script src="{% static 'cci_grids/carbon_units.js' %}" defer></script>
+{% if collapsible %}
+<div class="group-controls" data-group-controls hidden><button type="button" data-expand-groups>Expand all</button> <button type="button" data-collapse-groups>Collapse all</button></div>
+<script src="{% static 'cci_grids/preparation_groups.js' %}?v=2" defer></script>
+{% endif %}
+<p>Type to search previous values, or enter a new value. Suggestions never fill other fields automatically.</p>
+{% for title, fields in form.preparation_groups %}
+{% if collapsible %}<details class="preparation-group" data-preparation-group{% for field in fields %}{% if field.errors %} open{% endif %}{% endfor %}><summary>{{ title }}</summary>{% endif %}
+<fieldset aria-label="{{ title }}">
+  {% if not collapsible %}<legend>{{ title }}</legend>{% endif %}
+  <div class="field-grid">
+  {% for field in fields %}
+    <div class="field preparation-field">{{ field.label_tag }}{{ field }}{{ field.errors }}
+    {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>
+  {% endfor %}
+  </div>
+</fieldset>
+{% if collapsible %}</details>{% endif %}
+{% if title == 'Freezing and blotting' and form.is_clipped %}
+{% if collapsible %}<details class="preparation-group" data-preparation-group{% if form.is_clipped.errors %} open{% endif %}><summary>Clipping</summary>{% endif %}
+<fieldset aria-label="Clipping">{% if not collapsible %}<legend>Clipping</legend>{% endif %}
+{{ form.is_clipped.label_tag }}{{ form.is_clipped }}{{ form.is_clipped.errors }}
+<p>{{ form.is_clipped.help_text }}</p>
+</fieldset>
+{% if collapsible %}</details>{% endif %}
+{% endif %}
+{% if title == 'Freezing and blotting' and inline_storage %}
+<details class="preparation-group" data-preparation-group id="storage-actions">
+<summary>Location and storage actions</summary>
+<div data-inline-storage data-url="{% url 'registry:grid_storage' grid.pk %}?inline=1">
+<p role="status" data-storage-status>Loading storage actions…</p>
+<div data-storage-panel></div>
+<noscript><a href="{% url 'registry:grid_storage' grid.pk %}">Open location and storage actions</a></noscript>
+</div></details>
+<details class="preparation-group" data-preparation-group{% if outcome_form.errors or correction_form.errors %} open{% endif %}>
+<summary>Grid status</summary>
+<div class="field-grid">
+<p>Current status: <strong data-grid-status>{% if grid.status == 'transferred' %}Transferred to {{ grid.gridslot.box.transfer_destination }}{% else %}{{ grid.get_status_display }}{% endif %}</strong></p>
+{% if grid.status != 'discarded' and grid.status != 'screened_discarded' and grid.status != 'transferred' %}
+<form method="post" id="grid-outcome-form">{% csrf_token %}<input type="hidden" name="intent" value="outcome">{{ outcome_form.as_p }}<button type="submit">Record status</button></form>
+{% endif %}
+{% if can_correct_status %}
+<details {% if correction_form.is_bound %}open{% endif %}><summary>Correct last status change</summary>
+<p>Correct a mistaken screening or discard. The original action remains in the history.</p>
+<form method="post" id="grid-correction-form">{% csrf_token %}<input type="hidden" name="intent" value="correct_status">{{ correction_form.as_p }}<button type="submit">Confirm correction</button></form>
+</details>
+{% endif %}
+</div></details>
+{% endif %}
+{% endfor %}

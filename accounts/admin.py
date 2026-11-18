@@ -12,7 +12,7 @@ class RegistryUserAdmin(UserAdmin):
             kwargs["label"] = "Administration site access"
             kwargs["help_text"] = (
                 "Allows access to the administration site, subject to assigned permissions. "
-                "Ordinary operators only need CCI staff member."
+                "Registry access is controlled by the role."
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
@@ -24,12 +24,12 @@ class RegistryUserAdmin(UserAdmin):
         # Deactivate accounts instead: later grid events must retain their actor.
         return False
 
-    fieldsets = UserAdmin.fieldsets + (("Registry access", {"fields": ("is_cci_staff",)}),)
-    add_fieldsets = UserAdmin.add_fieldsets + (("Registry access", {"fields": ("is_cci_staff",)}),)
+    fieldsets = UserAdmin.fieldsets + (("Registry access", {"fields": ("role",)}),)
+    add_fieldsets = UserAdmin.add_fieldsets + (("Registry access", {"fields": ("role",)}),)
     list_display = (
         *(
             "administration_site_access" if field == "is_staff" else field
             for field in UserAdmin.list_display
         ),
-        "is_cci_staff",
+        "role",
     )

@@ -1,5 +1,12 @@
 # Architecture, authentication, authorization, and UI
 
+**Integration direction (2026-11-16):** [plan.md](../plan.md) defines the next
+architecture changes: one reusable module, a standalone local host and a dashboard
+host with ORCID, shared roles and typed action approval. The older local-account,
+CCI-flag and password-confirmation descriptions below are historical and are
+superseded by the implemented roles and typed approval. Grid storage and
+lifecycle implementation is described in [storage requirements](08_STORAGE_LOCATIONS.md).
+
 **Version:** v0.1 working architecture\
 **Last reviewed:** 2026-11-04\
 **Status:** Implemented preparation/Excel baseline; physical handling and shared hosting remain planned
@@ -19,7 +26,7 @@ flowchart TB
     S -. future .-> L[Local document extraction / LLM]
 ```
 
-**Prototype baseline:** Django 5.2 LTS + PostgreSQL 17, server-rendered forms and a plain HTML table. Add HTMX or a table library after workflow testing demonstrates the need. See the [prototype-first roadmap](04_DEVELOPMENT_ROADMAP.md) for delivery gates and local authentication. Use Django admin for *internal administration*, not necessarily as the final staff-facing workflow. Alternatives previously considered (Grist/eLabFTW) may still be worthwhile if custom development proves too heavy, but the state-transition and permission requirements lean toward Django.
+**Prototype baseline:** Django 5.2 LTS + PostgreSQL 17, server-rendered forms and a plain HTML table. Add HTMX or a table library after workflow testing demonstrates the need. See the [dashboard integration roadmap](../plan.md) for delivery gates and local authentication. Use Django admin for *internal administration*, not necessarily as the final staff-facing workflow. Alternatives previously considered (Grist/eLabFTW) may still be worthwhile if custom development proves too heavy, but the state-transition and permission requirements lean toward Django.
 
 Why this stack:
 
@@ -30,7 +37,7 @@ Why this stack:
 
 **Avoid needless infrastructure initially:** no microservices, message broker, search cluster, Redis, Kubernetes, or separate API gateway required for the first pilot. Docker Compose can be an optional deployment convenience, not a functional requirement. Expose an API only if a real integration needs it.
 
-The local runtime uses Conda (`environment.yml`) and includes PostgreSQL tools so Docker is optional. See the README for initialization, login and tests. The initial user model separates `is_cci_staff` (registry membership) from Django `is_staff` (admin access).
+The local runtime uses Conda (`environment.yml`) and includes PostgreSQL tools so Docker is optional. See the README for initialization, login and tests. Registry access uses the shared role; Django `is_staff` controls administration-site access.
 
 ## 2. Current code organization
 
@@ -59,14 +66,17 @@ dev.py                  # one-command start/check/stop
 ```
 
 Keep these small modules readable; split them only when the code needs it.
-StorageLocation/GridEvent services are not implemented. Centralize authorization
-and business rules so HTTP and direct service calls follow the same policy.
+Grid placement, clipping, screening/disposition and correction services are
+implemented. Keep authorization and business rules centralized so HTTP and direct
+service calls follow the same policy.
 
 ## 3. Authentication should be replaceable
 
 **Initial pilot:** Django local user accounts, strong passwords, server-managed sessions, HTTPS for non-local deployment, administrators capable of creating/deactivating accounts. Only six CCI accounts are needed initially.
 
-**Later:** OIDC or another standards-based institutional identity provider (possibly university SSO / Entra ID). BankID is used in some institutional contexts but should **not** become a hard dependency; international collaborators need non-Swedish options.
+**Agreed deployment target:** use the dashboard's ORCID login and configured user
+model. Keep local login in the standalone development host. Stage 1 aligns shared
+roles and action confirmation before packaging and dashboard registration.
 
 The custom `accounts.User(AbstractUser)` was established in the first migration;
 keep its stable internal primary key as the FK target. Future external identities

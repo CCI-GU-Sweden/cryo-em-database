@@ -4,12 +4,35 @@
 **Last reviewed:** 2026-11-04\
 **Status:** Local prototype with preparation registration, browsing, audited editing, deletion archive and Excel transfer
 
-This repository contains the local prototype and working specifications for an internal application to register cryo-electron microscopy (cryo-EM) grids at the Centre for Cellular Imaging (CCI). The initial user population is CCI staff; physical storage/lifecycle tracking and restricted external access remain later work.
+This repository contains the grid registry and working specifications for an internal application at the Centre for Cellular Imaging (CCI). Preparation, storage and screening/disposition workflows are implemented for CCI staff. Dashboard integration and researcher access are not yet implemented.
 
 For delivered features, remaining work and the next proposed slice, see the
-[current implementation status](docs/04_DEVELOPMENT_ROADMAP.md#current-implementation--2026-11-04).
+[dashboard integration roadmap](plan.md). Stage 1 aligns shared roles and uses
+typed `approve` to confirm sensitive actions.
 
 ## Local development environment
+
+The beta migration baseline creates the current schema directly. Databases made
+before this baseline must not be upgraded with `migrate` or `--fake`. The record
+reset command clears data but does not replace a database's migration history.
+For a fresh local database, stop the app, select a new database name in the private
+`.env` (for example `POSTGRES_DB=cci_beta`), then run `python dev.py`. Remove any
+shell override for POSTGRES_DB so it matches `.env`. The launcher creates and
+migrates that database and prompts for a new administrator; the former database
+and existing backups remain available. After this one-time switch, normal local
+development and record resets work as before.
+
+To clear disposable local registry records while preserving box types, locations
+and users, run `python manage.py reset_local_registry` in the configured Conda
+environment. The command verifies the checkout-local PostgreSQL cluster and asks
+you to type `reset` to confirm. Stop the web app while
+keeping local PostgreSQL running so no writes occur between the backup and reset.
+Before clearing data, the command saves a compressed PostgreSQL custom archive in
+the private `.local/backups/` directory and checks that `pg_restore` can list it;
+the reset stops if the backup fails. A recovery procedure should be tested before
+depending on it. Add `--clear-users` to
+also remove local users and login sessions; the next `python dev.py` start will
+prompt for a new administrator. This does not reset dashboard deployments.
 
 Use Conda for this prototype. The human-maintained dependency list is
 [`environment.yml`](environment.yml). From the repository root:
@@ -19,16 +42,21 @@ conda env create --file environment.yml --prefix ./.conda
 conda activate ./.conda
 ```
 
-The environment lives in the ignored `.conda/` directory. It includes Python 3.13,
+The environment lives in the ignored `.conda/` directory. It includes Python 3.12,
 Django 5.2 LTS, psycopg 3, PostgreSQL 17, python-dotenv, openpyxl and Ruff. PostgreSQL is
 included so local development can work without Docker; installing it does not
 start a server. The commands below initialize a private loopback database.
 
-After deliberately changing `environment.yml`, update the environment with:
+Python 3.12 is the shared target with the dashboard host. Existing Python 3.13
+checkout environments are not changed automatically. Stop the app first, then
+explicitly update the local environment with:
 
 ```bash
 conda env update --file environment.yml --prefix ./.conda --prune
 ```
+
+Confirm `python --version` reports 3.12, then run `python dev.py check`. The
+Conda update changes dependencies; it does not reset the local PostgreSQL data.
 
 Keep secrets in a private `.env` file, never in the environment YAML. Use synthetic
 data while the prototype model is being evaluated.
@@ -122,7 +150,7 @@ Use synthetic names and samples while evaluating this prototype:
    Existing-owner changes and managing other people's grants remain admin-only.
 3. For another operator, open **Account administration** and create an account
    under **Accounts → Users**, enable
-   **CCI staff member**, and set their password. First and last names are optional
+   **Staff** role, and set their password. First and last names are optional
    display information. All CCI staff can browse every owner and create sessions
    for any active owner, and edit every active grid. Ordinary operators do not
    need Django's **Administration site access** flag. Administrators can edit all active owners.
@@ -147,8 +175,7 @@ exhausted; batches never wrap around or partially succeed. Existing matching IDs
 are reserved automatically, and historical `CCI-…`/`DEMO-…` IDs remain unchanged.
 New generation requires a four-character lowercase owner code. A legacy owner
 with a longer code must be reviewed explicitly rather than silently renamed.
-Set `GRID_REGISTRATION_ENABLED=false` to disable registration. An old local
-`REGISTRY_DEMO_MODE=false` setting is still honored when the new setting is absent.
+Set `GRID_REGISTRATION_ENABLED=false` to disable new grid registration.
 The prototype limit remains 100 grids per session.
 
 Repeated submissions reuse the original session rather than duplicate grids.
@@ -247,7 +274,7 @@ conda list --prefix ./.conda --explicit --md5 > environment-linux-64.lock
 1. [`docs/01_PRODUCT_BRIEF.md`](docs/01_PRODUCT_BRIEF.md) — problem, operational workflow, goals, scope, and design principles.
 2. [`docs/02_SCHEMA_V0_1.md`](docs/02_SCHEMA_V0_1.md) — agreed entities, field-level structure, invariants, lifecycle, and relationships.
 3. [`docs/03_ARCHITECTURE_AND_SECURITY.md`](docs/03_ARCHITECTURE_AND_SECURITY.md) — candidate Django implementation, forms and bulk editing, identity, authorization, and audit requirements.
-4. [`docs/04_DEVELOPMENT_ROADMAP.md`](docs/04_DEVELOPMENT_ROADMAP.md) — vertical slices, milestones, dependencies, and delivery criteria.
+4. [`plan.md`](plan.md) — dashboard integration stages, shared roles and standalone development requirements.
 5. [`docs/05_EXCEL_IMPORT_SPEC.md`](docs/05_EXCEL_IMPORT_SPEC.md) — exact workbook column map, data-quality issues, and import behavior.
 6. [`docs/06_ACCEPTANCE_TESTS.md`](docs/06_ACCEPTANCE_TESTS.md) — scenarios and tests Codex should implement.
 7. [`docs/07_OPEN_DECISIONS.md`](docs/07_OPEN_DECISIONS.md) — bounded unresolved details; do not silently invent a scientific convention.
@@ -293,7 +320,7 @@ Snapshots move to version 3 and case variants are normalized. The migration brie
 suspends snapshot/audit guards inside its transaction and restores them afterward;
 normal application edits still preserve immutable snapshots and audit history.
 
-The Django model in `registry/models.py` is the authoritative field/type definition,
+The Django model in `cci_grids/models.py` is the authoritative field/type definition,
 not a separate YAML configuration. Migrations apply those changes to PostgreSQL.
 The current type table in `docs/02_SCHEMA_V0_1.md` is generated from that model:
 
@@ -424,3 +451,46 @@ assumed to be in the dewar and pucks without grids are assumed to be in stock.
 Grid detail records screening outcomes and disposal, with password-confirmed
 correction of the latest status action. Off-site returns and bulk placement
 remain future work.
+
+
+### Installable runtime package
+
+The `cci_grids` app is shared by the standalone host and the dashboard
+host. Its Django app label, database table names and URL namespace remain
+`registry`. Local accounts, `config`, login/home templates, `dev.py` and
+PostgreSQL tooling stay in this checkout and are excluded from the wheel.
+`reset_local_registry` and `describe_grid_fields` belong to the local accounts
+app; installed runtime modules do not expose these host maintenance commands.
+
+From the active Conda environment, build and verify the runtime distribution:
+
+```console
+python -m pip wheel --no-deps --wheel-dir dist .
+python scripts/check_runtime_package.py dist/cci_grids-0.1.0-py3-none-any.whl
+python dev.py check
+```
+
+Building uses isolated setuptools tooling (the first build needs network access).
+The wheel probe installs into a temporary directory outside the checkout and
+checks configured-user references, migrations, template loading/rendering and
+namespaced static discovery without connecting to a database. The PostgreSQL
+suite remains necessary to verify history guards and storage invariants.
+
+A host installs `cci-grids`, adds `cci_grids.apps.RegistryConfig` to
+`INSTALLED_APPS`, supplies its own `AUTH_USER_MODEL`, authentication/session and
+message middleware, template context processors and PostgreSQL database, then
+mounts `cci_grids.urls` with the existing `registry` namespace. Run migrations
+through the host once per release. Shared role fields and user display fields
+must follow the agreed dashboard contract. Dashboard registration uses the module
+descriptor, which mounts the URL prefix itself; follow the
+[dashboard integration guide](docs/09_DASHBOARD_INTEGRATION.md) for configuration,
+local startup and first-Admin bootstrap. Registry time stays Europe/Stockholm
+independently of the dashboard timezone.
+
+Runtime templates live in `cci_grids/templates/registry/`; static URLs use
+`cci_grids/`. Fresh beta migrations seed namespaced SVG paths. Migration
+`0003_namespace_box_assets` updates existing gridbox definitions from the former
+asset path when `python dev.py` runs migrations. This preserves records and users;
+no reset or database rename is required for the packaging change.
+`python dev.py` and `python dev.py check` remain checkout entry
+points and require no dashboard checkout or ORCID access.

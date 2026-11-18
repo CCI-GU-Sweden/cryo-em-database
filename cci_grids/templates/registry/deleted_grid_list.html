@@ -1,0 +1,21 @@
+{% extends "registry/base.html" %}
+{% block title %}Deleted grids · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Deleted grids</h1>
+<p>These records are archived and excluded from the normal registry. Grid IDs remain reserved.</p>
+<p><a href="{% url 'registry:grid_list' %}">Back to grid registry</a></p>
+<form method="get">{{ form.as_p }}<button type="submit">Search archive</button>
+<a href="{% url 'registry:deleted_grid_list' %}">Clear filters</a></form>
+<div class="table-scroll"><table>
+<thead><tr><th>Grid ID</th><th>Owner</th><th>Session</th><th>Deleted by</th><th>Deleted at</th></tr></thead>
+<tbody>{% for deleted in page %}<tr>
+<td><a href="{% url 'registry:deleted_grid_detail' deleted.grid_id %}">{{ deleted.grid.grid_number }}</a></td>
+<td>{{ deleted.grid.session.owner.name }}</td><td>{{ deleted.grid.session.display_name }}</td>
+<td>{{ deleted.deleted_by.get_full_name|default:deleted.deleted_by.username }}</td>
+<td>{{ deleted.deleted_at|date:"Y-m-d H:i T" }}</td>
+</tr>{% empty %}<tr><td colspan="5">No deleted grids found.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p>Page {{ page.number }} of {{ page.paginator.num_pages }} · {{ page.paginator.count }} deleted grids</p>
+{% if page.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %}
+{% if page.has_next %}<a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}
+{% endblock %}

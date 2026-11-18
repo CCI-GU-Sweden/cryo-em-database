@@ -4,10 +4,17 @@
 
 Build an internal web application for six CCI staff members (three technically proficient, three less familiar with programming). Users need a quick form and an Excel-like table. All active CCI staff can view and edit all active grids; the preparation operator records attribution, not editing rights. Archived grids are read-only. Facility superusers manage accounts, existing owners and grants. External access is out of scope for v0.1 but must not require a schema rewrite later.
 
-Current-format Excel import, preview and templates require the explicit CCI staff flag, even for superusers. Export follows existing registry viewing access and filters through the shared `visible_grids` boundary. Existing owner grants do not enable non-CCI browsing or restrict internal staff editing.
+Current-format Excel import, preview and templates are hidden in the UI and require an active Staff or Admin role when accessed directly. Export follows registry viewing access and filters through the shared `visible_grids` boundary. Existing owner grants do not enable researcher browsing or restrict staff editing.
 
 ## Authoritative documents
 
+- Read `plan.md` for the agreed dashboard integration roadmap. Stage 1 aligns
+  standalone roles with dashboard Pending/Researcher/Staff/Admin and replaces
+  sensitive-action password re-entry with typed `approve`. Stages 1 and 2 are
+  implemented; stage 3 is available locally for dashboard browser acceptance.
+- Read `docs/09_DASHBOARD_INTEGRATION.md` for module registration, local integrated
+  startup and first-Admin bootstrap. The dashboard owns users; standalone reset
+  tools must never target the dashboard database.
 - Read `docs/01_PRODUCT_BRIEF.md` for user workflow and MVP scope.
 - Read `docs/02_SCHEMA_V0_1.md` for invariants and field structure.
 - Read `docs/05_EXCEL_IMPORT_SPEC.md` before writing migrations or importer.
@@ -18,7 +25,7 @@ If code and specification conflict, raise the discrepancy and propose an explici
 
 ## Coding expectations
 
-- Use the selected prototype stack: **Python 3.13, Django 5.2, PostgreSQL 17**, local Django accounts, Conda, server-rendered forms and minimal JavaScript. Add infrastructure or table libraries only for a demonstrated need.
+- Use the selected prototype stack: **Python 3.12, Django 5.2, PostgreSQL 17**, local Django accounts, Conda, server-rendered forms and minimal JavaScript. Add infrastructure or table libraries only for a demonstrated need.
 - Keep business rules in a testable service layer, separate from forms/views/API endpoints.
 - Implement **authorization server-side**, including bulk edits and object-level actions. Hiding UI controls is insufficient.
 - Use a stable internal user primary key; decouple sample ownership from login accounts and from authentication mechanisms.

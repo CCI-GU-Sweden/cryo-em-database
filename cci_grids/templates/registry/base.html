@@ -1,0 +1,13 @@
+{% extends request.cci_grids_base_template|default:"registry/standalone_base.html" %}
+{% load static %}
+{% block title %}CCI Grid Registry{% endblock %}
+{% block head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'cci_grids/app.css' %}">
+{% endblock %}
+{% block main %}
+  <div class="cci-grids">
+  {% if user.is_authenticated %}<nav aria-label="Main navigation"><a href="{% url 'registry:grid_list' %}">Grids</a> · <a href="{% url 'registry:session_list' %}">Sessions</a> · <a href="{% url 'registry:owner_list' %}">Owners</a> · <a href="{% url 'registry:inventory' %}">Gridboxes</a> · <a href="{% url 'registry:puck_inventory' %}">Pucks</a> · <a href="{% url 'registry:new_session' %}">New session</a></nav>{% endif %}
+  {% for message in messages %}<p role="status" class="message">{{ message }}</p>{% endfor %}
+  {% block content %}{% endblock %}</div>
+{% endblock %}
