@@ -23,6 +23,7 @@ from openpyxl.styles.numbers import is_datetime
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 
+from .facility_time import FACILITY_TIMEZONE
 from .forms import PreparationForm
 from .grid_storage import discard_location, slot_label
 from .permissions import visible_grids
@@ -190,7 +191,9 @@ def _storage_values(grid):
 
     history = []
     for event in grid.physical_events.all():
-        timestamp = timezone.localtime(event.occurred_at).strftime("%Y-%m-%d %H:%M")
+        timestamp = timezone.localtime(event.occurred_at, FACILITY_TIMEZONE).strftime(
+            "%Y-%m-%d %H:%M"
+        )
         operation = event.operation.replace("_", " ")
         destination = event.details.get("destination", "")
         if event.operation == "stored" and event.to_slot_id:

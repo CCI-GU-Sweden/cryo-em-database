@@ -152,7 +152,7 @@ def create_preparation_session(
     notes="",
 ):
     actor = require_session_registration(actor, owner)
-    if not settings.GRID_REGISTRATION_ENABLED:
+    if not getattr(settings, "GRID_REGISTRATION_ENABLED", True):
         raise ValidationError("Grid registration is currently disabled.")
     if type(grid_count) is not int or not 1 <= grid_count <= 100:
         raise ValidationError("Choose between 1 and 100 grids for this prototype session.")

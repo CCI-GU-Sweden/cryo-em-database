@@ -16,6 +16,7 @@ from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from .facility_time import FACILITY_TIMEZONE
 from .models import AuditEvent, Grid, PreparationSession, SampleOwner
 from .permissions import require_grid_importer
 from .preparation import PREPARATION_FIELDS, preparation_snapshot
@@ -51,7 +52,7 @@ def _session_values(row, snapshot, owner, warnings):
         if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", timestamp):
             # A supplied date with no time explicitly defaults to facility-local
             # noon. The timezone supplies the offset for that date, including DST.
-            facility_timezone = timezone.get_default_timezone()
+            facility_timezone = FACILITY_TIMEZONE
             prepared_at = timezone.make_aware(
                 datetime.combine(date.fromisoformat(timestamp), time(12)), facility_timezone
             )

@@ -2,7 +2,9 @@
 
 **Agreed:** 2026-11-16
 
-**Status:** Stage 1 implemented locally; dashboard integration remains planned.
+**Status:** Stages 1 and 2 implemented and pushed. Stage 3 implemented and tested
+locally; ORCID login and dashboard stock/review counts confirmed by Rafa.
+Broader workflow acceptance and release checks remain in stage 4.
 
 **Contract reference:** `Dashboard-django/MODULE_CONTRACT.md`, version 1, reviewed at dashboard commit `855a4d4`.
 
@@ -166,6 +168,30 @@ dashboard changes are part of this slice.
 **Done when:** staff can enter the registry after dashboard ORCID login; Pending,
 Researcher and disabled users cannot access direct module URLs; disabling the
 module removes its routes/card and preserves data; unrelated modules still work.
+
+### Implemented slice — local dashboard trial
+
+- Register contract v1 at `cci_grids.dashboard_module.module`, with a single
+  `/registry/` mount, Staff/Admin access and authorized CCI stock metrics.
+- Select dashboard layout explicitly with `CCI_GRIDS_DASHBOARD`; keep registry
+  CSS scoped to its content and preserve standalone layout and startup.
+- Use Europe/Stockholm for registry form parsing, display, session labels and
+  Excel dates without changing the dashboard's global timezone.
+- Provide role-Admin owner/grant management inside the registry, using the
+  existing audited services without requiring the Django admin application.
+- Add an installed-wheel integration harness against the real dashboard user
+  model on a disposable PostgreSQL test database. Keep all test accounts separate
+  from the browser trial database.
+- The local dashboard has an opt-in `DASHBOARD_GRIDS_ENABLED` registration and
+  a locally installed wheel. Uploads, OMERO and tickets are disabled for this trial.
+  A separate fresh PostgreSQL database starts with no users or grids and the
+  default storage templates. Neither former database was cleared.
+
+See [dashboard integration](docs/09_DASHBOARD_INTEGRATION.md) for startup and
+first-Admin bootstrap. Rafa confirmed ORCID login via `127.0.0.1`, first-Admin
+bootstrap and dashboard stock/review counts on 2026-11-18. The dashboard checkpoint
+pins the matching registry commit in its requirements. Broader workflow acceptance
+and release checks remain in stage 4; local testing is not a production rollout.
 
 ## Stage 4 — Verify and release
 

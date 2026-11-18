@@ -17,7 +17,7 @@
 <td>{{ owner.active|yesno:"Active,Inactive" }}</td>
 <td>{% if owner.active %}<a href="{% url 'registry:new_session' %}?owner={{ owner.pk }}">New session</a>
 {% else %}Inactive{% endif %}
- · <a href="{% url 'registry:session_list' %}?owner={{ owner.pk }}">Sessions</a></td>
+ · <a href="{% url 'registry:session_list' %}?owner={{ owner.pk }}">Sessions</a>{% if user.role == 'admin' %} · <a href="{% url 'registry:owner_edit' owner.pk %}">Manage owner</a>{% endif %}</td>
 </tr>{% empty %}<tr><td colspan="5">No owners found.</td></tr>{% endfor %}</tbody>
 </table></div>
 <p>Page {{ page.number }} of {{ page.paginator.num_pages }}</p>

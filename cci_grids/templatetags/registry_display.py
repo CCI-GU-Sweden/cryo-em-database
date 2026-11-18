@@ -1,6 +1,7 @@
 from django import template
 from django.utils import timezone
 
+from cci_grids.facility_time import FACILITY_TIMEZONE
 from cci_grids.preparation import compact_decimal
 from cci_grids.tables import COLUMN_BY_KEY
 
@@ -41,7 +42,7 @@ def column_value(grid, key):
         return "Yes" if value else "No"
     if column["kind"] == "date":
         format_string = "%Y-%m-%d" if key == "prepared_at" else "%Y-%m-%d %H:%M"
-        return timezone.localtime(value).strftime(format_string)
+        return timezone.localtime(value, FACILITY_TIMEZONE).strftime(format_string)
     if value == "" and key in {"glow_device", "freezing_device", "carbon_description"}:
         return "Unknown"
     return compact_decimal(value) if value != "" else "—"

@@ -455,7 +455,7 @@ remain future work.
 
 ### Installable runtime package
 
-The `cci_grids` app is shared by the standalone host and the planned dashboard
+The `cci_grids` app is shared by the standalone host and the dashboard
 host. Its Django app label, database table names and URL namespace remain
 `registry`. Local accounts, `config`, login/home templates, `dev.py` and
 PostgreSQL tooling stay in this checkout and are excluded from the wheel.
@@ -481,8 +481,11 @@ A host installs `cci-grids`, adds `cci_grids.apps.RegistryConfig` to
 message middleware, template context processors and PostgreSQL database, then
 mounts `cci_grids.urls` with the existing `registry` namespace. Run migrations
 through the host once per release. Shared role fields and user display fields
-must follow the agreed dashboard contract. Dashboard registration, navigation,
-layout and facility-time isolation remain stage 3 work.
+must follow the agreed dashboard contract. Dashboard registration uses the module
+descriptor, which mounts the URL prefix itself; follow the
+[dashboard integration guide](docs/09_DASHBOARD_INTEGRATION.md) for configuration,
+local startup and first-Admin bootstrap. Registry time stays Europe/Stockholm
+independently of the dashboard timezone.
 
 Runtime templates live in `cci_grids/templates/registry/`; static URLs use
 `cci_grids/`. Fresh beta migrations seed namespaced SVG paths. Migration

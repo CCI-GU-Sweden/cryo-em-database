@@ -10,8 +10,11 @@ Current-format Excel import, preview and templates are hidden in the UI and requ
 
 - Read `plan.md` for the agreed dashboard integration roadmap. Stage 1 aligns
   standalone roles with dashboard Pending/Researcher/Staff/Admin and replaces
-  sensitive-action password re-entry with typed `approve`. Stage 1 is implemented;
-  dashboard packaging and integration remain planned.
+  sensitive-action password re-entry with typed `approve`. Stages 1 and 2 are
+  implemented; stage 3 is available locally for dashboard browser acceptance.
+- Read `docs/09_DASHBOARD_INTEGRATION.md` for module registration, local integrated
+  startup and first-Admin bootstrap. The dashboard owns users; standalone reset
+  tools must never target the dashboard database.
 - Read `docs/01_PRODUCT_BRIEF.md` for user workflow and MVP scope.
 - Read `docs/02_SCHEMA_V0_1.md` for invariants and field structure.
 - Read `docs/05_EXCEL_IMPORT_SPEC.md` before writing migrations or importer.

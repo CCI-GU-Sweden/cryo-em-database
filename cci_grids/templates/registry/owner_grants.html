@@ -1,0 +1,13 @@
+{% extends "registry/base.html" %}
+{% block title %}Owner access grants · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Access grants for {{ owner }}</h1>
+<p><a href="{% url 'registry:owner_edit' owner.pk %}">Back to sample owner</a></p>
+<p>Grants are reserved for future researcher access. They currently give researchers no registry access and do not restrict Staff or Admin access.</p>
+<table><thead><tr><th>User</th><th>Grant</th><th>Action</th></tr></thead><tbody>
+{% for grant in grants %}<tr><td>{{ grant.user }}</td><td>{{ grant.get_role_display }}</td><td><a href="{% url 'registry:owner_grant_edit' grant.pk %}">Edit grant</a></td></tr>
+{% empty %}<tr><td colspan="3">No access grants registered.</td></tr>{% endfor %}
+</tbody></table>
+<h2>Register access grant</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save grant</button></form>
+{% endblock %}

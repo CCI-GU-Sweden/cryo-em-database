@@ -6,6 +6,23 @@
 
 ## Current validation and remaining acceptance
 
+Stage 3 local dashboard integration (reviewed 2026-11-18): **185 standalone tests** passed,
+including owner administration and facility-time isolation. The installed wheel
+passed **19 integration checks** against the real dashboard account model on
+PostgreSQL: fresh migrations/default inventory, attribution, permissions,
+approval, owner/grant administration without Django admin, module routes/card
+disable/re-enable, packaged assets and Stockholm time with a UTC host. The CCI
+stock metric follows placement, screening/recovery, transfer/correction and
+discard events, excluding grids without recorded storage. The
+separate unknown-location count includes unlocated current grids, excluding
+transferred, discarded and deleted records. The
+dashboard's own **72 tests passed, 3 skipped**, in a separate test database using
+its standard optional-module configuration. Browser-trial modules remain limited
+to the registry. Rafa confirmed real ORCID login via `127.0.0.1`, first-Admin
+bootstrap and the two dashboard counts on 2026-11-18. The dashboard checkpoint
+pins the matching registry commit. Broader browser workflows and production
+release checks remain; see [integration instructions](09_DASHBOARD_INTEGRATION.md).
+
 Python 3.12.16 validation (2026-11-17) passed all **175 tests** on PostgreSQL,
 Django system checks, migration-drift and generated-field checks. The runtime
 wheel was built under 3.12 and its installed-copy probe passed user-model,

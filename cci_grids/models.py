@@ -9,6 +9,7 @@ from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
 
+from .facility_time import FACILITY_TIMEZONE
 from .preparation import normalize_preparation_text
 
 
@@ -78,9 +79,7 @@ class PreparationSession(models.Model):
         code = self.owner.code if self.owner_id else "unassigned"
         date = "undated"
         if self.prepared_at:
-            date = timezone.localtime(self.prepared_at, timezone.get_default_timezone()).strftime(
-                "%y%m%d"
-            )
+            date = timezone.localtime(self.prepared_at, FACILITY_TIMEZONE).strftime("%y%m%d")
         return f"Session {self.pk or 'new'} - {code} - {date}"
 
     def __str__(self):

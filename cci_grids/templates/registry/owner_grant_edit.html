@@ -1,0 +1,8 @@
+{% extends "registry/base.html" %}
+{% block title %}Edit owner access grant · CCI Grid Registry{% endblock %}
+{% block content %}
+<h1>Edit access grant for {{ grant.owner }}</h1>
+<p><a href="{% url 'registry:owner_grants' grant.owner_id %}">Back to owner access grants</a></p>
+<p>This grant does not currently enable researcher access or restrict Staff or Admin access.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Save grant</button></form>
+{% endblock %}
