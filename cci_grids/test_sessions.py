@@ -21,7 +21,7 @@ class SessionBrowserTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.operator = User.objects.create_user(
-            username="synthetic-jens", first_name="Jens", last_name="Synthetic", role="staff"
+            username="synthetic-operator", first_name="Example", last_name="Synthetic", role="staff"
         )
         cls.colleague = User.objects.create_user(username="synthetic-colleague", role="staff")
         cls.owner = SampleOwner.objects.create(name="Alpha synthetic owner", code="rasi")
@@ -70,15 +70,15 @@ class SessionBrowserTests(TestCase):
         self.assertEqual(sessions[self.second.pk].grid_count, 1)
         self.assertContains(response, self.first.display_name)
         self.assertContains(response, self.second.display_name)
-        self.assertContains(response, "Jens Synthetic")
+        self.assertContains(response, "Example Synthetic")
 
     def test_search_matches_owner_operator_references_and_session_number(self):
         url = reverse("registry:session_list")
         for query in [
             "rasi",
             "Alpha synthetic owner",
-            "synthetic-jens",
-            "Jens Synthetic",
+            "synthetic-operator",
+            "Example Synthetic",
             "exp-a",
             "project-x",
             f"Session {self.first.pk}",

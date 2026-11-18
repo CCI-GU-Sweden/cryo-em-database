@@ -19,8 +19,8 @@ the dashboard requirements and rebuild its image. A locally installed wheel is a
 development test, not a published release pin. Do not add a sibling checkout to
 production `PYTHONPATH`.
 
-Add the following opt-in configuration to the dashboard settings, using its
-existing module registration mechanism:
+If your dashboard checkout does not already register the registry, add the
+following opt-in configuration to its settings:
 
 ```python
 DASHBOARD_GRIDS_ENABLED = os.environ.get("DASHBOARD_GRIDS_ENABLED", "0") == "1"
@@ -46,43 +46,37 @@ Use PostgreSQL 17. The registry migrations include immutable-history triggers an
 storage invariants, so SQLite cannot host this module. Each app owns separate
 tables in the same configured PostgreSQL database. Use a setup identity allowed
 to create the registry tables, sequences, constraints and trigger functions, then
-run `python manage.py migrate` once before starting the enabled deployment.
+run `python manage.py migrate` with `DASHBOARD_GRIDS_ENABLED=1`. Run
+`python manage.py collectstatic --noinput` before starting the deployment.
 Runtime needs normal table/sequence access, not permission to remove protections.
 
 ## Local integrated trial
 
-The agreed trial starts with a new PostgreSQL database, no grids or users, and
-only the registry enabled. It does not reset the standalone registry database or
-the dashboard's previous SQLite database. The standalone reset command is
-intentionally unavailable in the dashboard.
+Use a separate PostgreSQL database for the dashboard trial. Create it before
+running migrations. If you use the registry checkout's local PostgreSQL cluster,
+run `POSTGRES_DB=cci_dashboard_trial python scripts/local_database.py start`
+from the registry checkout with its Conda environment active.
 
-For this checkout, private connection settings are stored in the ignored
-`.local/dashboard.env`. Load those settings in the dashboard terminal; retain or
-supply the existing `ORCID_CLIENT_ID` and `ORCID_CLIENT_SECRET` privately. The
-configuration selects production ORCID, as in the earlier dashboard trial.
+In the dashboard environment, set `DJANGO_DEBUG=1`, supply a private
+`DJANGO_SECRET_KEY`, and set `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` and
+`PGPASSWORD` for the trial database. If the dashboard hosts only the registry
+in this trial, set `DASHBOARD_UPLOADS_ENABLED=0`, `DASHBOARD_OMERO_ENABLED=0`
+and `DASHBOARD_TICKETS_ENABLED=0`.
+
+Supply `ORCID_CLIENT_ID` and `ORCID_CLIENT_SECRET` for your ORCID application.
+The dashboard defaults to ORCID Sandbox. Set `ORCID_ENVIRONMENT=production`
+when using a production client. The callback for the address below is
+`http://127.0.0.1:8000/accounts/orcid/login/callback/`. Open the app using
+the same host and port registered for your client. A callback registered for
+`127.0.0.1` does not match `localhost`.
+
+With these settings loaded, run from the dashboard checkout:
 
 ```bash
-# Registry terminal: keep its private PostgreSQL server running.
-python scripts/local_database.py start
-
-# Dashboard terminal: activate the dashboard environment first.
-set -a
-source /home/xcamra/projects/cryo-em-database/.local/dashboard.env
-set +a
-read -rsp 'ORCID client secret: ' ORCID_CLIENT_SECRET
-export ORCID_CLIENT_SECRET
-echo
+export DASHBOARD_GRIDS_ENABLED=1
 python manage.py migrate
 python manage.py runserver 127.0.0.1:8000
 ```
-
-Stop any other web server using port 8000 first. Open `http://127.0.0.1:8000/`;
-the user confirmed this address works with the current ORCID client (2026-11-18).
-Its callback is `http://127.0.0.1:8000/accounts/orcid/login/callback/`.
-Using `localhost` instead produces an ORCID redirect-URI mismatch for this client.
-Use the same hostname and port as the registered ORCID callback. The private trial
-configuration disables uploads, OMERO and tickets. Their packages/data sources
-are otherwise unchanged.
 
 Sign in through ORCID to create the dashboard account in the new database. It
 starts Pending. Stop the web server with Ctrl+C, then use the dashboard's own
@@ -105,9 +99,9 @@ and the `PG*` connection variables loaded. It creates uniquely named test
 databases and leaves the browser trial and standalone databases unchanged:
 
 ```bash
-cd /home/xcamra/projects/cryo-em-database
-../Dashboard-django/.conda/bin/python scripts/check_dashboard_integration.py \
-    dist/cci_grids-0.1.0-py3-none-any.whl --dashboard ../Dashboard-django
+# From the registry checkout, with the dashboard environment active.
+python scripts/check_dashboard_integration.py \
+    dist/cci_grids-0.1.0-py3-none-any.whl --dashboard /path/to/Dashboard-django
 ```
 
 The dashboard environment needs the wheel's dependencies, including openpyxl.
